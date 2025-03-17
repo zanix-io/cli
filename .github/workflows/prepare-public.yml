@@ -26,7 +26,7 @@ jobs:
       - name: Checkout target repository (Public repo)
         uses: actions/checkout@v3
         with:
-          repository: zanix-io/cli-bundle 
+          repository: zanix-io/bundles-cli 
           token: ${{ secrets.GITHUB_TOKEN }} 
   
       - name: Copy build to target repository
