@@ -10,7 +10,7 @@
   "publish": {
     "include": ["deno.jsonc", "README.md", ".dist/app.mjs"]
   },
-  "exports": { ".": "./mod.ts" },
+  "exports": { ".": "./.dist/app.mjs" },
   "tasks": {
     "znx": "deno run -A mod.ts",
     "build": "deno task znx build",
