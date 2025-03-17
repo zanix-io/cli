@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Deno
         uses: denoland/setup-deno@v1
@@ -24,7 +24,7 @@ jobs:
         run: deno task build
   
       - name: Upload build artifacts # To share between repos
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
@@ -34,13 +34,13 @@ jobs:
           retention-days: 1  
 
       - name: Checkout target repository (Public repo)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: zanix-io/bundles-cli 
           token: ${{ secrets.GITHUB_TOKEN }} 
   
       - name: Download build artifacts and copy to target repository
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-artifacts
 
