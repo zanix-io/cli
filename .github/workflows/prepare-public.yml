@@ -22,38 +22,21 @@ jobs:
 
       - name: Run Deno task build 
         run: deno task build
-  
-      - name: Upload build artifacts # To share between repos
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            .dist/app.mjs
-            deno.jsonc
-            README.md
-          retention-days: 1  
 
-      - name: Checkout target repository (Public repo)
-        uses: actions/checkout@v4
-        with:
-          repository: zanix-io/bundles-cli 
-          token: ${{ secrets.GITHUB_TOKEN }} 
-  
-      - name: Download build artifacts and copy to target repository
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-
-      - name: List files in .
-        run: ls -la ./
+      - name: Clone target repository
+        run: |
+          git clone https://github.com/zanix-io/bundles-cli.git
+          cp -r .dist/app.mjs bundles-cli/.dist/app.mjs
+          cp deno.jsonc bundles-cli/deno.jsonc
+          cp README.md bundles-cli/README.md 
+          cd bundles-cli
 
       - name: Copy build to target repository
         run: |
           git config --global user.name 'GitHub Actions'
-      
           git add .
-          git commit -m "Automatic build result"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/zanix-io/bundles-cli.git
+          git commit -m "Automatic build action"
+          git push origin master 
 
       - name: Trigger trigger-publish-cli on Public repo
         run: |
