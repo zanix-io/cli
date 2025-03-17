@@ -53,7 +53,7 @@ jobs:
       
           git add .
           git commit -m "Automatic build result"
-          git push origin master  
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/zanix-io/bundles-cli.git
 
       - name: Trigger trigger-publish-cli on Public repo
         run: |
