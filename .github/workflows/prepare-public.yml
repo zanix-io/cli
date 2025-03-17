@@ -50,7 +50,6 @@ jobs:
       - name: Copy build to target repository
         run: |
           git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
       
           git add .
           git commit -m "Automatic build result"
@@ -59,6 +58,6 @@ jobs:
       - name: Trigger trigger-publish-cli on Public repo
         run: |
           curl -X POST \
-          https://api.github.com/repos/zanix-io/cli-bundle/dispatches \
+          https://api.github.com/repos/zanix-io/bundles-cli/dispatches \
           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -d '{"event_type": "trigger-publish-cli"}'
