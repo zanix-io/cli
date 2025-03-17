@@ -25,7 +25,7 @@ jobs:
   
       - name: List files in .dist
         run: ls -la .dist/
-        
+
       - name: Checkout target repository (Public repo)
         uses: actions/checkout@v3
         with:
@@ -34,7 +34,7 @@ jobs:
   
       - name: Copy build to target repository
         run: |
-          cp -r ./.dist/* ./
+          cp .dist/bundle.mjs ./
           cp ./deno.jsonc ./README.md ./
 
           git config --global user.name 'GitHub Actions'
