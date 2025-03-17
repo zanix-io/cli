@@ -1,0 +1,74 @@
+{
+  "name": "@zanix/cli",
+  "version": "1.0.0",
+  "license": "MIT",
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true
+  },
+  "publish": {
+    "include": ["deno.jsonc", "README.md", ".dist/app.mjs"]
+  },
+  "exports": { ".": "./mod.ts" },
+  "tasks": {
+    "znx": "deno run -A mod.ts",
+    "build": "deno task znx build",
+    "new": "deno task znx new",
+    "prepare": "deno task znx prepare -g -e"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended", "jsr"],
+      "include": [
+        "eqeqeq",
+        "default-param-last",
+        "camelcase",
+        "no-await-in-loop",
+        "no-const-assign",
+        "no-eval",
+        "no-non-null-asserted-optional-chain",
+        "no-non-null-assertion",
+        "no-self-compare",
+        "no-sync-fn-in-async-fn",
+        "no-throw-literal",
+        "no-useless-rename"
+      ]
+    },
+    "exclude": [".dist/"],
+    "plugins": ["jsr:@zanix/utils/linter/deno-zanix-plugin"],
+    "report": "pretty"
+  },
+  "fmt": {
+    "exclude": [".dist/"],
+    "proseWrap": "preserve",
+    "indentWidth": 2,
+    "singleQuote": true,
+    "lineWidth": 100,
+    "useTabs": false,
+    "semiColons": false
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@0.224",
+    "@std/testing": "jsr:@std/testing@1.0.9",
+    "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.7",
+    "@zanix/utils": "jsr:@zanix/utils@2.*",
+    "@zanix/logger": "jsr:@zanix/utils@2.*/logger",
+    "@zanix/helpers": "jsr:@zanix/utils@2.*/helpers",
+    "@zanix/types": "jsr:@zanix/utils@2.*/types",
+    "@std/path": "jsr:@std/path@0.224",
+    "typings/": "./src/typings/",
+    "shared/": "./src/shared/",
+    "utils/": "./src/utils/",
+    "commands/": "./src/commands/"
+  },
+  "zanix": {
+    "project": "library",
+    "hash": "zu226a"
+  },
+  "test": {
+    "include": [
+      "src/@tests/**/*.test.ts"
+    ]
+  }
+}
