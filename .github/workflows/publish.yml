@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read # Allows reading of the repository's contents.
-      id-token: write # Allows the creation of an ID token for authentication with JSR.
 
     steps:
       - name: Checkout code
@@ -30,7 +29,7 @@ jobs:
         run: deno task build --obfuscate
 
       - name: Publish to Deno
-        run: deno publish
+        run: deno publish --token ${{ secrets.JSR }}
 
       - name: Clean up bundle
         run: rm -r .dist
