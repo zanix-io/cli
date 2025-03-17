@@ -8,7 +8,7 @@ on:
       - master 
 
 jobs:
-  publish:
+  prepare-public:
     runs-on: ubuntu-latest
 
     steps:
