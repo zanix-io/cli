@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Deno
         uses: denoland/setup-deno@v1
@@ -34,7 +34,7 @@ jobs:
           retention-days: 1  
 
       - name: Checkout target repository (Public repo)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           repository: zanix-io/bundles-cli 
           token: ${{ secrets.GITHUB_TOKEN }} 
