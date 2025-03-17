@@ -21,10 +21,17 @@ jobs:
           deno-version: v2.x
 
       - name: Run Deno task build 
-        run: deno task build -o ./.dist/bundle.mjs
+        run: deno task build
   
-      - name: List files in .dist
-        run: ls -la .dist/
+      - name: Upload build artifacts # To share between repos
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            .dist/app.mjs
+            deno.jsonc
+            README.md
+          retention-days: 1  
 
       - name: Checkout target repository (Public repo)
         uses: actions/checkout@v3
@@ -32,11 +39,16 @@ jobs:
           repository: zanix-io/bundles-cli 
           token: ${{ secrets.GITHUB_TOKEN }} 
   
+      - name: Download build artifacts and copy to target repository
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: List files in .
+        run: ls -la ./
+
       - name: Copy build to target repository
         run: |
-          cp .dist/bundle.mjs ./
-          cp ./deno.jsonc ./README.md ./
-
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
       
