@@ -23,10 +23,11 @@ jobs:
       - name: Run Deno task build 
         run: deno task build
 
-      - name: Clone target repository
+      - name: Clone target repository and copy files
         run: |
           git clone https://github.com/zanix-io/bundles-cli.git
-          cp -r .dist/app.mjs bundles-cli/.dist/app.mjs
+          mkdir bundles-cli/.dist/
+          cp .dist/app.mjs bundles-cli/.dist/
           cp deno.jsonc bundles-cli/deno.jsonc
           cp README.md bundles-cli/README.md 
           cd bundles-cli
