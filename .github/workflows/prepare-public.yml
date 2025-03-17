@@ -34,7 +34,7 @@ jobs:
           retention-days: 1  
 
       - name: Checkout target repository (Public repo)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: zanix-io/bundles-cli 
           token: ${{ secrets.GITHUB_TOKEN }} 
