@@ -25,16 +25,14 @@ jobs:
 
       - name: Clone target repository and copy files
         run: |
-          git clone https://github.com/zanix-io/bundles-cli.git
-          mkdir bundles-cli/.dist/
-          cp .dist/app.mjs bundles-cli/.dist/
-          cp deno.jsonc bundles-cli/deno.jsonc
-          cp README.md bundles-cli/README.md 
-          cd bundles-cli
+          mkdir bundle/.dist/
+          cp .dist/app.mjs bundle/.dist/
+          cp deno.jsonc bundle/deno.jsonc
+          cp README.md bundle/README.md 
+          cd bundle
 
       - name: Copy build to target repository
         run: |
-          git config --global user.name 'GitHub Actions'
           git add .
           git commit -m "Automatic build action"
           git push origin master 
