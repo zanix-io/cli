@@ -11,7 +11,8 @@ $logo = @"
 "@
 
 # Variables
-$VERSION = if ($args.Count -gt 0) { $args[0] } else { "1.0.2" }
+$LATEST = "1.0.3"
+$VERSION = if ($args.Count -gt 0) { $args[0] } else { $VERSION }
 $BIN_NAME = "znx"
 $SEPARATOR = "==================================================="
 

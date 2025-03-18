@@ -13,7 +13,8 @@ logo="
 "
 
 # Variables
-VERSION="${1:-1.0.2}"
+LATEST="1.0.3"
+VERSION="${1:-LATEST}"
 BIN_NAME="znx"
 SEPARATOR="==================================================="
 
