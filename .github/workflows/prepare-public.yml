@@ -1,0 +1,46 @@
+# .github/workflows/publish.yml
+
+name: Prepare public
+
+on:
+  push:
+    branches:
+      - master 
+
+jobs:
+  prepare-public:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+  
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Run tests
+        run: deno test --allow-all
+
+      - name: Run Deno task build 
+        run: deno task build
+
+      - name: Copy build to
+        run: |
+          mkdir bundle/.dist/
+          cp .dist/app.mjs bundle/.dist/
+          cp deno.jsonc bundle/deno.jsonc
+          cp README.md bundle/README.md 
+
+      - name: Copy build to target repository
+        run: |
+          cd bundle
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Automatic build action"
+          git push origin master
+          git push https://x-access-token:${{ secrets.ZANIX_BUNDLE }}@github.com/zanix-io/bundles-cli.git master

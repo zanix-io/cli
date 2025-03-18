@@ -10,16 +10,4 @@ then
   exit 1
 fi
 
-######### GENERATE BUNDLE ###############
-deno task build 2>/dev/null
-cp README.md bundle/
-cp deno.jsonc bundle/
-
-cd bundle 
-git add .
-git commit -m "Bundle uptade"
-git push
-
-cd ..
-
 exit 0
