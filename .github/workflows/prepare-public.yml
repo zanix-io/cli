@@ -38,8 +38,8 @@ jobs:
 
       - name: Copy build to target repository
         run: |
-          git config user.name "${{ github.event.pull_request.user.login }}"
-          git config user.email "${{ github.event.pull_request.user.email }}"
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Automatic build action"
           git push origin master 
