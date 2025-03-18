@@ -39,4 +39,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Automatic build action"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/zanix-io/bundles-cli.git master
+          git push origin master
