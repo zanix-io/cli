@@ -13,7 +13,7 @@
   "exports": { ".": "./.dist/app.mjs" },
   "tasks": {
     "znx": "deno run -A mod.ts",
-    "build": "deno task znx build -o bundle/.dist/app.mjs",
+    "build": "deno task znx build",
     "new": "deno task znx new",
     "prepare": "deno task znx prepare -g -e"
   },
