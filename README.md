@@ -2,8 +2,6 @@
 
 [![Version](https://img.shields.io/jsr/v/@zanix/cli?color=blue&label=jsr)](https://jsr.io/@zanix/cli/versions)
 
-[![Release](https://img.shields.io/github/v/release/zanix-io/cli?color=blue&label=git)](https://github.com/zanix-io/cli/releases)
-
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ## Table of Contents
@@ -31,8 +29,10 @@ The **Zanix Framework** `CLI` is a powerful command-line interface (CLI) tool de
 To install **Zanix CLI** globally, use [Deno](https://deno.com/) with following command:
 
 ```bash
-deno install -A -g -n znx .dist/app.mjs --config deno.jsonc
+deno install -A -g -n znx https://jsr.io/@zanix/cli/[version]/.dist/app.mjs
 ```
+
+Replace `[version]` with the actual version number when needed.
 
 ---
 

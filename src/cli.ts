@@ -1,11 +1,11 @@
-import { Command } from '@cliffy/command'
-import { readConfig } from '@zanix/utils/helpers'
-import { CLI_ALIASES } from 'utils/constants.ts'
+import { readModuleConfig } from '@zanix/utils/helpers'
 import { ZANIX_LOGO } from '@zanix/utils/constants'
+import { CLI_ALIASES } from 'utils/constants.ts'
+import { Command } from '@cliffy/command'
 import * as commands from './commands/mod.ts'
-import logger from '@zanix/utils/logger'
+import logger, { Logger } from '@zanix/utils/logger'
 
-const { name = '@zanix/cli', version = 'latest' } = readConfig()
+const { name = '@zanix/cli', version = 'latest' } = await readModuleConfig(import.meta.url)
 
 /**
  * Base commander class
@@ -13,6 +13,7 @@ const { name = '@zanix/cli', version = 'latest' } = readConfig()
 class Commander extends Command {
   constructor() {
     super()
+    new Logger({ storage: false }) // Define instante for not saving logs
     this.setup().setErrorHandler().setCommands()
   }
 

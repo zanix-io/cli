@@ -11,7 +11,7 @@ $logo = @"
 "@
 
 # Variables
-$VERSION = if ($args.Count -gt 0) { $args[0] } else { "latest" }
+$VERSION = if ($args.Count -gt 0) { $args[0] } else { "1.0.2" }
 $BIN_NAME = "znx"
 $SEPARATOR = "==================================================="
 
@@ -75,7 +75,7 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
     Write-Color "`nInstalling Zanix..." "Yellow"
 }
 
-deno install -A -g -n $BIN_NAME .dist/app.mjs --config deno.jsonc | Out-Null
+deno install -A -g -n $BIN_NAME https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs | Out-Null
 
 # Test and install dependencies on first run
 znx | Out-Null

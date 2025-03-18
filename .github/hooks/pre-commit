@@ -35,6 +35,17 @@ if [ -n "$STAGED_LINT_FILES" ]; then
   fi
 fi
 
+# Update installation file latest version
+LATEST=$(deno task znx --version | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $2}')
+
+# Verifica que la versión se haya extraído correctamente.
+if [ "$LATEST" ]; then
+  sed -i '' "s|latest|$LATEST|g" src/installation/install.sh
+  sed -i '' "s|latest|$LATEST|g" src/installation/install.ps1
+
+  git add src/installation
+fi
+
 # If both formatting and linting passed without errors, re-add the files to the staging area.
 echo "\033[0;32msuccess[pre-commit]\033[0m: Formatting and linting passed successfully. Re-adding the files to the staging area..."
 git add $STAGED_FMT_FILES $STAGED_LINT_FILES
