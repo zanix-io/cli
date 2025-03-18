@@ -30,7 +30,6 @@ jobs:
 
       - name: Copy build to
         run: |
-          mkdir bundle/.dist/
           cp .dist/app.mjs bundle/.dist/
           cp deno.jsonc bundle/deno.jsonc
           cp README.md bundle/README.md 
