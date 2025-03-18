@@ -7,7 +7,7 @@ adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.0.2] - 2025-03-18
+## [1.0.3] - 2025-03-18
 
 ### Added
 
@@ -15,10 +15,15 @@ adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- New command
+
+## [1.0.2] - 2025-03-18
+
+### Fixed
+
 - Installation version
 - Config module info
 - Some documentation
-- New command
 
 ## [1.0.1] - 2025-03-17
 
