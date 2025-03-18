@@ -34,10 +34,10 @@ jobs:
           cp .dist/app.mjs bundle/.dist/
           cp deno.jsonc bundle/deno.jsonc
           cp README.md bundle/README.md 
-          cd bundle
 
       - name: Copy build to target repository
         run: |
+          cd bundle
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
