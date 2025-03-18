@@ -1,10 +1,10 @@
-import { Command } from '@cliffy/command'
 import prepareGithubAction from './actions/github.ts'
 import prepareEditorAction from './actions/editor.ts'
+import { Commander } from 'cli'
 
 /** 'prepare' command */
-export default function prepareCommand(this: Command) {
-  const cwd = new Command()
+export default function prepareCommand(this: Commander) {
+  const cwd = new Commander()
   this.command('prepare', cwd)
     .description(
       'Set up the project by initializing Git, configuring hooks, and setting up workflows.',
@@ -21,6 +21,7 @@ export default function prepareCommand(this: Command) {
       '--fmt-files <fmt-files:string>',
       'Specifies the file extensions to include for Git hooks that run a Deno fmt. Use file extensions (e.g., js,md,ts,json) to target specific file types.',
     )
+    .arguments('[root:string]')
     .option(
       '-g --github',
       'Initialize GitHub configuration for the project',

@@ -60,7 +60,8 @@
     "typings/": "./src/typings/",
     "shared/": "./src/shared/",
     "utils/": "./src/utils/",
-    "commands/": "./src/commands/"
+    "commands/": "./src/commands/",
+    "cli": "./src/cli.ts"
   },
   "zanix": {
     "project": "library",

@@ -9,11 +9,16 @@ adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [1.0.2] - 2025-03-18
 
+### Added
+
+- Some tests.
+
 ### Fixed
 
 - Installation version
 - Config module info
 - Some documentation
+- New command
 
 ## [1.0.1] - 2025-03-17
 

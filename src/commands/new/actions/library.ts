@@ -1,5 +1,5 @@
-import type { Command } from '@cliffy/command'
 import type { ZanixTemplates } from '@zanix/types'
+import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { saveZanixConfig } from 'utils/config/main.ts'
@@ -7,16 +7,21 @@ import { getZanixPaths } from '@zanix/utils/helpers'
 import logger from '@zanix/utils/logger'
 
 function newLibraryAction(
-  this: Command,
-  options: { template: ZanixTemplates },
+  this: Commander,
+  options: { template: ZanixTemplates; prepare?: boolean },
   libraryName = 'my-zanix-library',
 ) {
-  const { template } = options
+  const { template, prepare } = options
   const structure = getZanixPaths('library', libraryName)
 
   createFilesAndFolders(structure, template)
 
   saveZanixConfig('library', libraryName)
+
+  if (prepare) {
+    this.runCommand('prepare', [libraryName, '-g', '-e'])
+  }
+
   logger.info(
     `Library created sucessfully in the '${libraryName}' folder using the '${template}' template.`,
   )

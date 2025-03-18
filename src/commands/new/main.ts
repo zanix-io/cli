@@ -1,4 +1,4 @@
-import type { Command } from '@cliffy/command'
+import type { Commander } from 'cli'
 
 import newAppAction from 'commands/new/actions/app.ts'
 import newServerAction from 'commands/new/actions/server.ts'
@@ -7,7 +7,7 @@ import newLibraryAction from 'commands/new/actions/library.ts'
 import { baseNewCommand } from 'commands/new/base.ts'
 
 /** 'new' command */
-export default function newCommand(this: Command) {
+export default function newCommand(this: Commander) {
   baseNewCommand.call(this, {
     app: {
       description: 'Creates a new application with the basic structure of the Zanix framework.',

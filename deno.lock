@@ -18,8 +18,8 @@
     "jsr:@std/path@^1.0.6": "1.0.8",
     "jsr:@std/testing@1.0.9": "1.0.9",
     "jsr:@std/text@~1.0.7": "1.0.11",
-    "jsr:@zanix/utils@*": "2.0.6",
-    "jsr:@zanix/utils@2": "2.0.6",
+    "jsr:@zanix/utils@*": "2.0.8",
+    "jsr:@zanix/utils@2": "2.0.8",
     "npm:esbuild@0.20.2": "0.20.2",
     "npm:javascript-obfuscator@^4.0.2": "4.1.1"
   },
@@ -109,8 +109,8 @@
     "@std/text@1.0.11": {
       "integrity": "f191fa22590cac8b1cdba6cc4ab97940e720f7cc67b3084e54405b428bf5843d"
     },
-    "@zanix/utils@2.0.6": {
-      "integrity": "318f6cb0efe9af60a46349b4f8bf93582a505554ba1a44f5ab2a1c384a9e79e3",
+    "@zanix/utils@2.0.8": {
+      "integrity": "f71e172a62555e84794be9f3b3d1cf47b4e1a18545cb6afb2d0d2ad78b4a08a5",
       "dependencies": [
         "jsr:@luca/esbuild-deno-loader",
         "jsr:@std/fmt@0.224",

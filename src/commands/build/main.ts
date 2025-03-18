@@ -1,9 +1,10 @@
-import { Command } from '@cliffy/command'
 import { compileAndObfuscate } from '@zanix/helpers'
+import { Commander } from 'cli'
 
 /** 'build' command */
-export default function buildCommand(this: Command) {
-  const cwd = new Command()
+export default function buildCommand(this: Commander) {
+  const cwd = new Commander()
+
   this.command('build', cwd)
     .description(
       'Compiles TypeScript code into JavaScript using esbuild for faster and optimized builds.',
