@@ -16,9 +16,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'true'
-
-      - name: Initialize and update submodules
-        run: git submodule update --init --recursive
   
       - name: Setup Deno
         uses: denoland/setup-deno@v1
@@ -42,4 +39,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Automatic build action"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git master
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/zanix-io/bundles-cli.git master
