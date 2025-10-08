@@ -80,7 +80,7 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     include: Array.from(new Set([...testInclude, ...baseTestInclude])),
   }
 
-  // TODO: tasks when cli be ready
+  // TODO: set default tasks
 
   return newConfig
 }

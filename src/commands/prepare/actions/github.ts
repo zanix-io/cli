@@ -19,9 +19,8 @@ function prepareGithubAction(
       filePatterns: { lint: lintFiles, fmt: formatFiles },
       baseRoot: root,
     },
-    pushHook: {
-      baseRoot: root,
-    },
+    pushHook: { baseRoot: root },
+    gitIgnoreBase: { baseRoot: root },
   }).catch((e) => {
     this.throw(e)
   })

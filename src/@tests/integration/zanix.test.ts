@@ -16,9 +16,9 @@ Deno.test('generateImports should create correct import mappings', () => {
 
   const imports = generateImports(mockFolders)
 
-  assertEquals(imports['utils/'], 'src/utils')
-  assertEquals(imports['components/'], 'src/components')
-  assertEquals(imports['zanix.test.ts/'], 'src/@tests/integration/zanix.test.ts')
+  assertEquals(imports['utils/'], './src/utils/')
+  assertEquals(imports['components/'], './src/components/')
+  assertEquals(imports['zanix.test.ts/'], './src/@tests/integration/zanix.test.ts/')
 })
 
 Deno.test('baseZnxConfig should return a valid config object for app projects', () => {
@@ -33,10 +33,10 @@ Deno.test('baseZnxConfig should return a valid config object for app projects', 
   assertEquals(config.lint?.exclude?.[0], dist)
   assertEquals(config.fmt?.exclude?.[0], dist)
   assertEquals(config.imports, {
-    'app/': 'src/app',
-    'shared/': 'src/shared',
-    'typings/': 'src/typings',
-    'utils/': 'src/utils',
+    'app/': './src/app/',
+    'shared/': './src/shared/',
+    'typings/': './src/typings/',
+    'utils/': './src/utils/',
   })
 })
 
@@ -48,10 +48,10 @@ Deno.test('baseZnxConfig should return a valid config object for library project
   assertEquals(config.publish?.exclude, ['.github', 'src/@tests'])
   assertExists(config.zanix.hash)
   assertEquals(config.imports, {
-    'modules/': 'src/modules',
-    'shared/': 'src/shared',
-    'typings/': 'src/typings',
-    'utils/': 'src/utils',
+    'modules/': './src/modules/',
+    'shared/': './src/shared/',
+    'typings/': './src/typings/',
+    'utils/': './src/utils/',
   })
 })
 
@@ -63,11 +63,11 @@ Deno.test('baseZnxConfig should return a valid config object for app-server proj
   assertExists(config.zanix.hash)
   assertEquals(config.lint?.rules?.tags, ['recommended', 'jsr', 'react', 'jsx'])
   assertEquals(config.imports, {
-    'app/': 'src/app',
-    'server/': 'src/server',
-    'shared/': 'src/shared',
-    'typings/': 'src/typings',
-    'utils/': 'src/utils',
+    'app/': './src/app/',
+    'server/': './src/server/',
+    'shared/': './src/shared/',
+    'typings/': './src/typings/',
+    'utils/': './src/utils/',
   })
 })
 

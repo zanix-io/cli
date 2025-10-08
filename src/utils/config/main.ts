@@ -17,7 +17,7 @@ export async function saveZanixConfig(
   root: string | undefined = undefined,
 ) {
   let config = baseZnxConfig(type)
-  const configPath = root !== undefined ? `${root}/${CONFIG_FILE}c` : getConfigDir()
+  const configPath = root !== undefined ? `${root}/${CONFIG_FILE}` : getConfigDir()
 
   try {
     const currentConfig = readConfig(configPath)

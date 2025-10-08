@@ -58,7 +58,7 @@ export function generateImports(
     if (!folder) return
     const name = folder.NAME || getFolderName(folder.FOLDER)
     if (name === testsPath) return
-    imports[`${name}/`] = getRelativePath(folder.FOLDER)
+    imports[`${name}/`] = `./${getRelativePath(folder.FOLDER)}/`
   })
 
   return imports
