@@ -68,11 +68,12 @@ Deno.test('prepare command should be correctly defined', () => {
   assertExists(command['desc'])
   assertEquals(command['_name'], 'prepare')
 
-  assert(command['options'].length === 5)
+  assert(command['options'].length === 6)
 
   assertEquals(command['options'][0].name, 'project-type')
   assertEquals(command['options'][1].name, 'lint-files')
   assertEquals(command['options'][2].name, 'fmt-files')
-  assertEquals(command['options'][3].name, 'github')
-  assertEquals(command['options'][4].name, 'editor')
+  assertEquals(command['options'][3].name, 'use-pre-commit')
+  assertEquals(command['options'][4].name, 'github')
+  assertEquals(command['options'][5].name, 'editor')
 })

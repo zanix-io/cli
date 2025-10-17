@@ -16,6 +16,7 @@ export async function saveZanixConfig(
   type: ZanixProjects = 'app-server',
   root: string | undefined = undefined,
 ) {
+  //TODO: review zanix hash on config project name changes
   let config = baseZnxConfig(type)
   const configPath = root !== undefined ? `${root}/${CONFIG_FILE}` : getConfigDir()
 

@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "compilerOptions": {
@@ -65,7 +65,7 @@
   },
   "zanix": {
     "project": "library",
-    "hash": "zu226a"
+    "hash": "zc226a"
   },
   "test": {
     "include": [

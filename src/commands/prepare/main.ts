@@ -21,6 +21,10 @@ export default function prepareCommand(this: Commander) {
       '--fmt-files <fmt-files:string>',
       'Specifies the file extensions to include for Git hooks that run a Deno fmt. Use file extensions (e.g., js,md,ts,json) to target specific file types.',
     )
+    .option(
+      '--use-pre-commit',
+      'Initialize hooks using pre-commit framework',
+    )
     .arguments('[root:string]')
     .option(
       '-g --github',

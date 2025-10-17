@@ -7,6 +7,18 @@ adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-09-08
+
+### Fixed
+
+- Route paths
+- Folder names
+- Config imports
+
+### Added
+
+- Pre commit support
+
 ## [1.0.4] - 2025-09-08
 
 ### Fixed

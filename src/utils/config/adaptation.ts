@@ -80,7 +80,7 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     include: Array.from(new Set([...testInclude, ...baseTestInclude])),
   }
 
-  // TODO: set default tasks
+  // TODO: set default tasks like `deno run`
 
   return newConfig
 }

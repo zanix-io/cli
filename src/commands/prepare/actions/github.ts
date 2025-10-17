@@ -5,7 +5,7 @@ import { prepareGithub } from '@zanix/helpers'
 
 function prepareGithubAction(
   this: Commander,
-  options: { projectType?: unknown; fmtFiles?: string; lintFiles?: string },
+  options: { projectType?: unknown; fmtFiles?: string; lintFiles?: string; usePrecommit?: boolean },
   root?: string,
 ) {
   const projectType = options.projectType as ZanixProjects
@@ -14,12 +14,15 @@ function prepareGithubAction(
   const lintFiles = options.lintFiles?.split(',') as never
 
   return prepareGithub({
-    publishWorkflow: { projectType, baseRoot: root },
-    preCommitHook: {
-      filePatterns: { lint: lintFiles, fmt: formatFiles },
-      baseRoot: root,
+    usePrecommit: options.usePrecommit ? { baseRoot: root } : undefined,
+    legacyHooks: {
+      preCommit: {
+        filePatterns: { lint: lintFiles, fmt: formatFiles },
+        baseRoot: root,
+      },
+      prePush: { baseRoot: root },
     },
-    pushHook: { baseRoot: root },
+    publishWorkflow: { projectType, baseRoot: root },
     gitIgnoreBase: { baseRoot: root },
   }).catch((e) => {
     this.throw(e)
