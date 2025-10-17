@@ -11,15 +11,16 @@ function newServerAction(
   options: { template: ZanixTemplates; prepare?: boolean },
   serverName: string = 'my-zanix-server',
 ) {
+  const projectType = 'server'
   const { template, prepare } = options
-  const structure = getZanixPaths('server', serverName)
+  const structure = getZanixPaths(projectType, serverName)
 
   createFilesAndFolders(structure, template)
 
-  saveZanixConfig('server', serverName)
+  saveZanixConfig(projectType, serverName)
 
   if (prepare) {
-    this.runCommand('prepare', [serverName, '-g', '-e'])
+    this.runCommand('prepare', [serverName, `--project-type=${projectType}`, '-g', '-e'])
   }
 
   logger.info(

@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "compilerOptions": {
@@ -8,7 +8,7 @@
     "noImplicitAny": true
   },
   "publish": {
-    "include": ["deno.jsonc", "README.md", ".dist/app.mjs"]
+    "include": ["deno.jsonc", "README.md", ".dist/app.mjs", "src/installation"]
   },
   "exports": { ".": "./.dist/app.mjs" },
   "tasks": {

@@ -11,15 +11,16 @@ function newLibraryAction(
   options: { template: ZanixTemplates; prepare?: boolean },
   libraryName = 'my-zanix-library',
 ) {
+  const projectType = 'library'
   const { template, prepare } = options
-  const structure = getZanixPaths('library', libraryName)
+  const structure = getZanixPaths(projectType, libraryName)
 
   createFilesAndFolders(structure, template)
 
-  saveZanixConfig('library', libraryName)
+  saveZanixConfig(projectType, libraryName)
 
   if (prepare) {
-    this.runCommand('prepare', [libraryName, '-g', '-e'])
+    this.runCommand('prepare', [libraryName, `--project-type=${projectType}`, '-g', '-e'])
   }
 
   logger.info(

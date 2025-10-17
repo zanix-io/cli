@@ -11,15 +11,16 @@ function newAppAction(
   options: { template: ZanixTemplates; prepare?: boolean },
   appName: string = 'my-zanix-app',
 ) {
+  const projectType = 'app'
   const { template, prepare } = options
-  const structure = getZanixPaths('app', appName)
+  const structure = getZanixPaths(projectType, appName)
 
   createFilesAndFolders(structure, template)
 
-  saveZanixConfig('app', appName)
+  saveZanixConfig(projectType, appName)
 
   if (prepare) {
-    this.runCommand('prepare', [appName, '-g', '-e'])
+    this.runCommand('prepare', [appName, `--project-type=${projectType}`, '-g', '-e'])
   }
 
   logger.info(

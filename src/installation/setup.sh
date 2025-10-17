@@ -71,7 +71,14 @@ else
   echo "\n\033[0;33minfo[zanix-installer]\033[0m: Installing Zanix..."
 fi
 
-deno install -A -g -n $BIN_NAME https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs &> /dev/null
+APP="https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs"
+
+# Reload caching to ensure dependencies update
+deno cache --reload $APP &> /dev/null
+
+# APP installation
+deno install -A -g -n $BIN_NAME $APP &> /dev/null
+
 # Test and install dependencies on first run
 znx &> /dev/null
 

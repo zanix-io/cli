@@ -80,7 +80,8 @@ export function baseZnxConfig(type: ZanixProjects): ConfigFile {
     strict: true,
     noImplicitAny: true,
   }
-  const libraryOpts: Record<string, unknown> = {}
+  const libraryOpts: Record<string, unknown> = { exports: {}, nodeModulesDir: 'auto' }
+
   const tests = testsPaths.FOLDER.replace(paths.FOLDER, '')
 
   if (type === 'app' || type === 'app-server') {

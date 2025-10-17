@@ -26,11 +26,78 @@ The **Zanix Framework** `CLI` is a powerful command-line interface (CLI) tool de
 
 ## Installation
 
+### Install Zanix CLI
+
 To install **Zanix CLI** globally, use [Deno](https://deno.com/) with following command:
 
 ```bash
 deno install -A -g -n znx https://jsr.io/@zanix/cli/[version]/.dist/app.mjs
 ```
+
+### Running a Shell Script from a URL
+
+If you need to execute a `.sh` script from a web URL, you can use the following methods:
+
+1. **Using `curl`**:
+
+   ```bash
+   curl -sSL https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | bash
+   ```
+
+2. **Using `wget`**:
+
+   ```bash
+   wget -qO- https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | bash
+   ```
+
+   - `curl -sSL`: Downloads the script and pipes it into `bash` for execution. This is useful for automating script execution directly from the web.
+   - `wget -qO-`: Does the same using `wget`, which is another tool for downloading files.
+
+### Running a PowerShell Script from a URL
+
+If you need to execute a **PowerShell** script (`zanix.ps1`) directly from a URL, you can use the following methods:
+
+1. **Download and execute with `Invoke-Expression`:**
+
+   This command downloads and executes the script directly in PowerShell:
+
+   ```powershell
+   Invoke-Expression (Invoke-WebRequest -Uri "https://jsr.io/@zanix/cli/[version]/src/installation/setup.ps1" -UseBasicP)
+   ```
+
+2. **Download the script first, then execute manually:**
+
+   - First, download the script using `Invoke-WebRequest`:
+
+     ```powershell
+     Invoke-WebRequest -Uri "https://jsr.io/@zanix/cli/[version]/src/installation/setup.ps1" -OutFile "zanix.ps1"
+     ```
+
+   - Then, execute the downloaded script:
+
+     ```powershell
+     .\zanix.ps1
+     ```
+
+3. **Run the script with Administrator privileges:**
+
+   To run the script with elevated permissions (Administrator), use this command:
+
+   ```powershell
+   Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File 'zanix.ps1'" -Verb RunAs
+   ```
+
+4. **Change Execution Policy if needed:**
+
+   If you encounter an error due to execution policies, you may need to change the policy to allow the script to run. You can temporarily change the policy with the following command:
+
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
+
+### Security Warning
+
+**Be cautious!** Running scripts downloaded from the web can be risky, especially if you don’t trust the source. Always ensure to review the content of the script before executing it.
 
 Replace `[version]` with the actual version number when needed.
 

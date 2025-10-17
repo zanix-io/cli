@@ -76,7 +76,14 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
     Write-Color "`nInstalling Zanix..." "Yellow"
 }
 
-deno install -A -g -n $BIN_NAME https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs | Out-Null
+
+$APP = "https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs"
+
+# Reload caching to ensure dependencies update
+deno cache --reload $APP | Out-Null
+
+# APP installation
+deno install -A -g -n $BIN_NAME $APP | Out-Null
 
 # Test and install dependencies on first run
 znx | Out-Null

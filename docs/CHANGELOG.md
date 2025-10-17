@@ -7,7 +7,18 @@ adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.0.5] - 2025-09-08
+## [1.0.6] - 2025-10-17
+
+### Fixed
+
+- Installation dependencies and publish
+- Prepare command on new
+
+### Added
+
+- Functional testing
+
+## [1.0.5] - 2025-10-16
 
 ### Fixed
 

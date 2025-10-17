@@ -14,6 +14,7 @@ function prepareGithubAction(
   const lintFiles = options.lintFiles?.split(',') as never
 
   return prepareGithub({
+    root,
     usePrecommit: options.usePrecommit ? { baseRoot: root } : undefined,
     legacyHooks: {
       preCommit: {
