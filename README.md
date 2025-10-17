@@ -41,13 +41,13 @@ If you need to execute a `.sh` script from a web URL, you can use the following 
 1. **Using `curl`**:
 
    ```bash
-   curl -sSL https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | bash
+   curl -sSL https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh -o .zanix.installer && sh .zanix.installer && rm -f .zanix.installer
    ```
 
 2. **Using `wget`**:
 
    ```bash
-   wget -qO- https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | bash
+   wget -qO- https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | sh
    ```
 
    - `curl -sSL`: Downloads the script and pipes it into `bash` for execution. This is useful for automating script execution directly from the web.

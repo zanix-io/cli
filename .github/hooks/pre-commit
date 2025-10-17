@@ -14,8 +14,8 @@ LATEST=$(deno task znx --version | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $2}')
 
 # Verifica que la versión se haya extraído correctamente.
 if [ "$LATEST" ]; then
-  sed -i '' "s|^LATEST=.*|LATEST=\"$LATEST\"|g" src/installation/install.sh
-  sed -i '' "s|^\$LATEST = .*|\$LATEST = \"$LATEST\"|g" src/installation/install.ps1
+  sed -i '' "s|^LATEST=.*|LATEST=\"$LATEST\"|g" src/installation/setup.sh
+  sed -i '' "s|^\$LATEST = .*|\$LATEST = \"$LATEST\"|g" src/installation/setup.ps1
 
   git add src/installation
 fi
