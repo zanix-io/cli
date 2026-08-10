@@ -1,20 +1,31 @@
 {
   "name": "@zanix/cli",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "compilerOptions": {
     "strict": true,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    // Not because `cli` writes JSX itself — it doesn't. `deno check` type-checks the WHOLE
+    // resolved graph against the entry file's own `deno.json`, and the TEMP local path overrides
+    // above resolve `@zanix/space` straight to its own `.tsx` source (not a real, pre-checked JSR
+    // publish) — without these, `deno check` on any `cli` file that transitively reaches
+    // `@zanix/space`'s `.tsx` internals fails with "React not in scope" noise unrelated to `cli`'s
+    // own code. Same values `@zanix/space`'s own `deno.json` declares. Revert once `@zanix/space`
+    // is a real JSR dependency (see the imports section's own TEMP comment) — a real package
+    // boundary means its own source is never re-type-checked against a consumer's compilerOptions.
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "publish": {
-    "include": ["deno.jsonc", "README.md", ".dist/app.mjs", "src/installation"]
+    "exclude": [".github", "src/@tests", "scripts"]
   },
-  "exports": { ".": "./.dist/app.mjs" },
+  "exports": { ".": "./mod.ts" },
   "tasks": {
     "znx": "deno run -A mod.ts",
     "build": "deno task znx build",
     "new": "deno task znx new",
+    "generate": "deno task znx generate",
     "prepare": "deno task znx prepare -g -e"
   },
   "lint": {
@@ -52,10 +63,56 @@
     "@std/assert": "jsr:@std/assert@0.224",
     "@std/testing": "jsr:@std/testing@1.0.9",
     "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.8",
-    "@zanix/utils": "jsr:@zanix/utils@2.*",
-    "@zanix/logger": "jsr:@zanix/utils@2.*/logger",
-    "@zanix/helpers": "jsr:@zanix/utils@2.*/helpers",
-    "@zanix/types": "jsr:@zanix/utils@2.*/types",
+    // TEMP: local path overrides — the REAL, published `jsr:@zanix/utils@2.*` resolves to
+    // `2.4.x` (a sibling dependency, `@zanix/asyncmq`, pins that range), whose own `readConfig`/
+    // `getConfigDir` (`modules/helpers/config.ts`/`paths.ts`) silently fails to read a generated
+    // project's `zanix.project` field back — confirmed directly: `getCurrentProjectType()` (every
+    // `assertProjectType` gate, including `space dev`'s own) returns `undefined` for a real,
+    // valid `deno.json`, reproduced identically against `generate` (pre-existing, unrelated to
+    // this session's own changes). Confirmed FIXED in the local, unpublished `2.5.1` source
+    // (`../utils/src/modules/helpers/config.ts`) before switching — never assumed. Revert every
+    // line below to its own commented `jsr:` line once `@zanix/utils` publishes `2.5.x`.
+    // "@zanix/utils": "jsr:@zanix/utils@2.*",
+    "@zanix/utils": "../utils/mod.ts",
+    // "@zanix/logger": "jsr:@zanix/utils@2.*/logger",
+    "@zanix/logger": "../utils/src/modules/logger/mod.ts",
+    // "@zanix/helpers": "jsr:@zanix/utils@2.*/helpers",
+    "@zanix/helpers": "../utils/src/modules/helpers/mod.ts",
+    // TEMP: local path override for cross-repo dev of the 'app'→'space' project-type migration —
+    // revert to the jsr: line once @zanix/utils publishes the version with ZanixSpaceSrcTree.
+    // "@zanix/types": "jsr:@zanix/utils@2.*/types",
+    "@zanix/types": "../utils/src/modules/types/mod.ts",
+    // "@zanix/utils/workers": "jsr:@zanix/utils@2.*/workers",
+    "@zanix/utils/workers": "../utils/src/modules/workers/mod.ts",
+    // "@zanix/utils/regex": "jsr:@zanix/utils@2.*/regex",
+    "@zanix/utils/regex": "../utils/src/modules/regex/mod.ts",
+    // TEMP: local path overrides — `zanix space dev` needs these at runtime (unlike every other
+    // `cli` command's own use of `@zanix/server`/`@zanix/app`/`@zanix/space`, which is purely
+    // string-template generation, never a real import). Neither `@zanix/app` nor `@zanix/space` is
+    // published on JSR yet (see `dependencies.ts`'s own `ZANIX_DEPENDENCY_VERSIONS` doc) — revert
+    // to real `jsr:` specifiers, matching the versions already declared there, once they are.
+    // `@zanix/space/dev` — `zanix space dev` only ever imports a project's own `space.app.ts`
+    // (which itself depends on `@zanix/space`) and the dev-engine boundary; never bare
+    // `@zanix/space`/`@zanix/space/vite` from THAT command specifically — see `modules/dev/mod.ts`'s
+    // own doc in `@zanix/space` for why `./vite` must never reach `space dev`'s own import graph
+    // (it would pull in `cssPlugin`'s own `@tailwindcss/vite` dependency for a command that has no
+    // use for build-time CSS tooling at all).
+    // `@zanix/space`/`@zanix/space/vite` ARE needed here, for `zanix space build` specifically —
+    // confirmed empirically safe: `@tailwindcss/vite`'s own directory-walk resolution and Vite's
+    // production CSS pipeline both work correctly under Deno for a real `build()` (the `dev-engine.ts`
+    // Lightning CSS/Deno native-binding concern is specific to `createServer()`'s own default CSS
+    // transformer, not to `./vite`'s exports or to a production build).
+    "@zanix/server": "../server/mod.ts",
+    "@zanix/app": "../app/mod.ts",
+    "@zanix/app/runtime": "../app/src/modules/runtime/mod.ts",
+    "@zanix/space": "../space/mod.ts",
+    "@zanix/space/vite": "../space/src/modules/bundler/mod.ts",
+    "@zanix/space/dev": "../space/src/modules/dev/mod.ts",
+    // Same versions `@zanix/space`'s own `deno.json` declares — needed here too, transitively, for
+    // the same reason the `jsx`/`jsxImportSource` compilerOptions above are: `@zanix/space`'s own
+    // `.tsx` source is being type-checked directly, not consumed as an already-published package.
+    "react": "npm:react@^19.2.0",
+    "react-dom": "npm:react-dom@^19.2.0",
     "@std/path": "jsr:@std/path@0.224",
     "typings/": "./src/typings/",
     "shared/": "./src/shared/",
@@ -69,7 +126,8 @@
   },
   "test": {
     "include": [
-      "src/@tests/**/*.test.ts"
+      "src/@tests/**/*.test.ts",
+      "scripts/**/*.test.ts"
     ]
   }
 }

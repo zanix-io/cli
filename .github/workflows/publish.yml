@@ -3,9 +3,13 @@
 name: Publish
 
 on:
+  # Run on push or PRs to master
+  pull_request:
+    branches:
+      - master
   push:
     branches:
-      - master 
+      - master
 
 jobs:
   publish:
@@ -15,18 +19,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
       - name: Run tests
         run: deno test --allow-all
-       
-      - name: Run Deno task build 
-        run: deno task build --obfuscate
-      
+
       - name: Publish to Deno
         run: deno publish --token ${{secrets.JSR}}

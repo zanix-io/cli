@@ -13,9 +13,9 @@ logo="
 "
 
 # Variables
-LATEST="1.0.7"
+LATEST="1.1.0"
 VERSION="${1:-$LATEST}"
-BIN_NAME="znx"
+BIN_NAME="zanix"
 SEPARATOR="==================================================="
 
 # Welcome
@@ -50,8 +50,8 @@ then
     fi
 fi
 
-# Check if Znx is already installed
-if command -v znx &> /dev/null
+# Check if Zanix is already installed
+if command -v zanix &> /dev/null
 then
     # Ask the user if they want to replace the current installation
     echo "\033[0;33m"
@@ -60,8 +60,8 @@ then
 
     if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
         echo "\n\033[0;33minfo[zanix-installer]\033[0m: Updating..."
-        # Uninstall the current version of Znx
-        deno uninstall -g znx &> /dev/null
+        # Uninstall the current version of Zanix
+        deno uninstall -g zanix &> /dev/null
     else
         echo "\033[0;33minfo[zanix-installer]\033[0m: Installation will not proceed."
         exit 1
@@ -71,16 +71,14 @@ else
   echo "\n\033[0;33minfo[zanix-installer]\033[0m: Installing Zanix..."
 fi
 
-APP="https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs"
+APP="jsr:@zanix/cli@$VERSION"
 
-# Reload caching to ensure dependencies update
-deno cache --reload $APP &> /dev/null
-
-# APP installation
+# APP installation (deno install resolves the exact pinned version fresh — no separate cache
+# reload needed, unlike a raw mutable URL)
 deno install -A -g -n $BIN_NAME $APP &> /dev/null
 
 # Test and install dependencies on first run
-znx &> /dev/null
+$BIN_NAME &> /dev/null
 
 # Final message
 echo "\n$SEPARATOR"

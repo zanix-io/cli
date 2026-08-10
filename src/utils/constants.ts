@@ -1,1 +1,1 @@
-export const CLI_ALIASES = ['znx', 'zanix']
+export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/

@@ -1,7 +1,7 @@
 import type { ZanixProjects } from '@zanix/types'
 import type { Commander } from 'cli'
 
-import { prepareGithub } from '@zanix/helpers'
+import { prepareGithub } from 'commands/prepare/lib/github/prepare.ts'
 
 function prepareGithubAction(
   this: Commander,

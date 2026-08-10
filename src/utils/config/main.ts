@@ -7,16 +7,13 @@ import { CONFIG_FILE } from '@zanix/utils/constants'
 
 /**
  * Write a `deno` base config file for **Zanix** projects
- * @param type - Zanix project type (`server`, `app`, `app-server` or `library`)
- * @param root - The optional root dir
- *
- *               Defaults to `app-server`
+ * @param type - Zanix project type (`server`, `space`, `space-server` or `library`). Defaults to `space-server`
+ * @param root - The optional root dir. Defaults to the current working directory's config file
  */
 export async function saveZanixConfig(
-  type: ZanixProjects = 'app-server',
+  type: ZanixProjects = 'space-server',
   root: string | undefined = undefined,
 ) {
-  //TODO: review zanix hash on config project name changes
   let config = baseZnxConfig(type)
   const configPath = root !== undefined ? `${root}/${CONFIG_FILE}` : getConfigDir()
 

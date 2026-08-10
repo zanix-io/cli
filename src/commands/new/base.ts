@@ -21,6 +21,11 @@ export function baseNewCommand(
       ).option(
         '--no-prepare [prepare:string]',
         'Specifies that the default prepare command should not be executed.',
+      ).option(
+        '--verify',
+        'Opt-in: after generating, run `deno check` against every file in the new project and ' +
+          'warn (without failing) if it does not compile against the currently installed ' +
+          'dependency versions. Off by default — generation stays local/instant unless requested.',
       )
   })
 

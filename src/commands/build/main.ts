@@ -1,4 +1,4 @@
-import { compileAndObfuscate } from '@zanix/helpers'
+import { compileAndObfuscate } from 'commands/build/lib/mod.ts'
 import { Commander } from 'cli'
 
 /** 'build' command */

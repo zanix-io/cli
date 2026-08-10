@@ -1,5 +1,6 @@
 import prepareGithubAction from './actions/github.ts'
 import prepareEditorAction from './actions/editor.ts'
+import prepareDockerAction from './actions/docker.ts'
 import { Commander } from 'cli'
 
 /** 'prepare' command */
@@ -11,7 +12,7 @@ export default function prepareCommand(this: Commander) {
     )
     .option(
       '-p --project-type <project-type:string>',
-      "Specifies the type of project ('library', 'app-server', 'app', and 'server')",
+      "Specifies the type of project ('library', 'space-server', 'space', 'server', and 'app')",
     )
     .option(
       '--lint-files <lint-files:string>',
@@ -37,8 +38,19 @@ export default function prepareCommand(this: Commander) {
     .option('-e --editor [editor:string]', 'Set up the editor configuration for the project', {
       default: null,
       action: prepareEditorAction.bind(cwd),
-    }).action((options) => {
-      if (options.editor === undefined && options.github === undefined) {
+    })
+    .option(
+      '-d --docker',
+      'Generate a Dockerfile and .dockerignore for containerized deployment',
+      {
+        default: null,
+        action: prepareDockerAction.bind(cwd),
+      },
+    ).action((options) => {
+      if (
+        options.editor === undefined && options.github === undefined &&
+        options.docker === undefined
+      ) {
         cwd.throw(new Error("You must provide at least one option for the 'prepare' command."))
       }
     })

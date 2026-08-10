@@ -1,6 +1,5 @@
 import { readModuleConfig } from '@zanix/utils/helpers'
 import { ZANIX_LOGO } from '@zanix/utils/constants'
-import { CLI_ALIASES } from 'utils/constants.ts'
 import { Command } from '@cliffy/command'
 import * as commands from './commands/mod.ts'
 import logger, { Logger } from '@zanix/utils/logger'
@@ -22,8 +21,6 @@ class Commander extends Command {
       )
       .version(version)
 
-    CLI_ALIASES.map((value) => this.alias(value))
-
     return this
   }
 
@@ -40,7 +37,7 @@ class Commander extends Command {
   }
 
   /**
-   * Set theavailable commands
+   * Set the available commands
    */
   public setCommands() {
     Object.values(commands).forEach((cmd) => {
@@ -53,8 +50,8 @@ class Commander extends Command {
   /**
    * Run a specific Command
    *
-   * @param command
-   * @param args
+   * @param command - The name of the registered sub-command to run
+   * @param args - The arguments to pass to the sub-command's parser
    */
   public runCommand(command: string, args?: string[]) {
     const parent = this.getParent() as Command | undefined

@@ -4,5 +4,5 @@ export type ArgumentCommandOptions = {
   optionalArgs?: string[]
   requiredArgs?: string[]
   // deno-lint-ignore no-explicit-any
-  action: (...data: any[]) => void
+  action: (...data: any[]) => void | Promise<void>
 }

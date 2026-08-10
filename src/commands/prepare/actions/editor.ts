@@ -1,7 +1,7 @@
-import type { Editors } from '@zanix/types'
+import type { Editors } from 'commands/prepare/lib/typings.ts'
 import type { Commander } from 'cli'
 
-import { createVSCodeConfig } from '@zanix/helpers'
+import { createVSCodeConfig } from 'commands/prepare/lib/editor/vscode.ts'
 
 function prepareEditorAction(this: Commander, options: { editor?: unknown }, root?: string) {
   const editor = options.editor || 'vscode' as Editors

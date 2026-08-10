@@ -11,9 +11,9 @@ $logo = @"
 "@
 
 # Variables
-$LATEST = "1.0.7"
-$VERSION = if ($args.Count -gt 0) { $args[0] } else { $VERSION }
-$BIN_NAME = "znx"
+$LATEST = "1.1.0"
+$VERSION = if ($args.Count -gt 0) { $args[0] } else { $LATEST }
+$BIN_NAME = "zanix"
 $SEPARATOR = "==================================================="
 
 # Function to write colored text
@@ -56,8 +56,8 @@ if (-not (Get-Command deno -ErrorAction SilentlyContinue)) {
     }
 }
 
-# Check if Znx is already installed
-if (Get-Command znx -ErrorAction SilentlyContinue) {
+# Check if Zanix is already installed
+if (Get-Command zanix -ErrorAction SilentlyContinue) {
     # Ask the user if they want to replace the current installation
     Write-Color "Zanix is already installed. Do you want to replace the current version? (y/n): " "Yellow"
     $answer = Read-Host
@@ -65,8 +65,8 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
 
     if ($answer -eq "y" -or $answer -eq "Y") {
         Write-Color "`nUpdating..." "Yellow"
-        # Uninstall the current version of Znx
-        deno uninstall -g znx | Out-Null
+        # Uninstall the current version of Zanix
+        deno uninstall -g zanix | Out-Null
     } else {
         Write-Color "`nInstallation will not proceed." "Yellow"
         exit 1
@@ -77,16 +77,14 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
 }
 
 
-$APP = "https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs"
+$APP = "jsr:@zanix/cli@$VERSION"
 
-# Reload caching to ensure dependencies update
-deno cache --reload $APP | Out-Null
-
-# APP installation
+# APP installation (deno install resolves the exact pinned version fresh — no separate cache
+# reload needed, unlike a raw mutable URL)
 deno install -A -g -n $BIN_NAME $APP | Out-Null
 
 # Test and install dependencies on first run
-znx | Out-Null
+& $BIN_NAME | Out-Null
 
 # Final message
 Write-Host "`n$SEPARATOR"

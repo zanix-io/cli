@@ -1,8 +1,9 @@
 import type { Commander } from 'cli'
 
 import newAppAction from 'commands/new/actions/app.ts'
+import newSpaceAction from 'commands/new/actions/space.ts'
 import newServerAction from 'commands/new/actions/server.ts'
-import newProjectAction from 'commands/new/actions/project.ts'
+import newSpacecraftAction from 'commands/new/actions/spacecraft.ts'
 import newLibraryAction from 'commands/new/actions/library.ts'
 import { baseNewCommand } from 'commands/new/base.ts'
 
@@ -10,9 +11,16 @@ import { baseNewCommand } from 'commands/new/base.ts'
 export default function newCommand(this: Commander) {
   baseNewCommand.call(this, {
     app: {
-      description: 'Creates a new application with the basic structure of the Zanix framework.',
+      description:
+        'Creates a new `@zanix/app`-based package (a `defineZanixApp()` manifest) with the basic structure of the Zanix framework.',
       optionalArgs: ['app-name'],
       action: newAppAction,
+    },
+    space: {
+      description:
+        'Creates a new `@zanix/space` frontend app with the basic structure of the Zanix framework.',
+      optionalArgs: ['app-name'],
+      action: newSpaceAction,
     },
     server: {
       description:
@@ -20,11 +28,11 @@ export default function newCommand(this: Commander) {
       optionalArgs: ['server-name'],
       action: newServerAction,
     },
-    project: {
+    spacecraft: {
       description:
-        'Creates a new project (app and server) with the basic structure of the Zanix framework.',
+        'Creates a new full-stack project (`@zanix/space` frontend + server) with the basic structure of the Zanix framework.',
       optionalArgs: ['project-name'],
-      action: newProjectAction,
+      action: newSpacecraftAction,
     },
     library: {
       description:

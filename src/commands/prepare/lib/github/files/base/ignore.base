@@ -1,0 +1,50 @@
+# Deno dependencies and caches
+/vendor/
+
+# Editor & system files
+.DS_Store
+.vscode/
+Thumbs.db
+
+# Logs & debugging files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+/dist/
+/.dist/
+/out/
+
+# Vite dev/build artifacts (relevant for `space`/`space-server` projects)
+.vite/
+**/.vite/
+dist-ssr/
+# Generated next to each *.module.css source file (cssPlugin's own typed-codegen, dev and build
+# alike) — regenerated automatically whenever `zanix space dev`/`zanix space build` runs, never
+# meant to be committed.
+**/*.module.css.d.ts
+
+# Environment & config files
+.env
+.env.local
+
+# Temporary files and folders
+__tmp__/
+*.tmp
+*.log
+/.logs/
+
+# Compiled JavaScript files
+tsconfig.tsbuildinfo
+
+# Miscellaneous
+# If using third-party tools that install node_modules
+node_modules  
+
+# Local databases
+.sqlite
+
+# Test coverage reports
+/coverage/
+coverage.lcov

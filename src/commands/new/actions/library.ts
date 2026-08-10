@@ -3,24 +3,34 @@ import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { saveZanixConfig } from 'utils/config/main.ts'
-import { getZanixPaths } from '@zanix/utils/helpers'
+import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
+import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 
-function newLibraryAction(
+async function newLibraryAction(
   this: Commander,
-  options: { template: ZanixTemplates; prepare?: boolean },
+  options: { template: ZanixTemplates; prepare?: boolean; verify?: boolean },
   libraryName = 'my-zanix-library',
 ) {
   const projectType = 'library'
-  const { template, prepare } = options
-  const structure = getZanixPaths(projectType, libraryName)
+  const { template, prepare, verify } = options
 
-  createFilesAndFolders(structure, template)
+  let structure: ReturnType<typeof getZanixPaths<typeof projectType>>
+  try {
+    structure = getZanixPaths(projectType, libraryName, template)
+  } catch (error) {
+    this.throw(error as Error)
+    return
+  }
 
-  saveZanixConfig(projectType, libraryName)
+  await createFilesAndFolders(structure, template)
+
+  await saveZanixConfig(projectType, libraryName)
+
+  if (verify) await verifyGeneratedProject(structure.FOLDER)
 
   if (prepare) {
-    this.runCommand('prepare', [libraryName, `--project-type=${projectType}`, '-g', '-e'])
+    await this.runCommand('prepare', [libraryName, `--project-type=${projectType}`, '-g', '-e'])
   }
 
   logger.info(

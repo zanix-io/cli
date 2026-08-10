@@ -1,7 +1,5 @@
 import type { ConfigFile } from '@zanix/types'
 
-import { generateZanixHash } from './base.ts'
-
 /** Function to adapt current config to base config */
 export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) => {
   const newConfig = (Object.keys(currentConfig).length > 0) ? { ...currentConfig } : { ...config }
@@ -15,7 +13,6 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     ...config.zanix,
     ...currentConfig.zanix,
     project: config.zanix?.project,
-    hash: currentConfig.name ? generateZanixHash(currentConfig.name) : config.zanix?.hash,
   }
 
   //  Format rules to be overriden
@@ -80,7 +77,12 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     include: Array.from(new Set([...testInclude, ...baseTestInclude])),
   }
 
-  // TODO: set default tasks like `deno run`
+  // Tasks: an existing task under the same key always wins over the base default — unlike
+  // `imports` (a version pin the CLI should keep authoritative), a task's shell command is
+  // something a developer routinely hand-edits once scaffolded (extra permissions, a different
+  // entry file), so regenerating the config on a later `zanix new`/`zanix prepare` run must never
+  // clobber that customization. Base only fills in whatever key isn't already present.
+  newConfig.tasks = { ...config.tasks, ...currentConfig.tasks }
 
   return newConfig
 }

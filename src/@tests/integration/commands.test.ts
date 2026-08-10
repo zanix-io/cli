@@ -34,29 +34,33 @@ Deno.test('new command should be correctly defined', () => {
 
   const commands = command['commands']
 
-  const app = commands.get('app')
-  assertExists(app)
-  assert(app['options'].length === 2)
-  assertEquals(app['options'][0].name, 'template')
-  assertEquals(app['options'][1].name, 'no-prepare')
+  const space = commands.get('space')
+  assertExists(space)
+  assert(space['options'].length === 3)
+  assertEquals(space['options'][0].name, 'template')
+  assertEquals(space['options'][1].name, 'no-prepare')
+  assertEquals(space['options'][2].name, 'verify')
 
   const server = commands.get('server')
   assertExists(server)
-  assert(server['options'].length === 2)
+  assert(server['options'].length === 3)
   assertEquals(server['options'][0].name, 'template')
   assertEquals(server['options'][1].name, 'no-prepare')
+  assertEquals(server['options'][2].name, 'verify')
 
   const library = commands.get('library')
   assertExists(library)
-  assert(library['options'].length === 2)
+  assert(library['options'].length === 3)
   assertEquals(library['options'][0].name, 'template')
   assertEquals(library['options'][1].name, 'no-prepare')
+  assertEquals(library['options'][2].name, 'verify')
 
-  const project = commands.get('project')
-  assertExists(project)
-  assert(project['options'].length === 2)
-  assertEquals(project['options'][0].name, 'template')
-  assertEquals(project['options'][1].name, 'no-prepare')
+  const spacecraft = commands.get('spacecraft')
+  assertExists(spacecraft)
+  assert(spacecraft['options'].length === 3)
+  assertEquals(spacecraft['options'][0].name, 'template')
+  assertEquals(spacecraft['options'][1].name, 'no-prepare')
+  assertEquals(spacecraft['options'][2].name, 'verify')
 })
 
 Deno.test('prepare command should be correctly defined', () => {
@@ -68,7 +72,7 @@ Deno.test('prepare command should be correctly defined', () => {
   assertExists(command['desc'])
   assertEquals(command['_name'], 'prepare')
 
-  assert(command['options'].length === 6)
+  assert(command['options'].length === 7)
 
   assertEquals(command['options'][0].name, 'project-type')
   assertEquals(command['options'][1].name, 'lint-files')
@@ -76,4 +80,5 @@ Deno.test('prepare command should be correctly defined', () => {
   assertEquals(command['options'][3].name, 'use-pre-commit')
   assertEquals(command['options'][4].name, 'github')
   assertEquals(command['options'][5].name, 'editor')
+  assertEquals(command['options'][6].name, 'docker')
 })

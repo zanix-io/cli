@@ -17,6 +17,6 @@ export function baseArgumentActionCommand(
     .description(description)
     .arguments(optionalArgumenst + ' ' + requiredArguments)
     .action((options, ...args) => {
-      action.call(this, options, ...args)
+      return action.call(this, options, ...args)
     })
 }

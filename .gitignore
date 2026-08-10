@@ -6,6 +6,12 @@
 .vscode/
 Thumbs.db
 
+# `unit/commands/prepare/main.test.ts` invokes `actionHandler` directly, which really runs each
+# bound option's own action (e.g. `prepareDockerAction`) against `Deno.cwd()` — same real-side-
+# effect reason `.vscode/` is already ignored above, now also true for `--docker`'s own output.
+/Dockerfile
+/.dockerignore
+
 # Logs & debugging files
 npm-debug.log*
 yarn-debug.log*
