@@ -31,7 +31,7 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   '@zanix/app': 'jsr:@zanix/app@^0.1.0',
   // A separate import-map key, not covered by the bare '@zanix/app' entry above — same convention
   // '@zanix/validator' already uses for a subpath of a different package. A pure `space` project's
-  // entrypoint imports `activateApps` from here directly (never `@zanix/core`, see
+  // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
   '@zanix/app/runtime': 'jsr:@zanix/app@^0.1.0/runtime',
   '@zanix/space': 'jsr:@zanix/space@^0.1.0',
@@ -44,10 +44,14 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
  * if it's left inline at its call site instead of centralized here.
  */
 export const THIRD_PARTY_DEPENDENCY_VERSIONS = {
-  // `base.ts` writes this for `space`/`space-server` — `jsxImportSource: 'react'` means every
-  // `.tsx` file has an implicit `react/jsx-runtime` import. Same version `@zanix/space`'s own
-  // `deno.json` pins.
+  // `base.ts` writes this for `space`/`space-server` under `--renderer=react` (the default) —
+  // `jsxImportSource: 'react'` means every `.tsx` file has an implicit `react/jsx-runtime` import.
+  // Same version `@zanix/space`'s own `deno.json` pins.
   react: 'npm:react@^19.2.0',
+  // `base.ts` writes THIS instead, in place of `react` above, under `--renderer=preact` — same
+  // reasoning, `jsxImportSource: 'preact'` instead. Same version `@zanix/space`'s own `deno.json`
+  // pins. Never both at once — `--renderer` selects the whole project's renderer, never a hybrid.
+  preact: 'npm:preact@^10.29.0',
 } as const satisfies Record<string, string>
 
 type ZanixDependency = keyof typeof ZANIX_DEPENDENCY_VERSIONS
@@ -57,13 +61,18 @@ type ZanixDependency = keyof typeof ZANIX_DEPENDENCY_VERSIONS
  * against the real generator/template output, not assumed. `library` gets none: its placeholder
  * `mod.ts` is fetched from `@zanix/utils`'s own templates and imports nothing `@zanix/*`.
  */
-export const PROJECT_TYPE_DEPENDENCIES: Record<ZanixProjects, ZanixDependency[]> = {
+export const PROJECT_TYPE_DEPENDENCIES: Record<
+  ZanixProjects,
+  ZanixDependency[]
+> = {
   library: [],
   app: ['@zanix/app'],
-  // `mod.ts` (see `getSpaceModTemplate`) imports `activateApps` from `@zanix/app/runtime` and
-  // `bootstrapServers` from `@zanix/server` directly — never `@zanix/core` (a pure frontend project
-  // has no reason to depend on its backend-aggregator tier).
-  space: ['@zanix/space', '@zanix/app/runtime', '@zanix/server'],
+  // `mod.ts` (see `getSpaceModTemplate`) imports `bootstrapRemoteApp` from `@zanix/app/runtime` —
+  // never `@zanix/core` (a pure frontend project has no reason to depend on its backend-aggregator
+  // tier), and no longer `@zanix/server` directly either (`bootstrapRemoteApp` wraps that call
+  // internally) — confirmed no generated `space` file (`mod.ts`/`space.app.ts`/page/comet
+  // templates) imports `@zanix/server` on its own.
+  space: ['@zanix/space', '@zanix/app/runtime'],
   server: [
     '@zanix/server',
     '@zanix/datamaster',

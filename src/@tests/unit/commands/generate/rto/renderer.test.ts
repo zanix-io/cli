@@ -17,29 +17,42 @@ const field = (overrides: Partial<FieldDef>): FieldDef => ({
 })
 
 Deno.test('rtoTemplate: always emits Search/Get/Create/Edit for the given entity name', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'amount', type: 'number' })])
+  const output = rtoTemplate('Payment', [
+    field({ name: 'amount', type: 'number' }),
+  ])
 
-  assertStringIncludes(output, 'export class SearchPaymentRTO extends SearchPaginationRTO')
+  assertStringIncludes(
+    output,
+    'export class SearchPaymentRTO extends SearchPaginationRTO',
+  )
   assertStringIncludes(output, 'export class GetPaymentRTO extends BaseRTO')
   assertStringIncludes(output, 'export class PaymentRTO extends BaseRTO')
   assertStringIncludes(output, 'export class EditPaymentRTO extends BaseRTO')
 })
 
 Deno.test('rtoTemplate: Search has only an optional query, Get only a required id', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'amount', type: 'number' })])
+  const output = rtoTemplate('Payment', [
+    field({ name: 'amount', type: 'number' }),
+  ])
 
   const search = output.split('export class GetPaymentRTO')[0]
   assertStringIncludes(search, 'accessor query: string | undefined')
 
-  const get = output.split('export class GetPaymentRTO')[1].split('export class PaymentRTO')[0]
+  const get = output.split('export class GetPaymentRTO')[1].split(
+    'export class PaymentRTO',
+  )[0]
   assertStringIncludes(get, '@IsObjectID({ expose: true })')
   assertStringIncludes(get, 'accessor id!: string')
 })
 
 Deno.test('rtoTemplate: a required field is non-null on Create, optional on Edit', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'name', type: 'string' })])
+  const output = rtoTemplate('Payment', [
+    field({ name: 'name', type: 'string' }),
+  ])
 
-  const create = output.split('export class PaymentRTO')[1].split('export class EditPaymentRTO')[0]
+  const create = output.split('export class PaymentRTO')[1].split(
+    'export class EditPaymentRTO',
+  )[0]
   assertStringIncludes(create, '@IsString({ expose: true })')
   assertStringIncludes(create, 'accessor name!: string')
 
@@ -49,15 +62,21 @@ Deno.test('rtoTemplate: a required field is non-null on Create, optional on Edit
 })
 
 Deno.test('rtoTemplate: an already-optional field stays optional on Create too', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'note', type: 'string', optional: true })])
-  const create = output.split('export class PaymentRTO')[1].split('export class EditPaymentRTO')[0]
+  const output = rtoTemplate('Payment', [
+    field({ name: 'note', type: 'string', optional: true }),
+  ])
+  const create = output.split('export class PaymentRTO')[1].split(
+    'export class EditPaymentRTO',
+  )[0]
 
   assertStringIncludes(create, '@IsString({ expose: true, optional: true })')
   assertStringIncludes(create, 'accessor note: string | undefined')
 })
 
 Deno.test('rtoTemplate: an array field uses each: true and a wrapped array type', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'tags', type: 'string', isArray: true })])
+  const output = rtoTemplate('Payment', [
+    field({ name: 'tags', type: 'string', isArray: true }),
+  ])
 
   assertStringIncludes(output, '@IsString({ expose: true, each: true })')
   assertStringIncludes(output, 'accessor tags!: (string)[]')
@@ -76,7 +95,9 @@ Deno.test('rtoTemplate: IsNumber/IsDate never receive `expose` (real validator c
 })
 
 Deno.test('rtoTemplate: IsNumber/IsDate still take `optional` on Edit, just never `expose`', () => {
-  const output = rtoTemplate('Payment', [field({ name: 'amount', type: 'number' })])
+  const output = rtoTemplate('Payment', [
+    field({ name: 'amount', type: 'number' }),
+  ])
   const edit = output.split('export class EditPaymentRTO')[1]
 
   assertStringIncludes(edit, '@IsNumber({ optional: true })')
@@ -87,9 +108,15 @@ Deno.test('rtoTemplate: an enum field renders the values array and a TS union ty
     field({ name: 'status', type: 'enum', enumValues: ['ACTIVE', 'INACTIVE'] }),
   ])
 
-  assertStringIncludes(output, "@IsEnum(['ACTIVE', 'INACTIVE'], { expose: true })")
+  assertStringIncludes(
+    output,
+    "@IsEnum(['ACTIVE', 'INACTIVE'], { expose: true })",
+  )
   assertStringIncludes(output, "accessor status!: 'ACTIVE' | 'INACTIVE'")
-  assertStringIncludes(output, "import { BaseRTO, IsEnum, IsString } from '@zanix/validator'")
+  assertStringIncludes(
+    output,
+    "import { BaseRTO, IsEnum, IsString } from '@zanix/validator'",
+  )
 })
 
 Deno.test('rtoTemplate: an enum field with no enumValues falls back to an empty list', () => {
@@ -114,13 +141,17 @@ Deno.test('rtoTemplate: an objectId field imports IsObjectID once, from ./valida
 })
 
 Deno.test('rtoTemplate: only imports IsPermission when a field actually uses it', () => {
-  const withPermission = rtoTemplate('Role', [field({ name: 'scope', type: 'permission' })])
+  const withPermission = rtoTemplate('Role', [
+    field({ name: 'scope', type: 'permission' }),
+  ])
   assertStringIncludes(
     withPermission,
     "import { IsPermission } from './validations/IsPermission.ts'",
   )
 
-  const withoutPermission = rtoTemplate('Role', [field({ name: 'name', type: 'string' })])
+  const withoutPermission = rtoTemplate('Role', [
+    field({ name: 'name', type: 'string' }),
+  ])
   assert(!withoutPermission.includes('IsPermission'))
 })
 
@@ -131,17 +162,29 @@ Deno.test('rtoTemplate: validator import list is deduped and alphabetically sort
     field({ name: 'c', type: 'boolean' }),
   ])
 
-  assertStringIncludes(output, "import { BaseRTO, IsBoolean, IsString } from '@zanix/validator'")
+  assertStringIncludes(
+    output,
+    "import { BaseRTO, IsBoolean, IsString } from '@zanix/validator'",
+  )
 })
 
 Deno.test('isObjectIdTemplate/isPermissionTemplate: content matches real production files', () => {
   const objectId = isObjectIdTemplate()
-  assertStringIncludes(objectId, "import { OBJECTID_REGEX } from 'utils/constants.ts'")
+  assertStringIncludes(
+    objectId,
+    "import { OBJECTID_REGEX } from 'utils/constants.ts'",
+  )
   assertStringIncludes(objectId, 'Array.isArray(value)')
-  assertStringIncludes(objectId, 'export const IsObjectID = (options?: ValidationOptions) => {')
+  assertStringIncludes(
+    objectId,
+    'export const IsObjectID = (options?: ValidationOptions) => {',
+  )
 
   const permission = isPermissionTemplate()
-  assertStringIncludes(permission, "import { PERMISSION_REGEX } from 'utils/constants.ts'")
+  assertStringIncludes(
+    permission,
+    "import { PERMISSION_REGEX } from 'utils/constants.ts'",
+  )
   assertStringIncludes(
     permission,
     "must be a valid permission identifier in the format 'module:action'",
@@ -149,7 +192,10 @@ Deno.test('isObjectIdTemplate/isPermissionTemplate: content matches real product
 })
 
 Deno.test('OBJECTID_REGEX_CONSTANT/PERMISSION_REGEX_CONSTANT: verbatim declarations', () => {
-  assertEquals(OBJECTID_REGEX_CONSTANT, 'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/')
+  assertEquals(
+    OBJECTID_REGEX_CONSTANT,
+    'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/',
+  )
   assertEquals(
     PERMISSION_REGEX_CONSTANT,
     'export const PERMISSION_REGEX = /^[A-Za-z-]+:[A-Za-z-]+$/',

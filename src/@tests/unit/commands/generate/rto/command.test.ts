@@ -23,7 +23,12 @@ Deno.test('generateRtoAction should throw outside a server/space-server project'
 
   try {
     await assertRejects(
-      () => generateRtoAction.call(new Commander(), { field: ['name:string'] }, 'payment'),
+      () =>
+        generateRtoAction.call(
+          new Commander(),
+          { field: ['name:string'] },
+          'payment',
+        ),
       Error,
       "must be run inside a 'server' or 'space-server' project",
     )
@@ -65,16 +70,28 @@ Deno.test('generateRtoAction writes RTO+IsObjectID.ts, skips IsPermission.ts', a
     assert(rto.includes('export class PaymentMethodRTO'))
     assert(rto.includes('accessor amount!: number'))
 
-    const isObjectId = await Deno.readTextFile(`${rtosFolder}/validations/IsObjectID.ts`)
+    const isObjectId = await Deno.readTextFile(
+      `${rtosFolder}/validations/IsObjectID.ts`,
+    )
     assert(isObjectId.includes('export const IsObjectID'))
 
     await assertRejects(() => Deno.stat(`${rtosFolder}/validations/IsPermission.ts`))
 
-    const constants = await Deno.readTextFile(`${projectFolder}/src/utils/constants.ts`)
-    assertEquals(constants, 'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/\n')
+    const constants = await Deno.readTextFile(
+      `${projectFolder}/src/utils/constants.ts`,
+    )
+    assertEquals(
+      constants,
+      'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/\n',
+    )
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/validator'], ZANIX_DEPENDENCY_VERSIONS['@zanix/validator'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/validator'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/validator'],
+    )
     assertEquals(
       config.imports['@zanix/datamaster'],
       ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
@@ -97,10 +114,14 @@ Deno.test('generateRtoAction writes IsPermission.ts+constant when needed', async
     )
 
     const validationsFolder = `${projectFolder}/src/server/handlers/rtos/validations`
-    const isPermission = await Deno.readTextFile(`${validationsFolder}/IsPermission.ts`)
+    const isPermission = await Deno.readTextFile(
+      `${validationsFolder}/IsPermission.ts`,
+    )
     assert(isPermission.includes('export const IsPermission'))
 
-    const constants = await Deno.readTextFile(`${projectFolder}/src/utils/constants.ts`)
+    const constants = await Deno.readTextFile(
+      `${projectFolder}/src/utils/constants.ts`,
+    )
     assert(constants.includes('OBJECTID_REGEX'))
     assert(constants.includes('PERMISSION_REGEX'))
   } finally {
@@ -120,9 +141,15 @@ Deno.test('generateRtoAction appends OBJECTID_REGEX to an existing constants.ts'
       "export const SOMETHING_ELSE = 'x'\n",
     )
 
-    await generateRtoAction.call(new Commander(), { field: ['id:objectId'] }, 'Thing')
+    await generateRtoAction.call(
+      new Commander(),
+      { field: ['id:objectId'] },
+      'Thing',
+    )
 
-    const constants = await Deno.readTextFile(`${projectFolder}/src/utils/constants.ts`)
+    const constants = await Deno.readTextFile(
+      `${projectFolder}/src/utils/constants.ts`,
+    )
     assertEquals(
       constants,
       "export const SOMETHING_ELSE = 'x'\nexport const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/\n",
@@ -138,8 +165,16 @@ Deno.test('generateRtoAction should be idempotent when run twice', async () => {
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateRtoAction.call(new Commander(), { field: ['name:string'] }, 'invoice')
-    await generateRtoAction.call(new Commander(), { field: ['name:string'] }, 'invoice')
+    await generateRtoAction.call(
+      new Commander(),
+      { field: ['name:string'] },
+      'invoice',
+    )
+    await generateRtoAction.call(
+      new Commander(),
+      { field: ['name:string'] },
+      'invoice',
+    )
 
     const rto = await Deno.readTextFile(
       `${projectFolder}/src/server/handlers/rtos/invoice.rto.ts`,
@@ -161,7 +196,11 @@ Deno.test('generateRtoAction should never overwrite an existing RTO file', async
     await Deno.mkdir(rtosFolder, { recursive: true })
     await Deno.writeTextFile(rtoPath, '// customized by hand\n')
 
-    await generateRtoAction.call(new Commander(), { field: ['name:string'] }, 'invoice')
+    await generateRtoAction.call(
+      new Commander(),
+      { field: ['name:string'] },
+      'invoice',
+    )
 
     assertEquals(await Deno.readTextFile(rtoPath), '// customized by hand\n')
   } finally {
@@ -171,7 +210,12 @@ Deno.test('generateRtoAction should never overwrite an existing RTO file', async
 })
 
 Deno.test('planRto without a permission field returns rto.ts+IsObjectID.ts only', () => {
-  const { files } = planRto('example', 'Example', [], '/root/src/server/handlers/rtos')
+  const { files } = planRto(
+    'example',
+    'Example',
+    [],
+    '/root/src/server/handlers/rtos',
+  )
 
   assertEquals(files.map((f) => f.NAME), ['example.rto.ts', 'IsObjectID.ts'])
 })
@@ -180,11 +224,20 @@ Deno.test('planRto with a permission field also returns IsPermission.ts', () => 
   const { files } = planRto(
     'role',
     'Role',
-    [{ name: 'grantedBy', type: 'permission', optional: false, isArray: false }],
+    [{
+      name: 'grantedBy',
+      type: 'permission',
+      optional: false,
+      isArray: false,
+    }],
     '/root/src/server/handlers/rtos',
   )
 
-  assertEquals(files.map((f) => f.NAME), ['role.rto.ts', 'IsObjectID.ts', 'IsPermission.ts'])
+  assertEquals(files.map((f) => f.NAME), [
+    'role.rto.ts',
+    'IsObjectID.ts',
+    'IsPermission.ts',
+  ])
 })
 
 Deno.test(
@@ -193,10 +246,17 @@ Deno.test(
     const projectFolder = await makeProject('server')
 
     try {
-      await planRto('example', 'Example', [], `${projectFolder}/src/server/handlers/rtos`)
+      await planRto(
+        'example',
+        'Example',
+        [],
+        `${projectFolder}/src/server/handlers/rtos`,
+      )
         .ensureConstants(projectFolder)
 
-      const constants = await Deno.readTextFile(`${projectFolder}/src/utils/constants.ts`)
+      const constants = await Deno.readTextFile(
+        `${projectFolder}/src/utils/constants.ts`,
+      )
       assert(constants.includes('OBJECTID_REGEX'))
       assert(!constants.includes('PERMISSION_REGEX'))
     } finally {
@@ -208,10 +268,15 @@ Deno.test(
 Deno.test(
   "getServerSrcTree's rto leaf uses planRto, so IsObjectID.ts is never left dangling",
   async () => {
-    const { getServerSrcTree } = await import('commands/new/lib/tree/projects/server.ts')
+    const { getServerSrcTree } = await import(
+      'commands/new/lib/tree/projects/server.ts'
+    )
     const tree = getServerSrcTree(`${temporaryFolder}/${crypto.randomUUID()}`)
     const rtoFiles = tree.subfolders.handlers.subfolders.rtos.templates.base
 
-    assertEquals(rtoFiles.map((f) => f.NAME), ['example.rto.ts', 'IsObjectID.ts'])
+    assertEquals(rtoFiles.map((f) => f.NAME), [
+      'example.rto.ts',
+      'IsObjectID.ts',
+    ])
   },
 )

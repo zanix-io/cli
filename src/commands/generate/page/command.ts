@@ -9,6 +9,7 @@ import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { pageTemplate } from 'commands/generate/page/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface PagePlanFile {
   PATH: string
   NAME: string
@@ -48,14 +49,19 @@ async function generatePageAction(
   const pascalName = pascalNameFromRoutePath(routePath)
 
   const { files } = planPage(pascalName, pageFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: pageFolder, templates: { base: files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: pageFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/space')
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Page file created successfully in 'routes/${routePath}/page.tsx'.`)
+  logger.info(
+    `Page file created successfully in 'routes/${routePath}/page.tsx'.`,
+  )
 }
 
 export default generatePageAction

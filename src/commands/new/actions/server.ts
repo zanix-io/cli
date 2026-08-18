@@ -8,6 +8,14 @@ import { ensureServerScaffoldSideEffects } from 'commands/new/lib/tree/projects/
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 
+/**
+ * `zanix new server`'s real orchestration: resolves `--template` against `getZanixPaths` (an
+ * unknown template routes through `this.throw`, before anything is written), writes the tree,
+ * then `ensureServerScaffoldSideEffects` (every recipe leaf's own side effects — e.g. `rto`'s
+ * `IsObjectID.ts`/`OBJECTID_REGEX` constant), saves `deno.json`'s Zanix config, then — both
+ * independently opt-in, off by default — `--verify`s the generated project and/or `--prepare`s it
+ * (`zanix prepare <name> --project-type=server -g -e`, unless `--no-prepare` was passed).
+ */
 async function newServerAction(
   this: Commander,
   options: { template: ZanixTemplates; prepare?: boolean; verify?: boolean },
@@ -32,7 +40,12 @@ async function newServerAction(
   if (verify) await verifyGeneratedProject(structure.FOLDER)
 
   if (prepare) {
-    await this.runCommand('prepare', [serverName, `--project-type=${projectType}`, '-g', '-e'])
+    await this.runCommand('prepare', [
+      serverName,
+      `--project-type=${projectType}`,
+      '-g',
+      '-e',
+    ])
   }
 
   logger.info(

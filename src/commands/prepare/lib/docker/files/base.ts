@@ -27,7 +27,10 @@ export async function createDockerBaseFile(
 ): Promise<boolean> {
   const { baseRoot = getRootDir(), baseFile, filename } = options
   try {
-    const fileContent = await readFileFromCurrentUrl(import.meta.url, join('base', baseFile))
+    const fileContent = await readFileFromCurrentUrl(
+      import.meta.url,
+      join('base', baseFile),
+    )
 
     if (baseRoot) {
       await Deno.mkdir(baseRoot, { recursive: true })
@@ -36,7 +39,10 @@ export async function createDockerBaseFile(
     const fileDir = join(baseRoot, filename)
 
     if (fileExists(fileDir)) {
-      logger.warn(`'${filename}' file already exists, skipping creation.`, 'noSave')
+      logger.warn(
+        `'${filename}' file already exists, skipping creation.`,
+        'noSave',
+      )
 
       return false
     }
@@ -47,7 +53,11 @@ export async function createDockerBaseFile(
 
     return true
   } catch (e) {
-    logger.error(`'${filename}' file creation error in '${baseRoot}'`, e, 'noSave')
+    logger.error(
+      `'${filename}' file creation error in '${baseRoot}'`,
+      e,
+      'noSave',
+    )
 
     return false
   }

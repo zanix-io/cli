@@ -38,7 +38,11 @@ Deno.test('Github create pre-commit hook validation', async () => {
 
 Deno.test('Github create pre-commit hook skips creation when the file already exists', async () => {
   await gitInitialization(defaultFolder)
-  const hookOptions = { baseFolder: defaultFolder, baseRoot: '', createLink: false }
+  const hookOptions = {
+    baseFolder: defaultFolder,
+    baseRoot: '',
+    createLink: false,
+  }
 
   await createPreCommitHook(hookOptions)
   const response = await createPreCommitHook(hookOptions)
@@ -198,10 +202,11 @@ Deno.test('Github prepare validation with pre commit framework', async () => {
   assert(fileExists(baseFolder + '/pre-commit'))
   assert(fileExists(baseFolder + '/pre-push'))
   assert(fileExists(defaultFolder + '/publish.yml'))
-  await Deno.remove(defaultFolder, { recursive: true })
   await new Deno.Command('pre-commit', {
     args: ['uninstall'],
+    cwd: baseFolder,
   }).output()
+  await Deno.remove(defaultFolder, { recursive: true })
 })
 
 Deno.test('Github prepare validation with usePrecommit as a boolean flag', async () => {
@@ -225,14 +230,20 @@ Deno.test('Github prepare validation with usePrecommit as a boolean flag', async
     assert(response && response.length && !response.includes(false))
     assert(fileExists(baseFolder + '/.pre-commit-config.yaml'))
   } finally {
+    await new Deno.Command('pre-commit', {
+      args: ['uninstall'],
+      cwd: baseFolder,
+    }).output()
     cwdMock.restore()
     await Deno.remove(defaultFolder, { recursive: true })
-    await new Deno.Command('pre-commit', { args: ['uninstall'] }).output()
   }
 })
 
 Deno.test('Git init should be executed', async () => {
-  assertEquals(await gitInitialization(defaultFolder), defaultFolder + '/.git/hooks')
+  assertEquals(
+    await gitInitialization(defaultFolder),
+    defaultFolder + '/.git/hooks',
+  )
   assert(folderExists(defaultFolder + '/.git'))
 
   await Deno.remove(defaultFolder, { recursive: true })

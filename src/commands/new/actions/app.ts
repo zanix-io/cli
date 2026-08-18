@@ -7,6 +7,13 @@ import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 
+/**
+ * `zanix new app`'s real orchestration: resolves `--template` against `getZanixPaths` (an
+ * unknown template routes through `this.throw`, before anything is written), writes the tree,
+ * saves `deno.json`'s Zanix config, then — both independently opt-in, off by default —
+ * `--verify`s the generated project and/or `--prepare`s it (`zanix prepare <name>
+ * --project-type=app -g -e`, unless `--no-prepare` was passed).
+ */
 async function newAppAction(
   this: Commander,
   options: { template: ZanixTemplates; prepare?: boolean; verify?: boolean },
@@ -30,7 +37,12 @@ async function newAppAction(
   if (verify) await verifyGeneratedProject(structure.FOLDER)
 
   if (prepare) {
-    await this.runCommand('prepare', [appName, `--project-type=${projectType}`, '-g', '-e'])
+    await this.runCommand('prepare', [
+      appName,
+      `--project-type=${projectType}`,
+      '-g',
+      '-e',
+    ])
   }
 
   logger.info(

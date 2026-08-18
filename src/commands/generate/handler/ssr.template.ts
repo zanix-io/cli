@@ -15,7 +15,10 @@
  */
 
 /** `handlers/<name>.ssr.ts` */
-export const ssrHandlerTemplate = (pascalName: string, kebabName: string): string =>
+export const ssrHandlerTemplate = (
+  pascalName: string,
+  kebabName: string,
+): string =>
   `import { Get, SsrController, type HandlerContext, ZanixSsrController } from '@zanix/server'
 
 /**
@@ -28,7 +31,9 @@ export const ssrHandlerTemplate = (pascalName: string, kebabName: string): strin
 export class ${pascalName}Controller extends ZanixSsrController {
   @Get()
   public list(_ctx: HandlerContext) {
-    // Render and return a response here, e.g.: return renderToResponse(<Page />)
+    // Render and return a response here, e.g.:
+    //   import { renderToResponse } from '@zanix/space/react'  // or '@zanix/space/preact'
+    //   return renderToResponse(<Page />)
     return []
   }
 }

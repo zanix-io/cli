@@ -6,7 +6,15 @@ import { GITHUB_WORKFLOW_FOLDER } from 'commands/prepare/lib/constants.ts'
 import logger from '@zanix/logger'
 import { join } from '@std/path'
 
-/** Base function to create a YAML workflow file */
+/**
+ * Base function to create a YAML workflow file.
+ *
+ * @param options - Workflow creation options.
+ *   - `filename`: Which workflow template to use. Falsy skips creation entirely (with a warning)
+ *     — not every project type has one (only `'library'`/`'app'` produce a publish workflow).
+ *   - `baseFolder`: Where the `.yml` file is written. Defaults to `GITHUB_WORKFLOW_FOLDER`.
+ *   - `baseRoot`: The project root. Defaults to `getRootDir()`.
+ */
 export async function createWorkflow(
   options: WorkflowOptions & {
     filename: WorkFlowTypes
@@ -14,18 +22,28 @@ export async function createWorkflow(
   replaceContentCallback: (content: string) => string = (content) => content,
 ) {
   if (!options.filename) {
-    logger.warn('No workflow YAML file found for this project, skipping creation.', 'noSave')
+    logger.warn(
+      'No workflow YAML file found for this project, skipping creation.',
+      'noSave',
+    )
     return false
   }
 
-  const { baseFolder = GITHUB_WORKFLOW_FOLDER, baseRoot = getRootDir(), filename: yml } = options
+  const {
+    baseFolder = GITHUB_WORKFLOW_FOLDER,
+    baseRoot = getRootDir(),
+    filename: yml,
+  } = options
 
   const mainYamls = capitalize(yml)
   const dir = join(baseRoot, baseFolder)
 
   try {
     // Create content for the pre-commit hook
-    const hookContent = await readFileFromCurrentUrl(import.meta.url, `./yamls/${yml}.base.yml`)
+    const hookContent = await readFileFromCurrentUrl(
+      import.meta.url,
+      `./yamls/${yml}.base.yml`,
+    )
 
     // Create the .github/workflow directory if it doesn't exist
     await Deno.mkdir(dir, { recursive: true })
@@ -34,7 +52,10 @@ export async function createWorkflow(
     const baseFileDir = `${dir}/${yml}.yml`
 
     if (fileExists(baseFileDir)) {
-      logger.warn(`'${mainYamls}' YAML already exists, skipping creation.`, 'noSave')
+      logger.warn(
+        `'${mainYamls}' YAML already exists, skipping creation.`,
+        'noSave',
+      )
       return false
     }
 

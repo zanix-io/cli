@@ -21,7 +21,7 @@ import { Subscriber, ZanixSubscriber } from '@zanix/asyncmq'
 
 @Subscriber('${queue}')
 export class ${pascalName}Subscriber extends ZanixSubscriber {
-  protected onmessage(message: unknown, info: MessageInfo) {
+  protected override onmessage(message: unknown, info: MessageInfo) {
     // Handle the incoming message here.
   }
 }

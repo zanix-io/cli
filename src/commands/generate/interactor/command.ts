@@ -4,11 +4,12 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { interactorTemplate } from 'commands/generate/interactor/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface InteractorPlanFile {
   PATH: string
   NAME: string
@@ -49,14 +50,19 @@ async function generateInteractorAction(
   const interactorsFolder = `${projectRoot}/src/server/interactors`
 
   const { files } = planInteractor(kebabName, pascalName, interactorsFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: interactorsFolder, templates: { base: files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: interactorsFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/server')
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Interactor file created successfully in 'interactors/${kebabName}.interactor.ts'.`)
+  logger.info(
+    `Interactor file created successfully in 'interactors/${kebabName}.interactor.ts'.`,
+  )
 }
 
 export default generateInteractorAction

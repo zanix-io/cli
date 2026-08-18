@@ -4,11 +4,12 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase } from 'utils/casing.ts'
+import { toKebabCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { jobTemplate } from 'commands/generate/job/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface JobPlanFile {
   PATH: string
   NAME: string
@@ -20,7 +21,11 @@ export interface JobPlan {
 }
 
 /** Pure planning for a job: given a name + optional cron expression + the target `jobs/` folder. */
-export function planJob(kebabName: string, cron: string | undefined, jobsFolder: string): JobPlan {
+export function planJob(
+  kebabName: string,
+  cron: string | undefined,
+  jobsFolder: string,
+): JobPlan {
   return {
     files: [{
       PATH: `${jobsFolder}/${kebabName}.defs.ts`,
@@ -45,7 +50,10 @@ async function generateJobAction(
   const jobsFolder = `${projectRoot}/src/server/jobs`
 
   const { files } = planJob(kebabName, cron, jobsFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: jobsFolder, templates: { base: files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: jobsFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/asyncmq')

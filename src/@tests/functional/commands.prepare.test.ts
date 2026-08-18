@@ -12,7 +12,16 @@ Deno.test('prepare --docker creates Dockerfile + .dockerignore for server', asyn
   await Deno.mkdir(project, { recursive: true })
 
   await new Deno.Command('deno', {
-    args: ['run', '-A', 'mod.ts', 'prepare', '--docker', '-p', 'server', project],
+    args: [
+      'run',
+      '-A',
+      'mod.ts',
+      'prepare',
+      '--docker',
+      '-p',
+      'server',
+      project,
+    ],
   }).output()
 
   assert(fileExists(project + '/Dockerfile'))
@@ -29,7 +38,16 @@ Deno.test('prepare --docker creates a space-aware Dockerfile for space-server', 
   await Deno.mkdir(project, { recursive: true })
 
   await new Deno.Command('deno', {
-    args: ['run', '-A', 'mod.ts', 'prepare', '--docker', '-p', 'space-server', project],
+    args: [
+      'run',
+      '-A',
+      'mod.ts',
+      'prepare',
+      '--docker',
+      '-p',
+      'space-server',
+      project,
+    ],
   }).output()
 
   const dockerfile = await Deno.readTextFile(project + '/Dockerfile')
@@ -44,7 +62,16 @@ Deno.test('prepare --docker skips Dockerfile but writes .dockerignore for librar
   await Deno.mkdir(project, { recursive: true })
 
   await new Deno.Command('deno', {
-    args: ['run', '-A', 'mod.ts', 'prepare', '--docker', '-p', 'library', project],
+    args: [
+      'run',
+      '-A',
+      'mod.ts',
+      'prepare',
+      '--docker',
+      '-p',
+      'library',
+      project,
+    ],
   }).output()
 
   assertFalse(fileExists(project + '/Dockerfile'))

@@ -14,12 +14,18 @@ import { join } from '@std/path'
  *   - `filename`: The file name for the creation
  */
 export async function createBaseFile(
-  options: Omit<BaseGithubHelperOptions, 'baseFolder'> & { baseFile: string; filename: string },
+  options: Omit<BaseGithubHelperOptions, 'baseFolder'> & {
+    baseFile: string
+    filename: string
+  },
 ): Promise<boolean> {
   const { baseRoot = getRootDir(), baseFile, filename } = options
   try {
     // get content for the base file
-    const fileContent = await readFileFromCurrentUrl(import.meta.url, join('base', baseFile))
+    const fileContent = await readFileFromCurrentUrl(
+      import.meta.url,
+      join('base', baseFile),
+    )
 
     // Create the custom base directory if it doesn't exist
     if (baseRoot) {
@@ -29,7 +35,10 @@ export async function createBaseFile(
     const fileDir = join(baseRoot, filename)
 
     if (fileExists(fileDir)) {
-      logger.warn(`'${filename}' file already exists, skipping creation.`, 'noSave')
+      logger.warn(
+        `'${filename}' file already exists, skipping creation.`,
+        'noSave',
+      )
 
       return false
     }
@@ -41,7 +50,11 @@ export async function createBaseFile(
 
     return true
   } catch (e) {
-    logger.error(`'${filename}' file creation error in '${baseRoot}'`, e, 'noSave')
+    logger.error(
+      `'${filename}' file creation error in '${baseRoot}'`,
+      e,
+      'noSave',
+    )
 
     return false
   }

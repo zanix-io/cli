@@ -15,7 +15,10 @@ Deno.test('assertKnownPreset throws a clear, listing error for an unknown preset
     Error,
     "Unknown template 'does-not-exist'",
   )
-  assertEquals(error.message, "Unknown template 'does-not-exist'. Supported templates: base.")
+  assertEquals(
+    error.message,
+    "Unknown template 'does-not-exist'. Supported templates: base.",
+  )
 })
 
 Deno.test('assertKnownPreset honors a custom knownPresets list, not the global default', () => {

@@ -10,8 +10,14 @@ Deno.test('assembleAppScaffold appends mod.ts without wiping commons.ts content'
   const paths = getZanixPaths('app', 'app-recipe-append-test')
 
   const names = paths.templates.base.map((f) => f.NAME)
-  assert(names.includes('README.md'), 'commons.ts content must survive assembleAppScaffold')
-  assert(names.includes('LICENSE'), 'commons.ts content must survive assembleAppScaffold')
+  assert(
+    names.includes('README.md'),
+    'commons.ts content must survive assembleAppScaffold',
+  )
+  assert(
+    names.includes('LICENSE'),
+    'commons.ts content must survive assembleAppScaffold',
+  )
   assert(names.includes('mod.ts'), "app's own mod.ts must be appended")
 })
 

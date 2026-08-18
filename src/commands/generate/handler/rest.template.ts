@@ -15,7 +15,10 @@
  */
 
 /** `handlers/<name>.handler.ts` */
-export const handlerTemplate = (pascalName: string, kebabName: string): string =>
+export const handlerTemplate = (
+  pascalName: string,
+  kebabName: string,
+): string =>
   `import { Controller, Get, type HandlerContext, ZanixController } from '@zanix/server'
 
 /**

@@ -5,7 +5,8 @@ const temporaryFolder = getTemporaryFolder(import.meta.url)
 
 Deno.test('generate seeder should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/seeder-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'seeder', 'PaymentMethod', project],
   }).output()
@@ -36,7 +37,8 @@ Deno.test('generate seeder should write real file content into a server project'
 
 Deno.test('generate seeder should fail clearly outside a server/space-server project', async () => {
   const project = `${temporaryFolder}/library-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'seeder', 'payment', project],
@@ -50,7 +52,8 @@ Deno.test('generate seeder should fail clearly outside a server/space-server pro
 
 Deno.test('generate repository should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/repository-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'repository', 'PaymentMethod', project],
   }).output()
@@ -62,21 +65,29 @@ Deno.test('generate repository should write real file content into a server proj
 
   const provider = await Deno.readTextFile(`${repoFolder}/entity.provider.ts`)
   assert(provider.includes('export class PaymentMethodRepository'))
-  assert(provider.includes("import type { PaymentMethodAttrs } from './model.defs.ts'"))
+  assert(
+    provider.includes(
+      "import type { PaymentMethodAttrs } from './model.defs.ts'",
+    ),
+  )
 
   // Idempotency: running twice must not throw and must not overwrite the generated content.
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'repository', 'PaymentMethod', project],
   }).output()
   assertEquals(code, 0)
-  assertEquals(await Deno.readTextFile(`${repoFolder}/entity.provider.ts`), provider)
+  assertEquals(
+    await Deno.readTextFile(`${repoFolder}/entity.provider.ts`),
+    provider,
+  )
 
   await Deno.remove(project, { recursive: true })
 })
 
 Deno.test('generate repository should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-repository`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'repository', 'payment', project],
@@ -90,7 +101,8 @@ Deno.test('generate repository should fail clearly outside a server project', as
 
 Deno.test('generate handler should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/handler-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'handler', 'UserSettings', project],
   }).output()
@@ -115,7 +127,8 @@ Deno.test('generate handler should write real file content into a server project
 
 Deno.test('generate handler should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-handler`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'handler', 'user', project],
@@ -129,9 +142,18 @@ Deno.test('generate handler should fail clearly outside a server project', async
 
 Deno.test('generate handler --type graphql writes a resolver into a server project', async () => {
   const project = `${temporaryFolder}/handler-graphql-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
-    args: ['run', 'generate', 'handler', 'Products', '--type', 'graphql', project],
+    args: [
+      'run',
+      'generate',
+      'handler',
+      'Products',
+      '--type',
+      'graphql',
+      project,
+    ],
   }).output()
 
   const content = await Deno.readTextFile(
@@ -145,7 +167,8 @@ Deno.test('generate handler --type graphql writes a resolver into a server proje
 
 Deno.test('generate handler should fail clearly for an unsupported --type', async () => {
   const project = `${temporaryFolder}/handler-bad-type-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'handler', 'products', '--type', 'grpc', project],
@@ -159,7 +182,8 @@ Deno.test('generate handler should fail clearly for an unsupported --type', asyn
 
 Deno.test('generate rto writes real, correctly-typed content in a server project', async () => {
   const project = `${temporaryFolder}/rto-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: [
       'run',
@@ -188,7 +212,11 @@ Deno.test('generate rto writes real, correctly-typed content in a server project
   assert(fileExists(`${project}/src/utils/constants.ts`))
 
   const content = await Deno.readTextFile(rtoPath)
-  assert(content.includes('export class SearchPaymentMethodRTO extends SearchPaginationRTO'))
+  assert(
+    content.includes(
+      'export class SearchPaymentMethodRTO extends SearchPaginationRTO',
+    ),
+  )
   assert(content.includes('export class GetPaymentMethodRTO extends BaseRTO'))
   assert(content.includes('export class PaymentMethodRTO extends BaseRTO'))
   assert(content.includes('export class EditPaymentMethodRTO extends BaseRTO'))
@@ -198,13 +226,23 @@ Deno.test('generate rto writes real, correctly-typed content in a server project
   assert(content.includes('accessor tags: (string)[] | undefined'))
   assert(content.includes("@IsEnum(['ACTIVE', 'INACTIVE']"))
 
-  const constants = await Deno.readTextFile(`${project}/src/utils/constants.ts`)
+  const constants = await Deno.readTextFile(
+    `${project}/src/utils/constants.ts`,
+  )
   assert(constants.includes('OBJECTID_REGEX'))
   assert(!constants.includes('PERMISSION_REGEX'))
 
   // Idempotency: running twice must not throw and must not overwrite the generated content.
   const { code } = await new Deno.Command('deno', {
-    args: ['run', 'generate', 'rto', 'PaymentMethod', '--field', 'amount:number', project],
+    args: [
+      'run',
+      'generate',
+      'rto',
+      'PaymentMethod',
+      '--field',
+      'amount:number',
+      project,
+    ],
   }).output()
   assertEquals(code, 0)
   assertEquals(await Deno.readTextFile(rtoPath), content)
@@ -214,7 +252,8 @@ Deno.test('generate rto writes real, correctly-typed content in a server project
 
 Deno.test('generate rto should generate IsPermission.ts only when a field needs it', async () => {
   const project = `${temporaryFolder}/rto-permission-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: [
       'run',
@@ -230,7 +269,9 @@ Deno.test('generate rto should generate IsPermission.ts only when a field needs 
   const validationsFolder = `${project}/src/server/handlers/rtos/validations`
   assert(fileExists(`${validationsFolder}/IsPermission.ts`))
 
-  const constants = await Deno.readTextFile(`${project}/src/utils/constants.ts`)
+  const constants = await Deno.readTextFile(
+    `${project}/src/utils/constants.ts`,
+  )
   assert(constants.includes('PERMISSION_REGEX'))
 
   await Deno.remove(project, { recursive: true })
@@ -238,10 +279,19 @@ Deno.test('generate rto should generate IsPermission.ts only when a field needs 
 
 Deno.test('generate rto should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-rto`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
-    args: ['run', 'generate', 'rto', 'payment', '--field', 'name:string', project],
+    args: [
+      'run',
+      'generate',
+      'rto',
+      'payment',
+      '--field',
+      'name:string',
+      project,
+    ],
   }).output()
 
   assertEquals(code, 1)
@@ -252,7 +302,8 @@ Deno.test('generate rto should fail clearly outside a server project', async () 
 
 Deno.test('generate rto should fail clearly when no --field is given', async () => {
   const project = `${temporaryFolder}/rto-no-fields-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'rto', 'payment', project],
@@ -266,7 +317,8 @@ Deno.test('generate rto should fail clearly when no --field is given', async () 
 
 Deno.test('generate connector should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/connector-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'connector', 'PaymentGateway', project],
   }).output()
@@ -290,9 +342,18 @@ Deno.test('generate connector should write real file content into a server proje
 
 Deno.test('generate connector --slot database writes a database connector', async () => {
   const project = `${temporaryFolder}/connector-database-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
-    args: ['run', 'generate', 'connector', 'MainDb', '--slot', 'database', project],
+    args: [
+      'run',
+      'generate',
+      'connector',
+      'MainDb',
+      '--slot',
+      'database',
+      project,
+    ],
   }).output()
 
   const content = await Deno.readTextFile(
@@ -307,9 +368,18 @@ Deno.test('generate connector --slot database writes a database connector', asyn
 
 Deno.test('generate connector --slot cache:redis writes a cache connector', async () => {
   const project = `${temporaryFolder}/connector-cache-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
-    args: ['run', 'generate', 'connector', 'RedisCache', '--slot', 'cache:redis', project],
+    args: [
+      'run',
+      'generate',
+      'connector',
+      'RedisCache',
+      '--slot',
+      'cache:redis',
+      project,
+    ],
   }).output()
 
   const content = await Deno.readTextFile(
@@ -324,10 +394,19 @@ Deno.test('generate connector --slot cache:redis writes a cache connector', asyn
 
 Deno.test('generate connector should fail clearly for an unsupported --slot', async () => {
   const project = `${temporaryFolder}/connector-bad-slot-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
-    args: ['run', 'generate', 'connector', 'payment', '--slot', 'asyncmq', project],
+    args: [
+      'run',
+      'generate',
+      'connector',
+      'payment',
+      '--slot',
+      'asyncmq',
+      project,
+    ],
   }).output()
 
   assertEquals(code, 1)
@@ -338,7 +417,8 @@ Deno.test('generate connector should fail clearly for an unsupported --slot', as
 
 Deno.test('generate connector should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-connector`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'connector', 'payment', project],
@@ -352,7 +432,8 @@ Deno.test('generate connector should fail clearly outside a server project', asy
 
 Deno.test('generate interactor should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/interactor-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'interactor', 'PaymentMethod', project],
   }).output()
@@ -376,7 +457,8 @@ Deno.test('generate interactor should write real file content into a server proj
 
 Deno.test('generate interactor should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-interactor`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'interactor', 'payment', project],
@@ -390,7 +472,8 @@ Deno.test('generate interactor should fail clearly outside a server project', as
 
 Deno.test('generate job without --cron writes a queue-consumed registerJob', async () => {
   const project = `${temporaryFolder}/job-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'job', 'PaymentSync', project],
   }).output()
@@ -414,7 +497,8 @@ Deno.test('generate job without --cron writes a queue-consumed registerJob', asy
 
 Deno.test('generate job with --cron writes a schedule-driven registerCronJob', async () => {
   const project = `${temporaryFolder}/job-cron-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: [
       'run',
@@ -427,7 +511,9 @@ Deno.test('generate job with --cron writes a schedule-driven registerCronJob', a
     ],
   }).output()
 
-  const content = await Deno.readTextFile(`${project}/src/server/jobs/payment-sync.defs.ts`)
+  const content = await Deno.readTextFile(
+    `${project}/src/server/jobs/payment-sync.defs.ts`,
+  )
   assert(content.includes("import { registerCronJob } from '@zanix/asyncmq'"))
   assert(content.includes("schedule: '0 */1 * * * *'"))
 
@@ -436,7 +522,8 @@ Deno.test('generate job with --cron writes a schedule-driven registerCronJob', a
 
 Deno.test('generate job should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-job`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'job', 'payment-sync', project],
@@ -450,7 +537,8 @@ Deno.test('generate job should fail clearly outside a server project', async () 
 
 Deno.test('generate dlqprocessor writes the processor + the shared DLQ model file', async () => {
   const project = `${temporaryFolder}/dlqprocessor-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: [
       'run',
@@ -471,11 +559,17 @@ Deno.test('generate dlqprocessor writes the processor + the shared DLQ model fil
   assert(fileExists(modelPath))
 
   const processor = await Deno.readTextFile(processorPath)
-  assert(processor.includes("import { registerDLQProcessor } from '@zanix/asyncmq/dlq'"))
+  assert(
+    processor.includes(
+      "import { registerDLQProcessor } from '@zanix/asyncmq/dlq'",
+    ),
+  )
   assert(processor.includes("registerDLQProcessor('payment.process'"))
 
   const model = await Deno.readTextFile(modelPath)
-  assert(model.includes("import { registerDLQModel } from '@zanix/datamaster'"))
+  assert(
+    model.includes("import { registerDLQModel } from '@zanix/datamaster'"),
+  )
   assert(model.includes('registerDLQModel()'))
 
   // Idempotency: a second processor must not touch the already-written shared model file.
@@ -499,7 +593,8 @@ Deno.test('generate dlqprocessor writes the processor + the shared DLQ model fil
 
 Deno.test('generate dlqprocessor should fail clearly when --process-type is missing', async () => {
   const project = `${temporaryFolder}/dlqprocessor-missing-type`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: [
@@ -521,7 +616,8 @@ Deno.test('generate dlqprocessor should fail clearly when --process-type is miss
 
 Deno.test('generate dlqprocessor should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-dlqprocessor`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: [
@@ -545,7 +641,8 @@ Deno.test('generate dlqprocessor should fail clearly outside a server project', 
 
 Deno.test('generate subscriber should write real file content into a server project', async () => {
   const project = `${temporaryFolder}/subscriber-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
     args: ['run', 'generate', 'subscriber', 'InventoryUpdates', project],
   }).output()
@@ -569,9 +666,18 @@ Deno.test('generate subscriber should write real file content into a server proj
 
 Deno.test('generate subscriber with --queue uses the given queue route', async () => {
   const project = `${temporaryFolder}/subscriber-queue-project`
-  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'server', project] })
+    .output()
   await new Deno.Command('deno', {
-    args: ['run', 'generate', 'subscriber', 'Orders', '--queue', 'custom-orders-queue', project],
+    args: [
+      'run',
+      'generate',
+      'subscriber',
+      'Orders',
+      '--queue',
+      'custom-orders-queue',
+      project,
+    ],
   }).output()
 
   const content = await Deno.readTextFile(
@@ -584,7 +690,8 @@ Deno.test('generate subscriber with --queue uses the given queue route', async (
 
 Deno.test('generate subscriber should fail clearly outside a server project', async () => {
   const project = `${temporaryFolder}/library-project-subscriber`
-  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] }).output()
+  await new Deno.Command('deno', { args: ['run', 'new', 'library', project] })
+    .output()
 
   const { code } = await new Deno.Command('deno', {
     args: ['run', 'generate', 'subscriber', 'orders', project],

@@ -33,6 +33,15 @@ export async function ensureConstant(
   await Deno.writeTextFile(filePath, `${content}${separator}${declaration}\n`)
 }
 
+/**
+ * Recursively materializes a `ZanixFolderGenericTree` node (and every one of its `subfolders`,
+ * depth-first) onto disk — creating folders as needed and writing each `template`-selected file's
+ * content. Whole-file "never overwrite" guard: a file whose `PATH` already exists on disk is
+ * silently skipped (`fileExists(filePath)` check below), never regenerated — this is what makes
+ * every `zanix generate`/`zanix new` command safe to re-run without clobbering hand-edited
+ * content. Contrast with `ensureConstant` above, which targets a single constant inside a file
+ * that may already have unrelated content, rather than an entire file.
+ */
 export async function createFilesAndFolders(
   obj: ZanixFolderGenericTree,
   template: 'base',

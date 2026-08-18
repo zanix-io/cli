@@ -1,4 +1,4 @@
-import { toPascalCase } from 'utils/casing.ts'
+import { toPascalCase } from '@zanix/helpers'
 
 /**
  * Derives a reasonable PascalCase class-name prefix from a `@zanix/space` route path's own leaf

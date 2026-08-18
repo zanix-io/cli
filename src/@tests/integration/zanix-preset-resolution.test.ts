@@ -8,17 +8,30 @@ import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
  * `new` command exposes, including `library`/`app`, which have no `ScaffoldRecipeRegistry` of their
  * own and rely entirely on `assertKnownPreset`'s upfront check in `getZnxFolderTree`.
  */
-const PROJECT_TYPES = ['server', 'space', 'space-server', 'library', 'app'] as const
+const PROJECT_TYPES = [
+  'server',
+  'space',
+  'space-server',
+  'library',
+  'app',
+] as const
 
 interface FileDescriptor {
   relPath: string
   name: string
 }
 
-// deno-lint-ignore no-explicit-any
-function collectFiles(node: any, rootPrefix: string, acc: FileDescriptor[] = []): FileDescriptor[] {
+function collectFiles(
+  // deno-lint-ignore no-explicit-any
+  node: any,
+  rootPrefix: string,
+  acc: FileDescriptor[] = [],
+): FileDescriptor[] {
   for (const file of node?.templates?.base ?? []) {
-    acc.push({ relPath: String(file.PATH).replace(rootPrefix, ''), name: file.NAME })
+    acc.push({
+      relPath: String(file.PATH).replace(rootPrefix, ''),
+      name: file.NAME,
+    })
   }
   for (const sub of Object.values(node?.subfolders ?? {})) {
     collectFiles(sub, rootPrefix, acc)
@@ -40,10 +53,17 @@ for (const type of PROJECT_TYPES) {
       const implicitTree = getZanixPaths(type, implicitRoot)
       const explicitTree = getZanixPaths(type, explicitRoot, 'base')
 
-      const implicitFiles = sortedFiles(collectFiles(implicitTree, implicitRoot))
-      const explicitFiles = sortedFiles(collectFiles(explicitTree, explicitRoot))
+      const implicitFiles = sortedFiles(
+        collectFiles(implicitTree, implicitRoot),
+      )
+      const explicitFiles = sortedFiles(
+        collectFiles(explicitTree, explicitRoot),
+      )
 
-      assert(implicitFiles.length > 0, 'the collected file list must not be empty')
+      assert(
+        implicitFiles.length > 0,
+        'the collected file list must not be empty',
+      )
       assert(
         implicitFiles.length === explicitFiles.length &&
           implicitFiles.every((f, i) => f === explicitFiles[i]),
@@ -61,7 +81,10 @@ for (const type of PROJECT_TYPES) {
         Error,
         "Unknown template 'nonexistent'",
       )
-      assert(error.message.includes('base'), 'the error must list the known presets')
+      assert(
+        error.message.includes('base'),
+        'the error must list the known presets',
+      )
     },
   )
 }

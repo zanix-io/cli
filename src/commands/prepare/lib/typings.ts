@@ -113,9 +113,11 @@ export type BaseDockerHelperOptions = {
 /** Options accepted by {@link createDockerfile}. */
 export type DockerfileOptions = BaseDockerHelperOptions & {
   /**
-   * The Zanix project type the Dockerfile should be generated for. Only `'server'`, `'space'`,
-   * and `'space-server'` produce a Dockerfile — any other type is a no-op (nothing in `'library'`/
-   * `'app'` calls `Deno.serve()`, so there is nothing to containerize). Defaults to `'server'`.
+   * The Zanix project type the Dockerfile should be generated for. `'server'`, `'space'`,
+   * `'space-server'`, and `'app'` produce a Dockerfile — `'library'` is a no-op (nothing there
+   * ever calls `Deno.serve()`, standalone or otherwise). `'app'` additionally scaffolds a
+   * `serve.ts` standalone entrypoint alongside it (see {@link createDockerfile}'s own doc) — a
+   * Zanix App's `mod.ts` is manifest-only, never runnable on its own. Defaults to `'server'`.
    */
   projectType?: ZanixProjects
 }

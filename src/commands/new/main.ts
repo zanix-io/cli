@@ -21,6 +21,7 @@ export default function newCommand(this: Commander) {
         'Creates a new `@zanix/space` frontend app with the basic structure of the Zanix framework.',
       optionalArgs: ['app-name'],
       action: newSpaceAction,
+      rendererAware: true,
     },
     server: {
       description:
@@ -33,6 +34,7 @@ export default function newCommand(this: Commander) {
         'Creates a new full-stack project (`@zanix/space` frontend + server) with the basic structure of the Zanix framework.',
       optionalArgs: ['project-name'],
       action: newSpacecraftAction,
+      rendererAware: true,
     },
     library: {
       description:

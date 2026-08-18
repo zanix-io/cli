@@ -9,7 +9,9 @@
  */
 export async function obfuscateFile(filePath: string): Promise<void> {
   const content = await Deno.readTextFile(filePath)
-  const { default: obfuscator } = await import('npm:javascript-obfuscator@^4.0.2')
+  const { default: obfuscator } = await import(
+    'npm:javascript-obfuscator@^4.0.2'
+  )
 
   const obfuscated = obfuscator.obfuscate(content, {
     compact: true,

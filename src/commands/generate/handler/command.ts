@@ -4,7 +4,7 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { handlerTemplate } from 'commands/generate/handler/rest.template.ts'
@@ -21,13 +21,17 @@ type HandlerRenderer = (pascalName: string, kebabName: string) => string
  * (`scripts/drift-watch.ts`) can derive its own `--type` variant matrix from this real source
  * instead of a separately hand-maintained list that could silently drift from it.
  */
-export const HANDLER_TYPES: Record<string, { suffix: string; render: HandlerRenderer }> = {
+export const HANDLER_TYPES: Record<
+  string,
+  { suffix: string; render: HandlerRenderer }
+> = {
   rest: { suffix: 'handler', render: handlerTemplate },
   graphql: { suffix: 'resolver', render: graphqlHandlerTemplate },
   socket: { suffix: 'socket', render: socketHandlerTemplate },
   ssr: { suffix: 'ssr', render: ssrHandlerTemplate },
 }
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface HandlerPlanFile {
   PATH: string
   NAME: string
@@ -72,6 +76,9 @@ export function planHandler(
   }
 }
 
+/** `zanix generate handler <name>`'s real orchestration: `--type` (default `rest`) selects which
+ * of the 4 handler shapes `planHandler` renders (see `HANDLER_TYPES`), writes the file, ensures
+ * `@zanix/server` is declared, then optionally `--verify`s. */
 async function generateHandlerAction(
   this: Commander,
   options: unknown,
@@ -80,7 +87,10 @@ async function generateHandlerAction(
 ) {
   assertProjectType(this, ['server', 'space-server'], 'handler', root)
 
-  const { type = 'rest', verify } = options as { type?: string; verify?: boolean }
+  const { type = 'rest', verify } = options as {
+    type?: string
+    verify?: boolean
+  }
   const projectRoot = root ?? Deno.cwd()
   const kebabName = toKebabCase(name)
   const pascalName = toPascalCase(name)
@@ -94,14 +104,19 @@ async function generateHandlerAction(
     return
   }
 
-  const tree: ZanixFolderGenericTree = { FOLDER: handlersFolder, templates: { base: plan.files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: handlersFolder,
+    templates: { base: plan.files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/server')
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Handler file created successfully in 'handlers/${plan.files[0].NAME}'.`)
+  logger.info(
+    `Handler file created successfully in 'handlers/${plan.files[0].NAME}'.`,
+  )
 }
 
 export default generateHandlerAction

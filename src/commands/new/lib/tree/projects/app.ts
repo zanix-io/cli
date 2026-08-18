@@ -7,8 +7,7 @@ import {
   type ScaffoldRecipeRegistry,
 } from 'commands/new/lib/tree/recipe.ts'
 import { MAIN_MODULE } from '@zanix/utils/constants'
-import { getFolderName } from '@zanix/helpers'
-import { toKebabCase } from 'utils/casing.ts'
+import { getFolderName, toKebabCase } from '@zanix/helpers'
 import { join } from '@std/path'
 
 /**

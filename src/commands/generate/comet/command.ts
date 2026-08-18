@@ -4,11 +4,18 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { cometTemplate } from 'commands/generate/comet/template.ts'
 
+/**
+ * One file this generator writes. `content` is a lazily-evaluated, async function rather than a
+ * plain string — `createFilesAndFolders` only ever calls it once it has already confirmed `PATH`
+ * doesn't exist yet (the never-overwrite guard), so a file this run will end up skipping never
+ * pays the cost of computing its content at all. `NAME` and `PATH` must stay in sync (`NAME` is
+ * the bare filename, used in log messages; `PATH` is `NAME`'s real location on disk).
+ */
 export interface CometPlanFile {
   PATH: string
   NAME: string
@@ -20,7 +27,11 @@ export interface CometPlan {
 }
 
 /** Pure planning for a comet: given a name + the target `comets/` folder. */
-export function planComet(kebabName: string, pascalName: string, cometsFolder: string): CometPlan {
+export function planComet(
+  kebabName: string,
+  pascalName: string,
+  cometsFolder: string,
+): CometPlan {
   return {
     files: [{
       PATH: `${cometsFolder}/${kebabName}.comet.tsx`,
@@ -36,8 +47,10 @@ async function generateCometAction(
   name: string,
   root?: string,
 ) {
-  // Comets are a `@zanix/space` concept — never valid for a plain `server` project, unlike every
-  // other existing generator (all backend-only, gated to `['server', 'space-server']`).
+  // Comets are a `@zanix/space` concept — never valid for a plain `server` project. Gated to
+  // `['space', 'space-server']`, same as this file's own frontend siblings (`page`/`layout`/
+  // `error`/`loading`/`not-found`) — unlike every backend generator, gated to
+  // `['server', 'space-server']` instead.
   assertProjectType(this, ['space', 'space-server'], 'comet', root)
 
   const { verify } = options as { verify?: boolean }
@@ -47,21 +60,28 @@ async function generateCometAction(
   const cometsFolder = `${projectRoot}/src/space/comets`
 
   const { files } = planComet(kebabName, pascalName, cometsFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: cometsFolder, templates: { base: files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: cometsFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/space')
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Comet file created successfully in 'comets/${kebabName}.comet.tsx'.`)
+  logger.info(
+    `Comet file created successfully in 'comets/${kebabName}.comet.tsx'.`,
+  )
 }
 
 export default generateCometAction
 
 export function registerCometCommand(cwd: Commander): void {
   cwd.command('comet')
-    .description('Generate a selective-hydration Comet shell (<name>.comet.tsx).')
+    .description(
+      'Generate a selective-hydration Comet shell (<name>.comet.tsx).',
+    )
     .option(
       '--verify',
       'Opt-in: after generating, run `deno check` against the whole project and warn ' +

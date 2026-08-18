@@ -19,11 +19,18 @@ import { getRootDir } from '@zanix/helpers'
  * @param projectDir - The custom project dir `cwd`. Defaults to initial root.
  * @param preset - `--template`'s own value. Defaults to `'base'` — see `getZnxFolderTree`'s own
  * doc for why that default must always match the CLI option's own default.
+ * @param renderer - `--renderer`'s own value — forwarded to {@linkcode getZnxFolderTree} unchanged,
+ * only ever consulted for `type === 'space' | 'space-server'`.
  *
  * @returns A nested object representing the folder structure for the given type.
  */
 export function getZanixPaths<
   T extends ZanixProjectsFull = undefined,
->(type?: T, projectDir?: string, preset?: string): ZanixFolderTree<T> {
-  return getZnxFolderTree(`${projectDir ?? getRootDir()}/`, type, preset)
+>(
+  type?: T,
+  projectDir?: string,
+  preset?: string,
+  renderer?: 'react' | 'preact',
+): ZanixFolderTree<T> {
+  return getZnxFolderTree(`${projectDir ?? getRootDir()}/`, type, preset, renderer)
 }

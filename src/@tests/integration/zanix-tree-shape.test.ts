@@ -30,7 +30,9 @@ Deno.test('getZanixPaths should return correct folder structure for space custom
   assertExists(paths.subfolders.src.subfolders.space)
   assert(paths.FOLDER.startsWith(mainFolderName))
   assert(paths.subfolders.src.FOLDER.startsWith(mainFolderName))
-  assert(paths.subfolders.src.subfolders.space.FOLDER.startsWith(mainFolderName))
+  assert(
+    paths.subfolders.src.subfolders.space.FOLDER.startsWith(mainFolderName),
+  )
   assert(paths.subfolders.src.subfolders['server' as never] === undefined)
   assert(paths.subfolders.src.subfolders['modules' as never] === undefined)
   assertExists(paths.subfolders.src.subfolders.shared.subfolders.middlewares)
@@ -86,7 +88,10 @@ Deno.test(
     // of `__tmp__` is exactly what `content()`'s local-path resolution needs — self-contained,
     // not coupled to any repo's own `src/templates/` layout.
     const tempFolder = getTemporaryFolder(import.meta.url)
-    await Deno.writeTextFile(`${tempFolder}/example.ts`, 'export default module')
+    await Deno.writeTextFile(
+      `${tempFolder}/example.ts`,
+      'export default module',
+    )
 
     try {
       // deno-lint-ignore no-explicit-any

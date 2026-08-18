@@ -1,8 +1,8 @@
 # `zanix build` — compile and obfuscate
 
-`zanix build` compiles your project's TypeScript with [esbuild](https://esbuild.github.io/) for a
-fast, optimized production output — optionally obfuscated and/or run off the main thread via a
-worker.
+`zanix build` compiles your project's TypeScript with
+[esbuild](https://esbuild.github.io/) for a fast, optimized production output —
+optionally obfuscated and/or run off the main thread via a worker.
 
 ```bash
 zanix build
@@ -35,6 +35,7 @@ zanix build -i src/worker.ts -o .dist/worker.mjs --no-bundle
 
 ## See also
 
-- [`new`](./new.md) — every project scaffold includes a `.dist/` folder this command writes into.
+- [`new`](./new.md) — every project scaffold includes a `.dist/` folder this
+  command writes into.
 - [`generate`](./generate.md) — add artifacts to compile.
 - [`prepare`](./prepare.md) — Git hooks, CI workflow, and editor configuration.

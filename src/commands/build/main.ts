@@ -5,7 +5,7 @@ import { Commander } from 'cli'
 export default function buildCommand(this: Commander) {
   const cwd = new Commander()
 
-  this.command('build', cwd)
+  this.mountGroup('build', cwd)
     .description(
       'Compiles TypeScript code into JavaScript using esbuild for faster and optimized builds.',
     )

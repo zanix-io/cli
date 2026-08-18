@@ -14,7 +14,10 @@
  */
 
 /** `connectors/<name>.connector.ts` */
-export const cacheConnectorTemplate = (pascalName: string, slot: string): string =>
+export const cacheConnectorTemplate = (
+  pascalName: string,
+  slot: string,
+): string =>
   `import { Connector, ZanixCacheConnector } from '@zanix/server'
 
 /**

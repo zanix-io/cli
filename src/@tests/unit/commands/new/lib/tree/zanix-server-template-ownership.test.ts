@@ -10,7 +10,9 @@ import { stub } from '@std/testing/mock'
  * them. Once those generators shipped, the same retirement already applied to
  * `handler`/`rto`/`repository`/`seeder` applied to them too — see `cli/ENGINEERING.md` §5/§7.
  */
-async function fetchedJsrPackage(content: () => Promise<string>): Promise<string | undefined> {
+async function fetchedJsrPackage(
+  content: () => Promise<string>,
+): Promise<string | undefined> {
   const requestedUrls: string[] = []
   const fetchStub = stub(
     globalThis,
@@ -38,19 +40,35 @@ Deno.test('server tree has no jsr-fetched leaf left — every artifact is local'
   // Sequential, not `Promise.all` — `fetchedJsrPackage` stubs the shared `globalThis.fetch`, and
   // two concurrent stubs on the same instance method throw.
   const contentGetters = [
-    () => server.subfolders.connectors.templates.base[0].content({ metaUrl: import.meta.url }),
-    () => server.subfolders.handlers.templates.base[0].content({ metaUrl: import.meta.url }),
+    () =>
+      server.subfolders.connectors.templates.base[0].content({
+        metaUrl: import.meta.url,
+      }),
+    () =>
+      server.subfolders.handlers.templates.base[0].content({
+        metaUrl: import.meta.url,
+      }),
     () =>
       server.subfolders.handlers.subfolders.rtos.templates.base[0].content({
         metaUrl: import.meta.url,
       }),
-    () => server.subfolders.interactors.templates.base[0].content({ metaUrl: import.meta.url }),
-    () => server.subfolders.jobs.templates.base[0].content({ metaUrl: import.meta.url }),
-    () => server.subfolders.repositories.templates.base[0].content({ metaUrl: import.meta.url }),
     () =>
-      server.subfolders.repositories.subfolders.seeders.templates.base[0].content({
+      server.subfolders.interactors.templates.base[0].content({
         metaUrl: import.meta.url,
       }),
+    () =>
+      server.subfolders.jobs.templates.base[0].content({
+        metaUrl: import.meta.url,
+      }),
+    () =>
+      server.subfolders.repositories.templates.base[0].content({
+        metaUrl: import.meta.url,
+      }),
+    () =>
+      server.subfolders.repositories.subfolders.seeders.templates.base[0]
+        .content({
+          metaUrl: import.meta.url,
+        }),
   ]
 
   for (const getContent of contentGetters) {
@@ -65,32 +83,44 @@ Deno.test("server tree content matches each artifact's own cli generator", async
   const paths = getZanixPaths('server')
   const server = paths.subfolders.src.subfolders.server
 
-  const connectorContent = await server.subfolders.connectors.templates.base[0].content({
-    metaUrl: import.meta.url,
-  })
-  const interactorContent = await server.subfolders.interactors.templates.base[0].content({
-    metaUrl: import.meta.url,
-  })
+  const connectorContent = await server.subfolders.connectors.templates.base[0]
+    .content({
+      metaUrl: import.meta.url,
+    })
+  const interactorContent = await server.subfolders.interactors.templates
+    .base[0].content({
+      metaUrl: import.meta.url,
+    })
   const jobContent = await server.subfolders.jobs.templates.base[0].content({
     metaUrl: import.meta.url,
   })
-  const handlerContent = await server.subfolders.handlers.templates.base[0].content({
-    metaUrl: import.meta.url,
-  })
-  const rtoContent = await server.subfolders.handlers.subfolders.rtos.templates.base[0].content({
-    metaUrl: import.meta.url,
-  })
-  const modelContent = await server.subfolders.repositories.templates.base[0].content({
-    metaUrl: import.meta.url,
-  })
-  const seederContent = await server.subfolders.repositories.subfolders.seeders.templates
+  const handlerContent = await server.subfolders.handlers.templates.base[0]
+    .content({
+      metaUrl: import.meta.url,
+    })
+  const rtoContent = await server.subfolders.handlers.subfolders.rtos.templates
+    .base[0].content({
+      metaUrl: import.meta.url,
+    })
+  const modelContent = await server.subfolders.repositories.templates.base[0]
+    .content({
+      metaUrl: import.meta.url,
+    })
+  const seederContent = await server.subfolders.repositories.subfolders.seeders
+    .templates
     .base[0].content({ metaUrl: import.meta.url })
 
   assertStringIncludes(connectorContent, 'export class ExampleConnector')
   assertStringIncludes(interactorContent, 'export class ExampleService')
-  assertStringIncludes(jobContent, "import { registerCronJob } from '@zanix/asyncmq'")
+  assertStringIncludes(
+    jobContent,
+    "import { registerCronJob } from '@zanix/asyncmq'",
+  )
   assertStringIncludes(handlerContent, 'export class ExampleController')
   assertStringIncludes(rtoContent, 'export class ExampleRTO')
   assertStringIncludes(modelContent, 'export type ExampleAttrs')
-  assertStringIncludes(seederContent, "import { defineSeeders } from 'utils/seeders.ts'")
+  assertStringIncludes(
+    seederContent,
+    "import { defineSeeders } from 'utils/seeders.ts'",
+  )
 })

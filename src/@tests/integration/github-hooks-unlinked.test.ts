@@ -7,7 +7,8 @@ import { stub } from '@std/testing/mock'
 stub(console, 'error')
 stub(console, 'warn')
 
-const defaultFolder = getTemporaryFolder(import.meta.url) + '/github-hooks-unlinked'
+const defaultFolder = getTemporaryFolder(import.meta.url) +
+  '/github-hooks-unlinked'
 
 Deno.test('createHook fails when Git was never initialized in this process', async () => {
   // No `gitInitialization` call in this isolated file, so `baseGitHooksFolder`

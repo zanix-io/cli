@@ -42,7 +42,13 @@ Deno.test('assertProjectType throws when the project type is not allowed', async
   const projectFolder = await makeProject('library')
 
   assertThrows(
-    () => assertProjectType(new Commander(), ['server', 'space-server'], 'seeder', projectFolder),
+    () =>
+      assertProjectType(
+        new Commander(),
+        ['server', 'space-server'],
+        'seeder',
+        projectFolder,
+      ),
     Error,
     "must be run inside a 'server' or 'space-server' project",
   )
@@ -53,7 +59,12 @@ Deno.test('assertProjectType throws when the project type is not allowed', async
 Deno.test('assertProjectType does not throw when the project type is allowed', async () => {
   const projectFolder = await makeProject('space-server')
 
-  assertProjectType(new Commander(), ['server', 'space-server'], 'seeder', projectFolder)
+  assertProjectType(
+    new Commander(),
+    ['server', 'space-server'],
+    'seeder',
+    projectFolder,
+  )
 
   await Deno.remove(projectFolder, { recursive: true })
 })

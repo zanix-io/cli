@@ -11,9 +11,10 @@
  * populated from real `@zanix/server` API evidence: the `@Connector()` decorator + `ZanixConnector`
  * base class, `initialize()`/`close()`/`isHealthy()` lifecycle hooks.
  *
- * One of the `--slot`-selectable templates `command.ts` can render — see that file's `SLOT_TYPES`
- * table. This one (no `--slot`) is for a custom connector to an external service that isn't a
- * core framework slot at all — see `database.template.ts`/`cache.template.ts` for those.
+ * One of the templates `command.ts`'s `planConnector` selects between based on `--slot` (a plain
+ * if/else chain, not a lookup table). This one (no `--slot`) is for a custom connector to an
+ * external service that isn't a core framework slot at all — see `database.template.ts`/
+ * `cache.template.ts` for those.
  */
 
 /** `connectors/<name>.connector.ts` */

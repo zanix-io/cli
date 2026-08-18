@@ -10,8 +10,14 @@ const titleRegex = /<title>(v[\d\.]+)<\/title>/
 
 let ZNX_LIBRARIES: ZanixLibraries
 
-const getShieldsDataVersion = (endpoint: string, username: string, lib: string) => {
-  return fetch(`https://img.shields.io/${endpoint}/${username}/${lib}?color=blue&&label=`)
+const getShieldsDataVersion = (
+  endpoint: string,
+  username: string,
+  lib: string,
+) => {
+  return fetch(
+    `https://img.shields.io/${endpoint}/${username}/${lib}?color=blue&&label=`,
+  )
     .then((response) => response.text())
     .then((html) => {
       return html.match(titleRegex)?.[1].replace('v', '') || 'latest'
@@ -27,7 +33,10 @@ const getShieldsDataVersion = (endpoint: string, username: string, lib: string) 
  * @param username - library username. Defaults to `@zanix`
  * @returns x.x.x version
  */
-export function getLatestVersion(lib: string, username = '@zanix'): Promise<string> {
+export function getLatestVersion(
+  lib: string,
+  username = '@zanix',
+): Promise<string> {
   return getShieldsDataVersion('jsr/v', username, lib)
 }
 
@@ -55,7 +64,17 @@ export async function getAllZanixLibrariesInfo(): Promise<ZanixLibraries> {
     getLatestVersion('utils'),
     getLatestVersion('notifications'),
   ]
-  const [app, auth, asyncmq, core, datamaster, server, worker, utils, notifications] = await Promise
+  const [
+    app,
+    auth,
+    asyncmq,
+    core,
+    datamaster,
+    server,
+    worker,
+    utils,
+    notifications,
+  ] = await Promise
     .all(
       versionPromises,
     )

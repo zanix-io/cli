@@ -25,7 +25,12 @@ Deno.test(
 
     try {
       await assertRejects(
-        () => generateSubscriberAction.call(new Commander(), {}, 'inventory-updates'),
+        () =>
+          generateSubscriberAction.call(
+            new Commander(),
+            {},
+            'inventory-updates',
+          ),
         Error,
         "must be run inside a 'server' or 'space-server' project",
       )
@@ -41,23 +46,36 @@ Deno.test('generateSubscriberAction without --queue derives the queue from the n
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateSubscriberAction.call(new Commander(), {}, 'InventoryUpdates')
+    await generateSubscriberAction.call(
+      new Commander(),
+      {},
+      'InventoryUpdates',
+    )
 
     const filePath = `${projectFolder}/src/server/subscribers/inventory-updates.subscriber.ts`
     const content = await Deno.readTextFile(filePath)
 
     assertEquals(
-      content.includes("import { Subscriber, ZanixSubscriber } from '@zanix/asyncmq'"),
+      content.includes(
+        "import { Subscriber, ZanixSubscriber } from '@zanix/asyncmq'",
+      ),
       true,
     )
     assertEquals(content.includes("@Subscriber('inventory-updates')"), true)
     assertEquals(
-      content.includes('export class InventoryUpdatesSubscriber extends ZanixSubscriber'),
+      content.includes(
+        'export class InventoryUpdatesSubscriber extends ZanixSubscriber',
+      ),
       true,
     )
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/asyncmq'], ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/asyncmq'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })

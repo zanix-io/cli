@@ -64,7 +64,9 @@ export function parseFieldSpec(spec: string): FieldDef {
   const [, name, rawType, enumList, arrayMark, optionalMark] = match
   const isEnum = rawType.startsWith('enum(')
 
-  if (!isEnum && !SUPPORTED_TYPES.includes(rawType as Exclude<FieldType, 'enum'>)) {
+  if (
+    !isEnum && !SUPPORTED_TYPES.includes(rawType as Exclude<FieldType, 'enum'>)
+  ) {
     throw new Error(
       `Unsupported field type '${rawType}' in '--field ${spec}'. Supported types: ` +
         `${SUPPORTED_TYPES.join(', ')}, enum(...).`,

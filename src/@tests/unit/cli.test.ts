@@ -5,6 +5,9 @@ import cli from 'cli'
 
 type ErrorHandlerHolder = { errorHandler: (e: Error, cwd: Commander) => void }
 
+console.error = () => {}
+console.info = () => {}
+
 Deno.test('cli error handler should strip the stack, log the message and exit(1)', () => {
   const exitStub = stub(Deno, 'exit', () => undefined as never)
   const error = new Error('boom')

@@ -3,6 +3,9 @@ import type { Commander } from 'cli'
 
 import { prepareDocker } from 'commands/prepare/lib/docker/prepare.ts'
 
+/** `zanix prepare -d/--docker`'s real orchestration — generates the `Dockerfile` (per
+ * `--project-type`) and `.dockerignore`; a real rejection from either (e.g. malformed project
+ * config) routes through `this.throw` instead of an unhandled rejection. */
 function prepareDockerAction(
   this: Commander,
   options: { projectType?: unknown },

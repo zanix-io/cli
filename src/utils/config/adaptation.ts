@@ -1,7 +1,10 @@
 import type { ConfigFile } from '@zanix/types'
 
 /** Function to adapt current config to base config */
-export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) => {
+export const configAdaptation = (
+  currentConfig: ConfigFile,
+  config: ConfigFile,
+) => {
   const newConfig = (Object.keys(currentConfig).length > 0) ? { ...currentConfig } : { ...config }
 
   newConfig.compilerOptions = {
@@ -9,6 +12,12 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     ...currentConfig.compilerOptions,
   } as ConfigFile['compilerOptions']
 
+  // `project` always takes the FRESH `config`'s value, never `currentConfig`'s — unlike every
+  // other field merged below, this one deliberately isn't preserved from what was already there.
+  // `config` reflects the project type just requested by the current `zanix new <type>`/`zanix
+  // prepare` invocation, so re-running it in a directory whose config used to declare a DIFFERENT
+  // `zanix.project` (e.g. re-scaffolding a `library` as a `server`) must update it to match, not
+  // silently keep the stale value.
   newConfig.zanix = {
     ...config.zanix,
     ...currentConfig.zanix,
@@ -33,15 +42,21 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
 
   const currentLinterTags = currentConfig.lint?.rules?.tags || []
   const baseLinterTags = lint.rules?.tags || []
-  const linterTags = Array.from(new Set([...currentLinterTags, ...baseLinterTags]))
+  const linterTags = Array.from(
+    new Set([...currentLinterTags, ...baseLinterTags]),
+  )
 
   const currentIncludes = currentConfig.lint?.rules?.include || []
   const baseIncludes = lint.rules?.include || []
-  const linterInclude = Array.from(new Set([...currentIncludes, ...baseIncludes]))
+  const linterInclude = Array.from(
+    new Set([...currentIncludes, ...baseIncludes]),
+  )
 
   const currentPlugins = currentConfig.lint?.plugins || []
   const basePlugins = lint.plugins || []
-  const linterPlugins = Array.from(new Set([...currentPlugins, ...basePlugins]))
+  const linterPlugins = Array.from(
+    new Set([...currentPlugins, ...basePlugins]),
+  )
 
   newConfig.lint = {
     ...lint,

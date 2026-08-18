@@ -13,7 +13,10 @@
  */
 
 /** `handlers/<name>.socket.ts` */
-export const socketHandlerTemplate = (pascalName: string, kebabName: string): string =>
+export const socketHandlerTemplate = (
+  pascalName: string,
+  kebabName: string,
+): string =>
   `import { Socket, ZanixWebSocket } from '@zanix/server'
 
 /**

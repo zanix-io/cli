@@ -33,10 +33,19 @@ const jsr = '@zanix/core'
  * type-specific validation follows: `resolveRecipe` for `server`/`space`/`app` (each has its own
  * `ScaffoldRecipeRegistry`), `assertKnownPreset` again, directly, for `library` (see its own doc for
  * why it has no registry of its own to resolve against).
+ * @param renderer - `zanix new <type> --renderer <renderer>`'s own value — only ever consulted for
+ * `space`/`space-server` (the ONLY tree types below that push a `space.app.ts` node at all), ignored
+ * for every other `type`. Forwarded to {@linkcode getSpaceAppTemplate} unchanged. Defaults to
+ * `'react'`, identical in every respect to passing it explicitly.
  */
 export const getZnxFolderTree = <
   T extends ZanixProjectsFull,
->(root: string, type?: T, preset: string = 'base'): ZanixFolderTree<T> => {
+>(
+  root: string,
+  type?: T,
+  preset: string = 'base',
+  renderer: 'react' | 'preact' = 'react',
+): ZanixFolderTree<T> => {
   assertKnownPreset(preset)
 
   let ZNX_STRUCT
@@ -48,7 +57,10 @@ export const getZnxFolderTree = <
   const isAll = type === 'all'
 
   if (type === 'library' || isAll) {
-    ZNX_STRUCT.subfolders.src.subfolders.modules = getLibrarySrcTree(root, preset)
+    ZNX_STRUCT.subfolders.src.subfolders.modules = getLibrarySrcTree(
+      root,
+      preset,
+    )
   }
 
   if (type !== 'library' || isAll) {
@@ -66,11 +78,17 @@ export const getZnxFolderTree = <
     )
 
     if (type === 'space' || type === 'space-server' || isAll) {
-      ZNX_STRUCT.subfolders.src.subfolders.space = getSpaceSrcTree(root, preset)
+      ZNX_STRUCT.subfolders.src.subfolders.space = getSpaceSrcTree(
+        root,
+        preset,
+      )
     }
 
     if (type === 'server' || type === 'space-server' || isAll) {
-      ZNX_STRUCT.subfolders.src.subfolders.server = getServerSrcTree(root, preset)
+      ZNX_STRUCT.subfolders.src.subfolders.server = getServerSrcTree(
+        root,
+        preset,
+      )
     }
   }
 
@@ -82,7 +100,10 @@ export const getZnxFolderTree = <
   // `templates.base` array — never a replace, see `assembleScaffold`'s own doc for why that matters
   // for this exact node.
   if (type === 'app' || isAll) {
-    assembleAppScaffold(ZNX_STRUCT as unknown as ZanixFolderTree<'app'>, preset)
+    assembleAppScaffold(
+      ZNX_STRUCT as unknown as ZanixFolderTree<'app'>,
+      preset,
+    )
   }
 
   // `server`/`space-server` need a real, runnable root entrypoint too — same reasoning as `app`
@@ -110,9 +131,9 @@ export const getZnxFolderTree = <
   }
 
   // Plain `space` (pure frontend, no backend) needs its own real entrypoint too — direct
-  // `activateApps()`/`bootstrapServers()` composition, never `@zanix/core` (see
-  // `getSpaceModTemplate`'s own doc for why). Previously missing entirely: `znx new space`
-  // scaffolded `page.tsx`/`example.comet.tsx` with nothing that would ever load them.
+  // `bootstrapRemoteApp()` composition, never `@zanix/core` (see `getSpaceModTemplate`'s own doc
+  // for why). Previously missing entirely: `znx new space` scaffolded `page.tsx`/
+  // `example.comet.tsx` with nothing that would ever load them.
   if (type === 'space') {
     ZNX_STRUCT.templates.base.push({
       PATH: join(root, MAIN_MODULE),
@@ -128,7 +149,7 @@ export const getZnxFolderTree = <
     ZNX_STRUCT.templates.base.push({
       PATH: join(root, SPACE_APP_MODULE),
       NAME: SPACE_APP_MODULE,
-      content: () => Promise.resolve(getSpaceAppTemplate(getFolderName(root))),
+      content: () => Promise.resolve(getSpaceAppTemplate(getFolderName(root), renderer)),
     })
   }
 

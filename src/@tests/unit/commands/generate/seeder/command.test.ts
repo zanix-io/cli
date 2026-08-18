@@ -78,9 +78,14 @@ Deno.test('generateSeederAction should write the seeder trio and the shared help
     const main = await Deno.readTextFile(`${seedersFolder}/main.ts`)
     const dev = await Deno.readTextFile(`${seedersFolder}/seeders.dev.ts`)
     const prod = await Deno.readTextFile(`${seedersFolder}/seeders.prod.ts`)
-    const helper = await Deno.readTextFile(`${projectFolder}/src/utils/seeders.ts`)
+    const helper = await Deno.readTextFile(
+      `${projectFolder}/src/utils/seeders.ts`,
+    )
 
-    assertEquals(main.includes("import { defineSeeders } from 'utils/seeders.ts'"), true)
+    assertEquals(
+      main.includes("import { defineSeeders } from 'utils/seeders.ts'"),
+      true,
+    )
     assertEquals(dev.trim(), 'export default []')
     assertEquals(prod.trim(), 'export default []')
     assertEquals(helper.includes('export const defineSeeders'), true)
@@ -101,7 +106,10 @@ Deno.test('generateSeederAction should never overwrite an existing seeders helpe
 
     await generateSeederAction.call(new Commander(), {}, 'invoice')
 
-    assertEquals(await Deno.readTextFile(helperPath), '// customized by hand\n')
+    assertEquals(
+      await Deno.readTextFile(helperPath),
+      '// customized by hand\n',
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -119,7 +127,10 @@ Deno.test('generateSeederAction should be idempotent when run twice', async () =
     const main = await Deno.readTextFile(
       `${projectFolder}/src/server/repositories/invoice/seeders/main.ts`,
     )
-    assertEquals(main.includes("import { defineSeeders } from 'utils/seeders.ts'"), true)
+    assertEquals(
+      main.includes("import { defineSeeders } from 'utils/seeders.ts'"),
+      true,
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })

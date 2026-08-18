@@ -10,7 +10,9 @@ import { getConfigDir } from '@zanix/helpers'
  * @param options The editor helper options
  *   - `baseRoot`: The base root directory where the folder should be created. Defaults to root.
  */
-export function createVSCodeConfig(options?: BaseEditorHelperOptions): Promise<boolean> {
+export function createVSCodeConfig(
+  options?: BaseEditorHelperOptions,
+): Promise<boolean> {
   const config = getConfigDir()?.split('/').pop()
   return createEditorFileConfig(
     { type: 'vscode', ...options },

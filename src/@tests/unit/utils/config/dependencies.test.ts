@@ -10,7 +10,9 @@ import { baseZnxConfig } from 'utils/config/base.ts'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
-async function makeProject(imports: Record<string, string> = {}): Promise<string> {
+async function makeProject(
+  imports: Record<string, string> = {},
+): Promise<string> {
   const projectFolder = `${temporaryFolder}/${crypto.randomUUID()}`
   await Deno.mkdir(projectFolder, { recursive: true })
   await Deno.writeTextFile(
@@ -26,13 +28,18 @@ Deno.test('ensureZanixDependency should add a missing import', async () => {
   await ensureZanixDependency(root, '@zanix/server')
 
   const config = JSON.parse(await Deno.readTextFile(`${root}/deno.json`))
-  assertEquals(config.imports['@zanix/server'], ZANIX_DEPENDENCY_VERSIONS['@zanix/server'])
+  assertEquals(
+    config.imports['@zanix/server'],
+    ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
+  )
 
   await Deno.remove(root, { recursive: true })
 })
 
 Deno.test('ensureZanixDependency should never overwrite an already-declared version', async () => {
-  const root = await makeProject({ '@zanix/server': 'jsr:@zanix/server@1.0.0' })
+  const root = await makeProject({
+    '@zanix/server': 'jsr:@zanix/server@1.0.0',
+  })
 
   await ensureZanixDependency(root, '@zanix/server')
 
@@ -49,7 +56,10 @@ Deno.test('ensureZanixDependency should preserve unrelated existing imports', as
 
   const config = JSON.parse(await Deno.readTextFile(`${root}/deno.json`))
   assertEquals(config.imports['shared/'], './src/shared/')
-  assertEquals(config.imports['@zanix/asyncmq'], ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'])
+  assertEquals(
+    config.imports['@zanix/asyncmq'],
+    ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+  )
 
   await Deno.remove(root, { recursive: true })
 })
@@ -59,7 +69,11 @@ Deno.test('PROJECT_TYPE_DEPENDENCIES should only reference known dependency keys
 
   for (const [projectType, pkgs] of Object.entries(PROJECT_TYPE_DEPENDENCIES)) {
     for (const pkg of pkgs) {
-      assertEquals(knownKeys.has(pkg), true, `${projectType} references unknown package ${pkg}`)
+      assertEquals(
+        knownKeys.has(pkg),
+        true,
+        `${projectType} references unknown package ${pkg}`,
+      )
     }
   }
 })
@@ -71,8 +85,16 @@ Deno.test('PROJECT_TYPE_DEPENDENCIES.library should declare no dependencies', ()
 Deno.test('baseZnxConfig gives server/space/space-server a dev/start task', () => {
   for (const type of ['server', 'space', 'space-server'] as const) {
     const config = baseZnxConfig(type)
-    assertEquals(typeof config.tasks?.dev, 'string', `${type} should have a dev task`)
-    assertEquals(typeof config.tasks?.start, 'string', `${type} should have a start task`)
+    assertEquals(
+      typeof config.tasks?.dev,
+      'string',
+      `${type} should have a dev task`,
+    )
+    assertEquals(
+      typeof config.tasks?.start,
+      'string',
+      `${type} should have a start task`,
+    )
     assertEquals(
       config.tasks?.start?.includes('mod.ts'),
       true,
@@ -94,7 +116,11 @@ Deno.test('baseZnxConfig gives library/app no dev/start task — no runnable pro
   // call), so a `deno run mod.ts` there would silently do nothing.
   for (const type of ['library', 'app'] as const) {
     const config = baseZnxConfig(type)
-    assertEquals(config.tasks, undefined, `${type} should not get a dev/start task`)
+    assertEquals(
+      config.tasks,
+      undefined,
+      `${type} should not get a dev/start task`,
+    )
   }
 })
 
@@ -103,7 +129,9 @@ Deno.test('baseZnxConfig should never hardcode a third-party version inline', ()
   // THIRD_PARTY_DEPENDENCY_VERSIONS — locks in that `react`'s version (or any future one) can
   // only ever change in one place.
   const config = baseZnxConfig('space')
-  const thirdPartyValues = new Set<string>(Object.values(THIRD_PARTY_DEPENDENCY_VERSIONS))
+  const thirdPartyValues = new Set<string>(
+    Object.values(THIRD_PARTY_DEPENDENCY_VERSIONS),
+  )
   const zanixKeys = new Set(Object.keys(ZANIX_DEPENDENCY_VERSIONS))
 
   for (const [key, value] of Object.entries(config.imports ?? {})) {

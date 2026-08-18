@@ -57,3 +57,45 @@ Deno.test(
 Deno.test('baseZnxConfig: plain space has no worker task — no @zanix/core dependency', () => {
   assertEquals(baseZnxConfig('space').tasks?.worker, undefined)
 })
+
+Deno.test(
+  'baseZnxConfig: renderer omitted defaults to react — identical to passing it explicitly',
+  () => {
+    const omitted = baseZnxConfig('space')
+    const explicit = baseZnxConfig('space', 'react')
+    assertEquals(omitted, explicit)
+    assertEquals(omitted.compilerOptions?.jsxImportSource, 'react')
+    assertEquals(omitted.imports?.react, 'npm:react@^19.2.0')
+    assertEquals(omitted.imports?.preact, undefined)
+  },
+)
+
+Deno.test(
+  "baseZnxConfig: renderer 'preact' swaps jsxImportSource and the declared npm dependency, " +
+    'never declaring both react and preact at once',
+  () => {
+    const config = baseZnxConfig('space', 'preact')
+    assertEquals(config.compilerOptions?.jsxImportSource, 'preact')
+    assertEquals(config.imports?.preact, 'npm:preact@^10.29.0')
+    assertEquals(config.imports?.react, undefined)
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: renderer applies the same way to space-server as it does to plain space',
+  () => {
+    const config = baseZnxConfig('space-server', 'preact')
+    assertEquals(config.compilerOptions?.jsxImportSource, 'preact')
+    assertEquals(config.imports?.preact, 'npm:preact@^10.29.0')
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: renderer is ignored for project types that never carry @zanix/space at all',
+  () => {
+    const config = baseZnxConfig('server', 'preact')
+    assertEquals(config.compilerOptions?.jsxImportSource, undefined)
+    assertEquals(config.imports?.preact, undefined)
+    assertEquals(config.imports?.react, undefined)
+  },
+)

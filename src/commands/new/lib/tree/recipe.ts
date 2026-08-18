@@ -38,7 +38,9 @@ export interface ScaffoldLeaf {
  */
 export interface ScaffoldRecipeEntry<Tree> {
   leaf: (tree: Tree) => ScaffoldLeaf
-  plan: (folder: string) => { files: ScaffoldPlanFile[]; sideEffects?: ScaffoldSideEffect[] }
+  plan: (
+    folder: string,
+  ) => { files: ScaffoldPlanFile[]; sideEffects?: ScaffoldSideEffect[] }
 }
 
 /**
@@ -92,7 +94,10 @@ export function assembleScaffold<Tree>(
  * `app.ts`'s `APP_RECIPES`); a future preset #2 is one more entry, added to this object literal
  * alone — `resolveRecipe`/`assembleScaffold` and every generator's own `command.ts` stay untouched.
  */
-export type ScaffoldRecipeRegistry<Tree> = Record<string, ScaffoldRecipeEntry<Tree>[]>
+export type ScaffoldRecipeRegistry<Tree> = Record<
+  string,
+  ScaffoldRecipeEntry<Tree>[]
+>
 
 /**
  * Resolves `preset` against a project type's own `registry`, throwing a plain `Error` (same

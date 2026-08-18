@@ -31,7 +31,10 @@ Deno.test('Fetching Zanix lates release validation', async () => {
  * own repo, unlike the original (pre-move) version of this test.
  */
 function stubJsrTemplateFetch() {
-  const repoRoot = join(dirname(fromFileUrl(import.meta.url)), '../../../../utils')
+  const repoRoot = join(
+    dirname(fromFileUrl(import.meta.url)),
+    '../../../../utils',
+  )
   const originalFetch = globalThis.fetch
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -39,7 +42,8 @@ function stubJsrTemplateFetch() {
     // `getPathFromCurrent` builds this url via path `join`, which can collapse
     // the `//` after the scheme (e.g. `https:/jsr.io/...`); `new URL` normalizes it.
     const { hostname, pathname } = new URL(rawUrl)
-    const match = hostname === 'jsr.io' && pathname.match(/^\/@zanix\/utils\/[^/]+\/(.+)$/)
+    const match = hostname === 'jsr.io' &&
+      pathname.match(/^\/@zanix\/utils\/[^/]+\/(.+)$/)
 
     if (!match) return originalFetch(input, init)
 
@@ -62,9 +66,10 @@ Deno.test('getZanixPaths should return correct default content from jsr', async 
   try {
     const paths = getZanixPaths('library', '')
 
-    const contentUtils = await paths.subfolders.src.subfolders.utils.templates.base[0].content({
-      metaUrl: import.meta.url,
-    })
+    const contentUtils = await paths.subfolders.src.subfolders.utils.templates
+      .base[0].content({
+        metaUrl: import.meta.url,
+      })
 
     assert(contentUtils.includes('Utilities Module Template'))
 
@@ -74,7 +79,8 @@ Deno.test('getZanixPaths should return correct default content from jsr', async 
 
     assert(contentMod.includes('Module Template'))
 
-    const contentSecondaryMod = await paths.subfolders.src.subfolders.modules.templates.base[0]
+    const contentSecondaryMod = await paths.subfolders.src.subfolders.modules
+      .templates.base[0]
       .content({
         metaUrl: import.meta.url,
       })

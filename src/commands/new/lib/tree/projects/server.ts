@@ -16,7 +16,7 @@ import { planConnector } from 'commands/generate/connector/command.ts'
 import { planInteractor } from 'commands/generate/interactor/command.ts'
 import { planJob } from 'commands/generate/job/command.ts'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
-import { toKebabCase } from 'utils/casing.ts'
+import { toKebabCase } from '@zanix/helpers'
 import { join } from '@std/path'
 
 let serverTree: ZanixServerSrcTree | undefined
@@ -40,14 +40,18 @@ let serverSideEffects: ScaffoldSideEffect[] = []
  * option, the real, tested pattern for a backend project that also serves a frontend in the same
  * process (`@zanix/core`'s `Zanix.start({ apps })` calls `activateApps`/`bootstrapServers`
  * internally for each named entry — the caller never calls either directly in this case, unlike
- * the pure-`space` entrypoint in `space.ts`'s own `getSpaceModTemplate`). Imports the manifest from
- * {@linkcode SPACE_APP_MODULE} rather than declaring it inline — same split, and the same reason
- * (`zanix space dev` needs the manifest in isolation), as `space.ts`'s own `getSpaceAppTemplate`.
- * Also loads `zanix space build`'s own output BEFORE `Zanix.start(...)` — same reasoning and same
- * `'./dist/client'` convention as `space.ts`'s own `getSpaceModTemplate`, just placed before
- * `Zanix.start` instead of `activateApps` directly, since this entrypoint never calls that itself.
+ * the pure-`space` entrypoint in `space.ts`'s own `getSpaceModTemplate`, which calls
+ * `bootstrapRemoteApp` directly instead). Imports the manifest from {@linkcode SPACE_APP_MODULE}
+ * rather than declaring it inline — same split, and the same reason (`zanix space dev` needs the
+ * manifest in isolation), as `space.ts`'s own `getSpaceAppTemplate`. Also loads `zanix space
+ * build`'s own output BEFORE `Zanix.start(...)` — same reasoning and same `'./dist/client'`
+ * convention as `space.ts`'s own `getSpaceModTemplate`, just placed before `Zanix.start` instead of
+ * `bootstrapRemoteApp`, since this entrypoint never calls that itself.
  */
-export const getServerModTemplate = (projectName: string, includeSpaceApp = false): string => {
+export const getServerModTemplate = (
+  projectName: string,
+  includeSpaceApp = false,
+): string => {
   const name = toKebabCase(projectName)
 
   if (!includeSpaceApp) {
@@ -139,7 +143,12 @@ const SERVER_RECIPE_BASE: ScaffoldRecipeEntry<ZanixServerSrcTree>[] = [
   {
     leaf: (tree) => tree.subfolders.handlers.subfolders.rtos,
     plan: (folder) => {
-      const { files, ensureConstants } = planRto('example', 'Example', [], folder)
+      const { files, ensureConstants } = planRto(
+        'example',
+        'Example',
+        [],
+        folder,
+      )
       return { files, sideEffects: [ensureConstants] }
     },
   },
@@ -186,6 +195,18 @@ export const SERVER_RECIPES: ScaffoldRecipeRegistry<ZanixServerSrcTree> = {
   base: SERVER_RECIPE_BASE,
 }
 
+/**
+ * Assembles `src/server`'s whole tree for a `server`/`space-server` project: resolves `preset`
+ * against `SERVER_RECIPES` (throwing a plain `Error` for anything unknown, via `resolveRecipe`),
+ * then `assembleScaffold`s every recipe entry's `plan<Name>` output onto the declarative subtree
+ * below (connectors/handlers/interactors/jobs/repositories, each starting as an empty
+ * placeholder). Memoized per `${startingPoint}::${preset}` — see the cache-key comment inside for
+ * why `preset` is part of that key, not just `startingPoint`.
+ *
+ * @param root - The project's root directory.
+ * @param preset - Which scaffold preset to build. Defaults to `'base'` — the only preset that
+ * exists today (see `SERVER_RECIPES`'s own doc).
+ */
 export const getServerSrcTree = (
   root: string,
   preset: string = 'base',
@@ -198,7 +219,10 @@ export const getServerSrcTree = (
   const cacheKey = `${startingPoint}::${preset}`
   if (serverTree && serverTreeKey === cacheKey) return serverTree
 
-  serverTree = ZanixTree.create<ZanixServerSrcTree>({ startingPoint, baseRoot: root }, {
+  serverTree = ZanixTree.create<ZanixServerSrcTree>({
+    startingPoint,
+    baseRoot: root,
+  }, {
     subfolders: {
       // Populated by `assembleScaffold` below, outside this declarative `templates` shape — see
       // `SERVER_RECIPE_BASE`'s own comment above.

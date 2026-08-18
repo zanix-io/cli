@@ -50,8 +50,13 @@ Deno.test('generateInteractorAction should write an interactor file', async () =
     assertEquals(content.includes('@Interactor()'), true)
     assertEquals(content.includes('extends ZanixInteractor'), true)
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/server'], ZANIX_DEPENDENCY_VERSIONS['@zanix/server'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/server'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -88,7 +93,10 @@ Deno.test('generateInteractorAction should never overwrite an existing interacto
 
     await generateInteractorAction.call(new Commander(), {}, 'invoice')
 
-    assertEquals(await Deno.readTextFile(interactorPath), '// customized by hand\n')
+    assertEquals(
+      await Deno.readTextFile(interactorPath),
+      '// customized by hand\n',
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -96,7 +104,11 @@ Deno.test('generateInteractorAction should never overwrite an existing interacto
 })
 
 Deno.test('planInteractor returns a single <name>.interactor.ts', () => {
-  const { files } = planInteractor('example', 'Example', '/root/src/server/interactors')
+  const { files } = planInteractor(
+    'example',
+    'Example',
+    '/root/src/server/interactors',
+  )
 
   assertEquals(files.map((f) => f.NAME), ['example.interactor.ts'])
 })

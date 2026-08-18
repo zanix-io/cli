@@ -36,10 +36,11 @@ Deno.test('new command should be correctly defined', () => {
 
   const space = commands.get('space')
   assertExists(space)
-  assert(space['options'].length === 3)
+  assert(space['options'].length === 4)
   assertEquals(space['options'][0].name, 'template')
   assertEquals(space['options'][1].name, 'no-prepare')
   assertEquals(space['options'][2].name, 'verify')
+  assertEquals(space['options'][3].name, 'renderer')
 
   const server = commands.get('server')
   assertExists(server)
@@ -57,10 +58,11 @@ Deno.test('new command should be correctly defined', () => {
 
   const spacecraft = commands.get('spacecraft')
   assertExists(spacecraft)
-  assert(spacecraft['options'].length === 3)
+  assert(spacecraft['options'].length === 4)
   assertEquals(spacecraft['options'][0].name, 'template')
   assertEquals(spacecraft['options'][1].name, 'no-prepare')
   assertEquals(spacecraft['options'][2].name, 'verify')
+  assertEquals(spacecraft['options'][3].name, 'renderer')
 })
 
 Deno.test('prepare command should be correctly defined', () => {
@@ -77,7 +79,7 @@ Deno.test('prepare command should be correctly defined', () => {
   assertEquals(command['options'][0].name, 'project-type')
   assertEquals(command['options'][1].name, 'lint-files')
   assertEquals(command['options'][2].name, 'fmt-files')
-  assertEquals(command['options'][3].name, 'use-pre-commit')
+  assertEquals(command['options'][3].name, 'hooks-engine')
   assertEquals(command['options'][4].name, 'github')
   assertEquals(command['options'][5].name, 'editor')
   assertEquals(command['options'][6].name, 'docker')

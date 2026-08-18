@@ -1,9 +1,14 @@
+import { getTemporaryFolder } from '@zanix/helpers'
 import { assert, assertEquals } from '@std/assert'
 import { join } from '@std/path'
 import { Commander } from 'cli'
 import { registerSpaceBuildCommand } from 'commands/space/build/command.ts'
 
-type ActionCommand = { actionHandler: (options: Record<string, unknown>) => void | Promise<void> }
+console.error = () => {}
+
+type ActionCommand = {
+  actionHandler: (options: Record<string, unknown>) => void | Promise<void>
+}
 
 // A minimal, real, valid 1×1 transparent PNG — the standard fixture bytes many test suites use.
 // `sharp` (inside `pwaPlugin`) needs to actually decode this, so it can't be arbitrary bytes.
@@ -80,7 +85,7 @@ const MINIMAL_PNG = new Uint8Array([
 async function withScaffoldedProject(
   run: (root: string) => Promise<void>,
 ): Promise<void> {
-  const root = await Deno.makeTempDir()
+  const root = await Deno.makeTempDir({ dir: getTemporaryFolder(import.meta.url) })
   const originalCwd = Deno.cwd()
   try {
     await Deno.writeTextFile(
@@ -134,8 +139,16 @@ Deno.test(
       )
       assertEquals(Object.keys(cometManifest).length, 1)
 
-      const cssManifest = JSON.parse(await Deno.readTextFile(join(outDir, 'css-manifest.json')))
-      assertEquals(cssManifest.length, 1)
+      const cssManifest = JSON.parse(
+        await Deno.readTextFile(join(outDir, 'css-manifest.json')),
+      )
+      // PRE-EXISTING STALE ASSERTION, corrected here rather than left red: this used to assert
+      // `cssManifest.length === 1`, from when the manifest was a flat array of hrefs. It has since
+      // become a SCOPED object (`global` / `pages` / `comets`) so that a Comet's CSS no longer ships
+      // on every page and a page's own `styles` stay scoped to it — see `cssPlugin`'s own doc. The
+      // assertion was never updated, so it compared `undefined` to `1`. Unrelated to this change;
+      // fixed because a red test is not something to hand over.
+      assertEquals(cssManifest.global.length, 1)
 
       const jsAssets = []
       for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
@@ -148,12 +161,20 @@ Deno.test(
       // getPwaConfig() → buildSpaceClient({ pwa }) → resolvePwaPluginOptions → pwaPlugin — real
       // icons AND a real sw.js, from `space.app.ts`'s own PwaConfig alone, no separate plugin
       // config anywhere in this command.
-      const icon192 = await Deno.stat(join(outDir, 'icons', 'icon-192.png')).then(() => true).catch(
-        () => false,
+      const icon192 = await Deno.stat(join(outDir, 'icons', 'icon-192.png'))
+        .then(() => true).catch(
+          () => false,
+        )
+      assert(
+        icon192,
+        'expected a real icon-192.png written to the client build output',
       )
-      assert(icon192, 'expected a real icon-192.png written to the client build output')
-      const swExists = await Deno.stat(join(outDir, 'sw.js')).then(() => true).catch(() => false)
-      assert(swExists, 'expected a real sw.js written to the client build output')
+      const swExists = await Deno.stat(join(outDir, 'sw.js')).then(() => true)
+        .catch(() => false)
+      assert(
+        swExists,
+        'expected a real sw.js written to the client build output',
+      )
     })
   },
 )
@@ -178,7 +199,10 @@ Deno.test(
       // `stringArrayThreshold: 0.75` is probabilistic, not absolute, so a short literal
       // surviving untouched is expected behavior, not a sign obfuscation didn't run (confirmed
       // empirically: it still doesn't).
-      assert(!code.includes("function Counter() { return 'counter-marker' }"), code)
+      assert(
+        !code.includes("function Counter() { return 'counter-marker' }"),
+        code,
+      )
       assert(code.includes('_0x'), code)
 
       // `sw.js` lives directly under `outDir`, not `outDir/assets` — obfuscated separately,
@@ -222,3 +246,120 @@ Deno.test('zanix space build: registers a real "build" subcommand', () => {
   registerSpaceBuildCommand(cwd)
   assertEquals(cwd.getCommands()[0].getName(), 'build')
 })
+
+// ================================================================================================
+// Document validation, through the command's own observable behaviour.
+//
+// These exercise what a person running `zanix space build` actually experiences: whether the command
+// succeeds or fails, and what it reports. Nothing here reaches into the validation engine — its
+// rules, severities and precedence are `@zanix/space`'s own contract and are tested there.
+// ================================================================================================
+
+/** Scaffolds a project whose single page resolves NO title, so static validation has something real
+ * to find. Written with no `static head`, exactly as a page authored without one. */
+async function withUntitledPage(run: (root: string) => Promise<void>): Promise<void> {
+  await withScaffoldedProject(async (root) => {
+    await Deno.mkdir(join(root, 'routes'), { recursive: true })
+    await Deno.writeTextFile(
+      join(root, 'routes', 'page.tsx'),
+      `import { Page, SpacePageController } from '@zanix/space'
+
+function HomeView() {
+  return <h1>Home</h1>
+}
+
+@Page()
+export default class HomePage extends SpacePageController {
+  component = HomeView
+}
+`,
+    )
+    await run(root)
+  })
+}
+
+Deno.test(
+  'zanix space build: validation runs by default and reports findings without failing the build — ' +
+    'a missing title is a warning, and warnings do not block',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      // Completes normally: nothing here is an error.
+      await command.actionHandler({})
+    })
+  },
+)
+
+Deno.test(
+  'zanix space build: --validation-strict turns that same warning into a failure. The flag changes ' +
+    'nothing about which rules run — only how severely an active warning is treated',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      let failed = false
+      try {
+        await command.actionHandler({ validationStrict: true })
+      } catch {
+        failed = true
+      }
+      assert(failed, 'expected --validation-strict to fail the build on a warning')
+    })
+  },
+)
+
+Deno.test(
+  'zanix space build: --no-validation skips validation entirely, so the same project that fails ' +
+    'under strict now succeeds',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      // `validation: false` is how this parser delivers `--no-validation`.
+      await command.actionHandler({ validation: false, validationStrict: true })
+    })
+  },
+)
+
+Deno.test(
+  'zanix space build: --validation-category narrows the run without changing severity — selecting ' +
+    'a category the finding does not belong to lets a strict build pass',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      // The missing-title finding is category `html`; restricting to `pwa` excludes it.
+      await command.actionHandler({ validationStrict: true, validationCategory: 'pwa' })
+    })
+  },
+)
+
+Deno.test(
+  'zanix space build: an unknown --validation-category fails loudly rather than silently matching ' +
+    'nothing — a typo must never report a clean run over an empty rule set',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      let message = ''
+      try {
+        await command.actionHandler({ validationCategory: 'htlm' })
+      } catch (error) {
+        message = (error as Error).message
+      }
+      assert(message.includes('htlm'), `expected the bad category to be named, got: ${message}`)
+    })
+  },
+)
+
+Deno.test(
+  'zanix space build: an unknown --validation mode fails loudly for the same reason',
+  async () => {
+    await withUntitledPage(async () => {
+      const command = registerCommand()
+      let message = ''
+      try {
+        await command.actionHandler({ validation: 'deep' })
+      } catch (error) {
+        message = (error as Error).message
+      }
+      assert(message.includes('deep'), `expected the bad mode to be named, got: ${message}`)
+    })
+  },
+)

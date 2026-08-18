@@ -5,13 +5,18 @@ import { Commander } from 'cli'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
-type ActionCommand = { actionHandler: (options: Record<string, unknown>) => void }
+type ActionCommand = {
+  actionHandler: (options: Record<string, unknown>) => void
+}
 
 function fileExists(path: string): Promise<boolean> {
   return Deno.stat(path).then(() => true).catch(() => false)
 }
 
-async function waitForFile(path: string, attemptsLeft: number): Promise<boolean> {
+async function waitForFile(
+  path: string,
+  attemptsLeft: number,
+): Promise<boolean> {
   if (await fileExists(path)) return true
   if (attemptsLeft <= 0) return false
 

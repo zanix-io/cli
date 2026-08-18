@@ -1,9 +1,10 @@
 # `zanix new` — bootstrap a project
 
-`zanix new <type> [name]` creates a whole new Zanix project from scratch — the counterpart to
-[`zanix generate`](./generate.md), which adds one artifact to a project that already exists.
-Unlike `generate`, there's no separate `root` argument: `[name]` doubles as the target folder,
-created relative to the current directory (or as an absolute/relative path of its own).
+`zanix new <type> [name]` creates a whole new Zanix project from scratch — the
+counterpart to [`zanix generate`](./generate.md), which adds one artifact to a
+project that already exists. Unlike `generate`, there's no separate `root`
+argument: `[name]` doubles as the target folder, created relative to the current
+directory (or as an absolute/relative path of its own).
 
 ```bash
 zanix new <type> [name]
@@ -25,25 +26,34 @@ Every type shares the same options:
 | `--no-prepare`              | (runs)    | Skip the automatic `zanix prepare -g -e` call that otherwise runs afterward.                                                                                                   |
 | `--verify`                  | (skipped) | Opt-in: run `deno check` against the new project and warn (never fail) if it doesn't compile against the currently installed dependency versions. See [`--verify`](#--verify). |
 
+**Space** and **spacecraft** ALSO get one more option, unavailable for every other type (a plain
+`app`/`server`/`library` project has no renderer at all):
+
+| Option                  | Default   | Description                                                                                                                                                                                   |
+| ----------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--renderer <renderer>` | `'react'` | `'react'` (the full renderer) or `'preact'` (a smaller, specialized renderer for Comets/islands and pages whose data resolves entirely inside their own `loader`). See [Space](#space) below. |
+
 ## What every project gets
 
 Regardless of type, `zanix new` always seeds:
 
-- `README.md`, `CHANGELOG.md`, `LICENSE` at the project root (a library or an app additionally gets
-  a root `mod.ts` — see their own sections below for what it contains).
+- `README.md`, `CHANGELOG.md`, `LICENSE` at the project root (a library or an
+  app additionally gets a root `mod.ts` — see their own sections below for what
+  it contains).
 - `docs/see-more.md` — a starter guide for project-specific documentation links.
 - `.dist/` (empty, the build output folder — see [`build`](./build.md)).
 - `src/@tests/{integration,unit,functional}/example.test.ts`.
 - `src/typings/index.d.ts`, `src/utils/example.ts`.
 
-**Space** and **server** projects (and `spacecraft`, which is both) additionally get:
+**Space** and **server** projects (and `spacecraft`, which is both) additionally
+get:
 
 - `src/shared/middlewares/{pipe.defs,interceptor.defs}.ts`.
 
 ## App
 
-`zanix new app [name]` seeds a real, working `defineZanixApp()` manifest at the package root
-(`mod.ts`) — never an empty placeholder:
+`zanix new app [name]` seeds a real, working `defineZanixApp()` manifest at the
+package root (`mod.ts`) — never an empty placeholder:
 
 ```ts
 import { defineZanixApp } from '@zanix/app'
@@ -56,25 +66,30 @@ export default defineZanixApp({
 })
 ```
 
-Deliberately protocol-agnostic — a Zanix App is `manifest + dependencies + resources + routes +
-jobs + events + lifecycle`, and nothing about it requires an HTTP server. No `src/server`/
-`src/space`/`src/modules` subfolder is generated either: an `app` package's only real artifact is
-this manifest. Add `routes`/`jobs`/`dependencies`/`resources` once your app actually needs them —
-see `@zanix/app`'s own README for the full manifest reference, and its `docs/PUBLISHING.md` if
-you're distributing this as a package for a different team's host to install. `deno.json` already
-declares `@zanix/app` and the `exports`/`publish` shape needed to publish it, same as `library`.
+Deliberately protocol-agnostic — a Zanix App is
+`manifest + dependencies + resources + routes +
+jobs + events + lifecycle`, and
+nothing about it requires an HTTP server. No `src/server`/
+`src/space`/`src/modules` subfolder is generated either: an `app` package's only
+real artifact is this manifest. Add `routes`/`jobs`/`dependencies`/`resources`
+once your app actually needs them — see `@zanix/app`'s own README for the full
+manifest reference, and its `docs/PUBLISHING.md` if you're distributing this as
+a package for a different team's host to install. `deno.json` already declares
+`@zanix/app` and the `exports`/`publish` shape needed to publish it, same as
+`library`.
 
 ## Server
 
-`zanix new server [name]` (and `spacecraft`, below) also seeds two root entrypoints: `mod.ts`
-(`Zanix.start()`, the HTTP servers) and `worker.ts` (`Zanix.startWorker()`, a standalone AsyncMQ
-background-jobs process — no HTTP at all, always its own separate process from `mod.ts`), plus a
-matching `start`/`worker` task pair in `deno.json`. See [`DEPLOY.md`](./DEPLOY.md) for how to run
-both in production.
+`zanix new server [name]` (and `spacecraft`, below) also seeds two root
+entrypoints: `mod.ts` (`Zanix.start()`, the HTTP servers) and `worker.ts`
+(`Zanix.startWorker()`, a standalone AsyncMQ background-jobs process — no HTTP
+at all, always its own separate process from `mod.ts`), plus a matching
+`start`/`worker` task pair in `deno.json`. See [`DEPLOY.md`](./DEPLOY.md) for
+how to run both in production.
 
 `zanix new server [name]` seeds `src/server/` with one example of every artifact
-[`zanix generate`](./generate.md) can produce — generated by calling those exact same template
-functions, not a separately maintained copy:
+[`zanix generate`](./generate.md) can produce — generated by calling those exact
+same template functions, not a separately maintained copy:
 
 ```
 src/server/
@@ -89,16 +104,17 @@ src/server/
     seeders/seeder.ts
 ```
 
-> The example RTO (`rtos/example.rto.ts`) imports `./validations/IsObjectID.ts`, which this
-> whole-project scaffold does not also generate — only `zanix generate rto` does. If you delete or
-> move the example RTO, regenerate that validation file with `zanix generate rto` instead of copying
-> it by hand.
+> The example RTO (`rtos/example.rto.ts`) imports `./validations/IsObjectID.ts`,
+> which this whole-project scaffold does not also generate — only
+> `zanix generate rto` does. If you delete or move the example RTO, regenerate
+> that validation file with `zanix generate rto` instead of copying it by hand.
 
 ## Space
 
-`zanix new space [name]` seeds `src/space/` with `@zanix/space`'s real, implemented conventions —
-file-based page routing under `routes/` (`page.tsx`, one example) and `comets/` for
-selective-hydration client components (`example.comet.tsx`, one example):
+`zanix new space [name]` seeds `src/space/` with `@zanix/space`'s real,
+implemented conventions — file-based page routing under `routes/` (`page.tsx`,
+one example) and `comets/` for selective-hydration client components
+(`example.comet.tsx`, one example):
 
 ```
 src/space/
@@ -106,43 +122,64 @@ src/space/
   comets/example.comet.tsx
 ```
 
+### `--renderer`
+
+`zanix new space --renderer=preact` (default: `react`) selects the renderer for the WHOLE
+project, never per-file — matching `@zanix/space`'s own `defineSpaceApp({ renderer })` contract
+(see that package's own README for the full contract: React gets `Suspense`/`loading.tsx`/full
+async semantics; Preact is a deliberately smaller renderer for Comets/islands and pages whose data
+resolves entirely inside their own `loader`). Affects exactly two generated files, nothing else —
+`comet`/`page`/`layout`/`error`/`loading` are plain, renderer-agnostic JSX that transpiles off
+`deno.json`'s own `compilerOptions.jsxImportSource`, regardless of which renderer you picked:
+
+- **`deno.json`** — `compilerOptions.jsxImportSource` and the declared npm dependency (`preact`
+  instead of `react`).
+- **`space.app.ts`** — `defineSpaceApp({ ..., renderer: 'preact' })`. Omitted entirely for the
+  default `react` — identical in every respect to passing `--renderer=react` explicitly.
+
 ## Library
 
-`zanix new library [name]` seeds `src/modules/` with a single `mod.ts` re-export entrypoint — the
-minimal starting point for a library's own module tree.
+`zanix new library [name]` seeds `src/modules/` with a single `mod.ts` re-export
+entrypoint — the minimal starting point for a library's own module tree.
 
 ## Spacecraft
 
-`zanix new spacecraft [name]` combines the **Space** and **Server** trees above under the same
-`src/`.
+`zanix new spacecraft [name]` combines the **Space** and **Server** trees above
+under the same `src/`. Also accepts [`--renderer`](#--renderer), applied identically to its own
+`space.app.ts`/`deno.json`.
 
 ## `--no-prepare`
 
-By default, `zanix new` finishes by running the equivalent of `zanix prepare <name> --project-type=<type>
--g -e` for you — Git init, hooks, CI workflow, and VS Code config, all in one step. Pass
-`--no-prepare` to skip that and run [`zanix prepare`](./prepare.md) yourself later, with your own
-flags.
+By default, `zanix new` finishes by running the equivalent of
+`zanix prepare <name> --project-type=<type>
+-g -e` for you — Git init, hooks, CI
+workflow, and VS Code config, all in one step. Pass `--no-prepare` to skip that
+and run [`zanix prepare`](./prepare.md) yourself later, with your own flags.
 
 ## `--verify`
 
-Opt-in — `zanix new` stays 100% local and instant by default, with no network dependency. Pass
-`--verify` to additionally run `deno check` against every file in the new project once it's
-written, against whatever `@zanix/*` dependency versions are actually resolvable right now:
+Opt-in — `zanix new` stays 100% local and instant by default, with no network
+dependency. Pass `--verify` to additionally run `deno check` against every file
+in the new project once it's written, against whatever `@zanix/*` dependency
+versions are actually resolvable right now:
 
 ```bash
 zanix new server my-api --verify
 ```
 
-A failure only ever warns — it never changes `zanix new`'s own exit code — because the generated
-code is still correct against `cli`'s own known API shape; a `--verify` failure means an upstream
-Zanix package changed in a way that broke it (or hasn't published a version yet), not that
-generation itself failed. This is the same check [Drift Watch CI](../ENGINEERING.md#8-generator-api-drift-strategy-known-follow-up--engineering-decision)
-runs on a schedule against every project type — `--verify` just runs it on-demand, scoped to the
-one project you just created.
+A failure only ever warns — it never changes `zanix new`'s own exit code —
+because the generated code is still correct against `cli`'s own known API shape;
+a `--verify` failure means an upstream Zanix package changed in a way that broke
+it (or hasn't published a version yet), not that generation itself failed. This
+is the same check this project's own CI runs on a schedule against every
+project type — `--verify` just runs it on-demand, scoped to the one project you
+just created.
 
 ## See also
 
 - [`generate`](./generate.md) — add artifacts to the project `new` just created.
 - [`build`](./build.md) — compile/obfuscate the project.
-- [`prepare`](./prepare.md) — what the automatic post-scaffold step actually runs.
-- [`DEPLOY.md`](./DEPLOY.md) — running the generated `start`/`worker` tasks in production.
+- [`prepare`](./prepare.md) — what the automatic post-scaffold step actually
+  runs.
+- [`DEPLOY.md`](./DEPLOY.md) — running the generated `start`/`worker` tasks in
+  production.

@@ -47,11 +47,26 @@ export function compileAndObfuscate(
 
     return worker.task(mainBuilderFunction, {
       metaUrl: join(import.meta.url, '../build-runner.ts'),
-      onFinish: ({ error, response: { message, error: runtimeError }, ..._args }) =>
-        callback({ error: runtimeError || error, message, ..._args }),
+      onFinish: (
+        { error, response: { message, error: runtimeError }, ..._args },
+      ) => callback({ error: runtimeError || error, message, ..._args }),
       autoClose: true,
-    }).invoke({ inputFile, outputFile, minify, bundle, onBackground: true, ...opts })
+    }).invoke({
+      inputFile,
+      outputFile,
+      minify,
+      bundle,
+      onBackground: true,
+      ...opts,
+    })
   } else {
-    return mainBuilderFunction({ inputFile, outputFile, minify, bundle, callback, ...opts })
+    return mainBuilderFunction({
+      inputFile,
+      outputFile,
+      minify,
+      bundle,
+      callback,
+      ...opts,
+    })
   }
 }

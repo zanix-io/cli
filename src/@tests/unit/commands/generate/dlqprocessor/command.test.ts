@@ -108,21 +108,34 @@ Deno.test(
         `${projectFolder}/src/server/dlq/payment-retry.defs.ts`,
       )
       assertEquals(
-        processor.includes("import { registerDLQProcessor } from '@zanix/asyncmq/dlq'"),
+        processor.includes(
+          "import { registerDLQProcessor } from '@zanix/asyncmq/dlq'",
+        ),
         true,
       )
-      assertEquals(processor.includes("registerDLQProcessor('payment.process'"), true)
+      assertEquals(
+        processor.includes("registerDLQProcessor('payment.process'"),
+        true,
+      )
       assertEquals(processor.includes("name: 'payment-retry'"), true)
       assertEquals(processor.includes("schedule: '0,30 * * * * *'"), true)
 
       const model = await Deno.readTextFile(
         `${projectFolder}/src/server/repositories/dlq.defs.ts`,
       )
-      assertEquals(model.includes("import { registerDLQModel } from '@zanix/datamaster'"), true)
+      assertEquals(
+        model.includes("import { registerDLQModel } from '@zanix/datamaster'"),
+        true,
+      )
       assertEquals(model.includes('registerDLQModel()'), true)
 
-      const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-      assertEquals(config.imports['@zanix/asyncmq'], ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'])
+      const config = JSON.parse(
+        await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+      )
+      assertEquals(
+        config.imports['@zanix/asyncmq'],
+        ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+      )
       assertEquals(
         config.imports['@zanix/datamaster'],
         ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
@@ -152,7 +165,10 @@ Deno.test(
         'payment-retry',
       )
 
-      assertEquals(await Deno.readTextFile(modelPath), '// customized by hand\n')
+      assertEquals(
+        await Deno.readTextFile(modelPath),
+        '// customized by hand\n',
+      )
     } finally {
       mockCwd.restore()
       await Deno.remove(projectFolder, { recursive: true })
@@ -165,9 +181,20 @@ Deno.test('generateDlqProcessorAction should be idempotent when run twice', asyn
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    const options = { processType: 'payment.process', schedule: '0,30 * * * * *' }
-    await generateDlqProcessorAction.call(new Commander(), options, 'payment-retry')
-    await generateDlqProcessorAction.call(new Commander(), options, 'payment-retry')
+    const options = {
+      processType: 'payment.process',
+      schedule: '0,30 * * * * *',
+    }
+    await generateDlqProcessorAction.call(
+      new Commander(),
+      options,
+      'payment-retry',
+    )
+    await generateDlqProcessorAction.call(
+      new Commander(),
+      options,
+      'payment-retry',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/dlq/payment-retry.defs.ts`,
@@ -188,7 +215,10 @@ Deno.test('planDlqProcessor returns the processor file + the shared model file',
     '/root/src/server/repositories',
   )
 
-  assertEquals(files.map((f) => f.NAME), ['payment-retry.defs.ts', 'dlq.defs.ts'])
+  assertEquals(files.map((f) => f.NAME), [
+    'payment-retry.defs.ts',
+    'dlq.defs.ts',
+  ])
 })
 
 Deno.test('planDlqProcessor throws when --process-type is missing', () => {

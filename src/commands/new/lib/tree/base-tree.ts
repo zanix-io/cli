@@ -27,10 +27,13 @@ type ZanixSubfolderOptions<S> = S extends { subfolders: infer U }
   : object
   : object
 
-// deno-lint-ignore ban-types
-type ZanixTemplateOptions<S> = S extends { templates: unknown } ? ZanixFolderOptions : {}
+type ZanixTemplateOptions<S> = S extends { templates: unknown } ? ZanixFolderOptions
+  // deno-lint-ignore ban-types
+  : {}
 
-type ZanixTreeFolderOptions<S> = ZanixSubfolderOptions<S> & ZanixTemplateOptions<S>
+type ZanixTreeFolderOptions<S> =
+  & ZanixSubfolderOptions<S>
+  & ZanixTemplateOptions<S>
 
 class BaseZanixTree<S extends ZanixBaseFolder> {
   #baseName: string
@@ -89,7 +92,11 @@ class BaseZanixTree<S extends ZanixBaseFolder> {
    * Function to create a template
    */
   private createTemplates(
-    options: { files: string[]; folderPath: string; jsr?: keyof ZanixLibraries },
+    options: {
+      files: string[]
+      folderPath: string
+      jsr?: keyof ZanixLibraries
+    },
   ) {
     const { files, jsr, folderPath } = options
     const { baseRoot } = this
@@ -133,6 +140,9 @@ export class ZanixTree {
       ? { startingPoint: root, baseRoot: root }
       : root
 
-    return new BaseZanixTree(startingPoint, baseRoot).generateTreeFolder(tree, startingPoint) as S
+    return new BaseZanixTree(startingPoint, baseRoot).generateTreeFolder(
+      tree,
+      startingPoint,
+    ) as S
   }
 }

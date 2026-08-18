@@ -50,7 +50,9 @@ Deno.test('Editor config creation merges with an already existing settings file'
 })
 
 Deno.test('Editor config creation returns false on an unknown editor type', async () => {
-  const response = await createEditorFileConfig({ type: 'unknown-editor' as never })
+  const response = await createEditorFileConfig({
+    type: 'unknown-editor' as never,
+  })
 
   assertFalse(response)
 })
@@ -66,7 +68,9 @@ Deno.test('Editor config creation falls back to the literal deno.json name', asy
   try {
     const response = await createVSCodeConfig({ baseRoot: defaultFolder })
 
-    const content = await Deno.readTextFile(defaultFolder + '/settings-folder/settings')
+    const content = await Deno.readTextFile(
+      defaultFolder + '/settings-folder/settings',
+    )
     assert(response)
     assert(content.includes('"deno.config": "deno.json"'))
   } finally {
@@ -82,7 +86,10 @@ Deno.test('createEditorFileConfig defaults to the identity callback', async () =
   editors.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
 
   try {
-    const response = await createEditorFileConfig({ type: 'vscode', baseRoot: '' })
+    const response = await createEditorFileConfig({
+      type: 'vscode',
+      baseRoot: '',
+    })
 
     assert(response)
     const content = await Deno.readTextFile(defaultFolder + '/settings')

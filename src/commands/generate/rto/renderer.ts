@@ -39,14 +39,28 @@ export const FIELD_TYPE_INFO: Record<
   // Hand-invented, not part of `@zanix/validator` — generated alongside into
   // `handlers/rtos/validations/` the first time either is actually used (see below).
   objectId: { decorator: 'IsObjectID', tsType: 'string', localImport: true },
-  permission: { decorator: 'IsPermission', tsType: 'string', localImport: true },
+  permission: {
+    decorator: 'IsPermission',
+    tsType: 'string',
+    localImport: true,
+  },
 }
 
 /** The synthetic `id` field every `Get`/`Edit` RTO carries — always a required `objectId`. */
-const ID_FIELD: FieldDef = { name: 'id', type: 'objectId', isArray: false, optional: false }
+const ID_FIELD: FieldDef = {
+  name: 'id',
+  type: 'objectId',
+  isArray: false,
+  optional: false,
+}
 
 /** The synthetic `query` field every `Search` RTO carries — always an optional `string`. */
-const QUERY_FIELD: FieldDef = { name: 'query', type: 'string', isArray: false, optional: true }
+const QUERY_FIELD: FieldDef = {
+  name: 'query',
+  type: 'string',
+  isArray: false,
+  optional: true,
+}
 
 type RenderedField = {
   /** The decorator + accessor lines, ready to join into a class body. */
@@ -67,7 +81,9 @@ function renderField(field: FieldDef, forceOptional: boolean): RenderedField {
 
   if (field.type === 'enum') {
     decorator = 'IsEnum'
-    scalarType = (field.enumValues ?? []).map((value) => `'${value}'`).join(' | ')
+    scalarType = (field.enumValues ?? []).map((value) => `'${value}'`).join(
+      ' | ',
+    )
     isLocal = false
     noExpose = false
   } else {
@@ -126,7 +142,9 @@ export function rtoTemplate(pascalName: string, fields: FieldDef[]): string {
   const allRendered = [searchField, getField, ...createFields, ...editFields]
 
   const validatorNames = new Set<string>(['BaseRTO', 'IsString'])
-  for (const field of allRendered) if (!field.isLocal) validatorNames.add(field.decorator)
+  for (const field of allRendered) {
+    if (!field.isLocal) validatorNames.add(field.decorator)
+  }
   const validatorImport = `import { ${
     [...validatorNames].sort().join(', ')
   } } from '@zanix/validator'`
@@ -139,7 +157,8 @@ export function rtoTemplate(pascalName: string, fields: FieldDef[]): string {
   const imports = [
     validatorImport,
     `import { IsObjectID } from './validations/IsObjectID.ts'`,
-    usesPermission && `import { IsPermission } from './validations/IsPermission.ts'`,
+    usesPermission &&
+    `import { IsPermission } from './validations/IsPermission.ts'`,
     `import { SearchPaginationRTO } from '@zanix/datamaster'`,
   ].filter(Boolean).join('\n')
 
@@ -205,9 +224,14 @@ export const IsPermission = (options?: ValidationOptions) => {
 }
 `
 
-/** The regex constant `IsObjectID.ts` imports from `src/utils/constants.ts` — verbatim from real
- * files. */
+/** The regex constant `IsObjectID.ts` imports from a generated project's own
+ * `src/utils/constants.ts` — a hand-typed string literal, not derived from this package's own
+ * `utils/constants.ts` `OBJECTID_REGEX` (see that constant's own doc) — keep both in sync by hand
+ * if either one's pattern ever changes. */
 export const OBJECTID_REGEX_CONSTANT = 'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/'
 
-/** The regex constant `IsPermission.ts` imports from `src/utils/constants.ts` — verbatim from */
+/** The regex constant `IsPermission.ts` imports from a generated project's own
+ * `src/utils/constants.ts` — a hand-typed string literal, same convention as
+ * `OBJECTID_REGEX_CONSTANT` above, but with no sibling `PERMISSION_REGEX` of its own in this
+ * package's own `utils/constants.ts` to stay in sync with — this string is its only source. */
 export const PERMISSION_REGEX_CONSTANT = 'export const PERMISSION_REGEX = /^[A-Za-z-]+:[A-Za-z-]+$/'

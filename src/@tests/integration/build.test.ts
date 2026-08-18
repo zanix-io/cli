@@ -56,10 +56,18 @@ Deno.test(
   'compileAndObfuscate should generate a bundled an minified output file using a worker by default',
   async () => {
     await Deno.writeTextFile(inputFile, inputContent)
-    const compileResponse: { message?: string; error?: unknown; _wasWorkerThread?: boolean } =
-      await new Promise((resolve) =>
-        compileAndObfuscate({ outputFile, inputFile, useWorker: true, callback: resolve })
-      )
+    const compileResponse: {
+      message?: string
+      error?: unknown
+      _wasWorkerThread?: boolean
+    } = await new Promise((resolve) =>
+      compileAndObfuscate({
+        outputFile,
+        inputFile,
+        useWorker: true,
+        callback: resolve,
+      })
+    )
 
     assertEquals(compileResponse.message, 'Build completed')
     assertEquals(compileResponse._wasWorkerThread, true)

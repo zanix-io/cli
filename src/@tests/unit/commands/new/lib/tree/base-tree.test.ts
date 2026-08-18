@@ -50,7 +50,10 @@ Deno.test('CreateZanixTree should return the correct folder with current level',
   const level2 = tree.subfolders
 
   assertEquals(level2['folder-level-2'].NAME, 'folder-level-2')
-  assertEquals(level2['folder-level-2'].FOLDER, 'this-is-my-root/folder-level-2')
+  assertEquals(
+    level2['folder-level-2'].FOLDER,
+    'this-is-my-root/folder-level-2',
+  )
   assertEquals(
     level2['folder-level-2'].templates.base[0].PATH,
     'this-is-my-root/folder-level-2/fileB',
@@ -59,7 +62,10 @@ Deno.test('CreateZanixTree should return the correct folder with current level',
   assertExists(level2['folder-level-2'].templates.base[0].content)
 
   assertEquals(level2['new-folder-level-2'].NAME, 'new-folder-level-2')
-  assertEquals(level2['new-folder-level-2'].FOLDER, 'this-is-my-root/new-folder-level-2')
+  assertEquals(
+    level2['new-folder-level-2'].FOLDER,
+    'this-is-my-root/new-folder-level-2',
+  )
   assertEquals(
     level2['new-folder-level-2'].templates.base[0].PATH,
     'this-is-my-root/new-folder-level-2/fileC',
@@ -70,7 +76,10 @@ Deno.test('CreateZanixTree should return the correct folder with current level',
   const level3 = level2['new-folder-level-2'].subfolders
 
   assertEquals(level3['folder-level-3'].NAME, 'folder-level-3')
-  assertEquals(level3['folder-level-3'].FOLDER, 'this-is-my-root/new-folder-level-2/folder-level-3')
+  assertEquals(
+    level3['folder-level-3'].FOLDER,
+    'this-is-my-root/new-folder-level-2/folder-level-3',
+  )
   assertEquals(
     level3['folder-level-3'].templates.base[0].PATH,
     'this-is-my-root/new-folder-level-2/folder-level-3/fileD',

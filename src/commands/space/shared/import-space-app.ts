@@ -19,7 +19,10 @@ import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
  * Shared between `zanix space dev` and `zanix space build` — a single source of truth for this
  * import, rather than two independently-maintained copies that could drift.
  */
-export async function importSpaceApp(cwd: Commander, root: string): Promise<ZanixAppDefinition> {
+export async function importSpaceApp(
+  cwd: Commander,
+  root: string,
+): Promise<ZanixAppDefinition> {
   const path = resolve(root, SPACE_APP_MODULE)
   let imported: unknown
   try {
@@ -30,7 +33,11 @@ export async function importSpaceApp(cwd: Commander, root: string): Promise<Zani
         `Could not import '${SPACE_APP_MODULE}' at '${path}': ${(error as Error).message}`,
       ),
     )
-    throw error // unreachable — `cwd.throw` never returns — satisfies the return type for `tsc`.
+    // `cwd.throw` is typed `(e: Error) => never` — this line is unreachable for a real
+    // `Commander`, which always throws — kept only as a defensive fallback for a caller that
+    // passes a non-conforming stand-in whose own `throw` doesn't actually throw (e.g. a test
+    // double), so this function never silently returns `undefined` as a `ZanixAppDefinition`.
+    throw error
   }
 
   if (!isZanixAppDefinition(imported)) {

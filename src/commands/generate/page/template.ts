@@ -9,6 +9,19 @@
  * exactly where this command writes it — an explicit path argument would be redundant), and
  * `component` as a class-field arrow-compatible assignment (a plain function reference is valid
  * here too, matching `@zanix/space`'s own scaffold example in `cli`'s `new space` templates).
+ *
+ * **Emits a `static head` and an `<h1>`, and these are scaffolding conventions — not requirements.**
+ * The distinction is deliberate and worth stating where the code lives:
+ *
+ * - `static head` exists because a document with no `<title>` is genuinely non-conforming (the HTML
+ *   Standard's `head` content model requires exactly one) and fails WCAG 2.4.2. Before this, the
+ *   generated page produced a document with no title at all unless some layout happened to supply
+ *   one — the framework's own default path violated a real requirement.
+ * - The `<h1>` is only a good starting point for a page. `@zanix/space` does NOT require a document
+ *   to have one: it is not an HTML requirement, not a WCAG success criterion, and Google Search
+ *   documents no requirement about heading counts. The build reports a missing `<h1>` as a
+ *   non-normative warning, and a page without one is perfectly valid. Generating one here must never
+ *   be read as making it part of the contract — generator convention is not the validation contract.
  */
 
 /** `routes/<route-path>/page.tsx` */
@@ -16,11 +29,17 @@ export const pageTemplate = (pascalName: string): string =>
   `import { Page, SpacePageController } from '@zanix/space'
 
 function ${pascalName}View() {
-  return <p>${pascalName}</p>
+  return (
+    <main>
+      <h1>${pascalName}</h1>
+    </main>
+  )
 }
 
 @Page()
 export default class ${pascalName}Page extends SpacePageController {
+  static head = { title: '${pascalName}' }
+
   component = ${pascalName}View
 }
 `

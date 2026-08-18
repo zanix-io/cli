@@ -3,8 +3,7 @@ import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { fileExists } from '@zanix/helpers'
-import { toKebabCase } from 'utils/casing.ts'
+import { fileExists, toKebabCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import {
@@ -14,6 +13,7 @@ import {
   SEEDERS_HELPER,
 } from 'commands/generate/seeder/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface SeederPlanFile {
   PATH: string
   NAME: string
@@ -83,14 +83,19 @@ async function generateSeederAction(
   const seedersFolder = `${projectRoot}/src/server/repositories/${folderName}/seeders`
 
   const { files, ensureHelper } = planSeeder(seedersFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: seedersFolder, templates: { base: files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: seedersFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureHelper(projectRoot)
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Seeder files created successfully in 'repositories/${folderName}/seeders'.`)
+  logger.info(
+    `Seeder files created successfully in 'repositories/${folderName}/seeders'.`,
+  )
 }
 
 export default generateSeederAction

@@ -4,11 +4,12 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { subscriberTemplate } from 'commands/generate/subscriber/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface SubscriberPlanFile {
   PATH: string
   NAME: string
@@ -55,8 +56,16 @@ async function generateSubscriberAction(
   const pascalName = toPascalCase(name)
   const subscribersFolder = `${projectRoot}/src/server/subscribers`
 
-  const { files } = planSubscriber(kebabName, pascalName, queue, subscribersFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: subscribersFolder, templates: { base: files } }
+  const { files } = planSubscriber(
+    kebabName,
+    pascalName,
+    queue,
+    subscribersFolder,
+  )
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: subscribersFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/asyncmq')

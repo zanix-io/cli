@@ -31,7 +31,12 @@ Deno.test('configAdaptation should merge fmt, lint, publish and test when provid
   const config: ConfigFile = {
     name: '@project/name',
     compilerOptions: { strict: true, noImplicitAny: true },
-    fmt: { indentWidth: 2, lineWidth: 100, singleQuote: true, semiColons: false },
+    fmt: {
+      indentWidth: 2,
+      lineWidth: 100,
+      singleQuote: true,
+      semiColons: false,
+    },
     lint: {
       rules: { tags: ['recommended'], include: ['eqeqeq'] },
       plugins: ['jsr:@zanix/utils/linter/deno-zanix-plugin'],
@@ -45,7 +50,9 @@ Deno.test('configAdaptation should merge fmt, lint, publish and test when provid
   assertEquals(result.fmt?.indentWidth, 2)
   assertEquals(result.lint?.rules?.tags, ['recommended'])
   assertEquals(result.lint?.rules?.include, ['eqeqeq'])
-  assertEquals(result.lint?.plugins, ['jsr:@zanix/utils/linter/deno-zanix-plugin'])
+  assertEquals(result.lint?.plugins, [
+    'jsr:@zanix/utils/linter/deno-zanix-plugin',
+  ])
   assertEquals(result.publish?.exclude, ['.github'])
   assertEquals(
     result.test?.include?.sort(),

@@ -12,6 +12,9 @@ import { registerSubscriberCommand } from 'commands/generate/subscriber/command.
 import { registerCometCommand } from 'commands/generate/comet/command.ts'
 import { registerPageCommand } from 'commands/generate/page/command.ts'
 import { registerLayoutCommand } from 'commands/generate/layout/command.ts'
+import { registerErrorCommand } from 'commands/generate/error/command.ts'
+import { registerLoadingCommand } from 'commands/generate/loading/command.ts'
+import { registerNotFoundCommand } from 'commands/generate/not-found/command.ts'
 
 /**
  * Every `zanix generate <artifact>` sub-command, registered here and nowhere else. Adding a new
@@ -32,4 +35,7 @@ export const generatorRegistry: Array<(cwd: Commander) => void> = [
   registerCometCommand,
   registerPageCommand,
   registerLayoutCommand,
+  registerErrorCommand,
+  registerLoadingCommand,
+  registerNotFoundCommand,
 ]

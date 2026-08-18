@@ -5,7 +5,10 @@ const temporaryFolder = getTemporaryFolder(import.meta.url)
 
 /** Every file path under `dir`, relative to `dir`, sorted — for comparing two generated
  * projects' full trees regardless of walk order. */
-async function listFilesRecursively(dir: string, base: string = dir): Promise<string[]> {
+async function listFilesRecursively(
+  dir: string,
+  base: string = dir,
+): Promise<string[]> {
   const out: string[] = []
   for await (const entry of Deno.readDir(dir)) {
     const full = `${dir}/${entry.name}`
@@ -34,21 +37,43 @@ Deno.test('new command server should create some base folders', async () => {
 
   assert(fileExists(project + '/mod.ts'))
   const mod = await Deno.readTextFile(project + '/mod.ts')
-  assert(mod.includes("from '@zanix/core'"), 'mod.ts must import @zanix/core, not be empty')
+  assert(
+    mod.includes("from '@zanix/core'"),
+    'mod.ts must import @zanix/core, not be empty',
+  )
   assert(mod.includes('Zanix.start()'), 'mod.ts must call Zanix.start()')
   assert(
     !fileExists(project + '/space.app.ts'),
     'a plain server project has no @zanix/space app, so no space.app.ts either',
   )
 
-  assert(fileExists(project + '/worker.ts'), 'a server project must have a worker entrypoint too')
+  assert(
+    fileExists(project + '/worker.ts'),
+    'a server project must have a worker entrypoint too',
+  )
   const worker = await Deno.readTextFile(project + '/worker.ts')
-  assert(worker.includes("from '@zanix/core'"), 'worker.ts must import @zanix/core')
-  assert(worker.includes('Zanix.startWorker()'), 'worker.ts must call Zanix.startWorker()')
+  assert(
+    worker.includes("from '@zanix/core'"),
+    'worker.ts must import @zanix/core',
+  )
+  assert(
+    worker.includes('Zanix.startWorker()'),
+    'worker.ts must call Zanix.startWorker()',
+  )
 
   const config = await Deno.readTextFile(project + '/deno.json')
-  for (const pkg of ['@zanix/server', '@zanix/datamaster', '@zanix/asyncmq', '@zanix/core']) {
-    assert(config.includes(`"${pkg}"`), `deno.json must declare ${pkg} as a dependency`)
+  for (
+    const pkg of [
+      '@zanix/server',
+      '@zanix/datamaster',
+      '@zanix/asyncmq',
+      '@zanix/core',
+    ]
+  ) {
+    assert(
+      config.includes(`"${pkg}"`),
+      `deno.json must declare ${pkg} as a dependency`,
+    )
   }
   assert(
     config.includes('"@zanix/validator"'),
@@ -60,8 +85,13 @@ Deno.test('new command server should create some base folders', async () => {
     fileExists(project + '/src/server/handlers/rtos/validations/IsObjectID.ts'),
     "example.rto.ts's own IsObjectID import must actually exist, not be scaffold-illustrative only",
   )
-  const constants = await Deno.readTextFile(project + '/src/utils/constants.ts')
-  assert(constants.includes('OBJECTID_REGEX'), 'constants.ts must declare OBJECTID_REGEX')
+  const constants = await Deno.readTextFile(
+    project + '/src/utils/constants.ts',
+  )
+  assert(
+    constants.includes('OBJECTID_REGEX'),
+    'constants.ts must declare OBJECTID_REGEX',
+  )
 
   await Deno.remove(project, { recursive: true })
 })
@@ -80,7 +110,10 @@ Deno.test('new command space should create some base folders', async () => {
   assert(folderExists(project + '/src/space'))
   assert(!folderExists(project + '/src/modules'))
 
-  assert(fileExists(project + '/mod.ts'), 'a plain space project must have a real entrypoint')
+  assert(
+    fileExists(project + '/mod.ts'),
+    'a plain space project must have a real entrypoint',
+  )
   const mod = await Deno.readTextFile(project + '/mod.ts')
   assert(
     mod.includes("from './space.app.ts'"),
@@ -92,11 +125,16 @@ Deno.test('new command space should create some base folders', async () => {
   )
   assert(
     mod.includes("from '@zanix/app/runtime'"),
-    'mod.ts must import activateApps from @zanix/app/runtime, never bare @zanix/app',
+    'mod.ts must import bootstrapRemoteApp from @zanix/app/runtime, never bare @zanix/app',
   )
-  assert(mod.includes('activateApps('), 'mod.ts must activate the app it defines')
-  assert(mod.includes('bootstrapServers('), 'mod.ts must actually serve the activated app')
-  assert(!mod.includes('@zanix/core'), 'a pure space project must never depend on @zanix/core')
+  assert(
+    mod.includes('bootstrapRemoteApp('),
+    'mod.ts must activate and serve the app via bootstrapRemoteApp (graceful shutdown included)',
+  )
+  assert(
+    !mod.includes('@zanix/core'),
+    'a pure space project must never depend on @zanix/core',
+  )
 
   assert(
     !fileExists(project + '/worker.ts'),
@@ -108,12 +146,24 @@ Deno.test('new command space should create some base folders', async () => {
     'zanix space dev needs the manifest importable in isolation, split out of mod.ts',
   )
   const spaceApp = await Deno.readTextFile(project + '/space.app.ts')
-  assert(spaceApp.includes("from '@zanix/space'"), 'space.app.ts must import @zanix/space')
-  assert(spaceApp.includes('defineSpaceApp('), 'space.app.ts must declare the app manifest')
-  assert(spaceApp.includes('export default'), 'space.app.ts must export the manifest as default')
+  assert(
+    spaceApp.includes("from '@zanix/space'"),
+    'space.app.ts must import @zanix/space',
+  )
+  assert(
+    spaceApp.includes('defineSpaceApp('),
+    'space.app.ts must declare the app manifest',
+  )
+  assert(
+    spaceApp.includes('export default'),
+    'space.app.ts must export the manifest as default',
+  )
 
   const config = await Deno.readTextFile(project + '/deno.json')
-  assert(config.includes('"@zanix/space"'), 'deno.json must declare @zanix/space as a dependency')
+  assert(
+    config.includes('"@zanix/space"'),
+    'deno.json must declare @zanix/space as a dependency',
+  )
 
   await Deno.remove(project, { recursive: true })
 })
@@ -134,7 +184,10 @@ Deno.test('new command spacecraft should create some base folders', async () => 
 
   assert(fileExists(project + '/mod.ts'))
   const mod = await Deno.readTextFile(project + '/mod.ts')
-  assert(mod.includes("from '@zanix/core'"), 'mod.ts must import @zanix/core, not be empty')
+  assert(
+    mod.includes("from '@zanix/core'"),
+    'mod.ts must import @zanix/core, not be empty',
+  )
   assert(
     mod.includes('Zanix.start({'),
     'mod.ts must call Zanix.start() with the space app wired in',
@@ -147,22 +200,34 @@ Deno.test('new command spacecraft should create some base folders', async () => 
     !mod.includes('defineSpaceApp('),
     'the manifest itself belongs in space.app.ts, not mod.ts',
   )
-  assert(mod.includes('apps:'), 'mod.ts must register the space app as a named Zanix.start() app')
+  assert(
+    mod.includes('apps:'),
+    'mod.ts must register the space app as a named Zanix.start() app',
+  )
 
   assert(
     fileExists(project + '/worker.ts'),
     'a space-server project must have a worker entrypoint too',
   )
   const worker = await Deno.readTextFile(project + '/worker.ts')
-  assert(worker.includes('Zanix.startWorker()'), 'worker.ts must call Zanix.startWorker()')
+  assert(
+    worker.includes('Zanix.startWorker()'),
+    'worker.ts must call Zanix.startWorker()',
+  )
 
   assert(
     fileExists(project + '/space.app.ts'),
     'zanix space dev needs the manifest importable in isolation, split out of mod.ts',
   )
   const spaceApp = await Deno.readTextFile(project + '/space.app.ts')
-  assert(spaceApp.includes("from '@zanix/space'"), 'space.app.ts must import @zanix/space')
-  assert(spaceApp.includes('defineSpaceApp('), 'space.app.ts must declare the app manifest')
+  assert(
+    spaceApp.includes("from '@zanix/space'"),
+    'space.app.ts must import @zanix/space',
+  )
+  assert(
+    spaceApp.includes('defineSpaceApp('),
+    'space.app.ts must declare the app manifest',
+  )
 
   const config = await Deno.readTextFile(project + '/deno.json')
   for (
@@ -174,15 +239,23 @@ Deno.test('new command spacecraft should create some base folders', async () => 
       '@zanix/space',
     ]
   ) {
-    assert(config.includes(`"${pkg}"`), `deno.json must declare ${pkg} as a dependency`)
+    assert(
+      config.includes(`"${pkg}"`),
+      `deno.json must declare ${pkg} as a dependency`,
+    )
   }
 
   assert(
     fileExists(project + '/src/server/handlers/rtos/validations/IsObjectID.ts'),
     "example.rto.ts's own IsObjectID import must actually exist, not be scaffold-illustrative only",
   )
-  const constants = await Deno.readTextFile(project + '/src/utils/constants.ts')
-  assert(constants.includes('OBJECTID_REGEX'), 'constants.ts must declare OBJECTID_REGEX')
+  const constants = await Deno.readTextFile(
+    project + '/src/utils/constants.ts',
+  )
+  assert(
+    constants.includes('OBJECTID_REGEX'),
+    'constants.ts must declare OBJECTID_REGEX',
+  )
 
   await Deno.remove(project, { recursive: true })
 })
@@ -227,11 +300,17 @@ Deno.test('new command app should create a real, non-empty defineZanixApp() mani
 
   assert(fileExists(project + '/mod.ts'))
   const mod = await Deno.readTextFile(project + '/mod.ts')
-  assert(mod.includes("from '@zanix/app'"), 'mod.ts must import @zanix/app, not be empty')
+  assert(
+    mod.includes("from '@zanix/app'"),
+    'mod.ts must import @zanix/app, not be empty',
+  )
   assert(mod.includes('defineZanixApp'), 'mod.ts must call defineZanixApp()')
 
   const config = await Deno.readTextFile(project + '/deno.json')
-  assert(config.includes('"@zanix/app"'), 'deno.json must declare @zanix/app as a dependency')
+  assert(
+    config.includes('"@zanix/app"'),
+    'deno.json must declare @zanix/app as a dependency',
+  )
 
   await Deno.remove(project, { recursive: true })
 })
@@ -266,11 +345,19 @@ Deno.test(
         Deno.readTextFile(implicitProject + relPath),
         Deno.readTextFile(explicitProject + relPath),
       ])
-      assertEquals(implicitContent, explicitContent, `content differs for ${relPath}`)
+      assertEquals(
+        implicitContent,
+        explicitContent,
+        `content differs for ${relPath}`,
+      )
     }))
 
-    await Deno.remove(`${temporaryFolder}/preset-implicit`, { recursive: true })
-    await Deno.remove(`${temporaryFolder}/preset-explicit`, { recursive: true })
+    await Deno.remove(`${temporaryFolder}/preset-implicit`, {
+      recursive: true,
+    })
+    await Deno.remove(`${temporaryFolder}/preset-explicit`, {
+      recursive: true,
+    })
   },
 )
 
@@ -282,13 +369,19 @@ Deno.test(
       args: ['run', 'new', 'server', project, '--template', 'does-not-exist'],
     }).output()
 
-    assert(!output.success, 'the command must exit non-zero for an unknown --template')
+    assert(
+      !output.success,
+      'the command must exit non-zero for an unknown --template',
+    )
     const stderr = new TextDecoder().decode(output.stderr)
     assert(
       stderr.includes('does-not-exist') && stderr.includes('base'),
       'stderr must name the offending template and list the known ones',
     )
-    assert(!folderExists(project), 'no project folder should be created for a failed --template')
+    assert(
+      !folderExists(project),
+      'no project folder should be created for a failed --template',
+    )
   },
 )
 
@@ -303,8 +396,14 @@ Deno.test(
       args: ['run', 'new', 'library', project, '--template', 'does-not-exist'],
     }).output()
 
-    assert(!output.success, 'the command must exit non-zero for an unknown --template')
-    assert(!folderExists(project), 'no project folder should be created for a failed --template')
+    assert(
+      !output.success,
+      'the command must exit non-zero for an unknown --template',
+    )
+    assert(
+      !folderExists(project),
+      'no project folder should be created for a failed --template',
+    )
   },
 )
 
@@ -320,7 +419,13 @@ Deno.test(
       args: ['run', 'new', 'app', project, '--template', 'does-not-exist'],
     }).output()
 
-    assert(!output.success, 'the command must exit non-zero for an unknown --template')
-    assert(!folderExists(project), 'no project folder should be created for a failed --template')
+    assert(
+      !output.success,
+      'the command must exit non-zero for an unknown --template',
+    )
+    assert(
+      !folderExists(project),
+      'no project folder should be created for a failed --template',
+    )
   },
 )

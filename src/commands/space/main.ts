@@ -10,11 +10,13 @@ import { registerSpaceBuildCommand } from 'commands/space/build/command.ts'
 export default function spaceCommand(this: Commander) {
   const cwd = new Commander()
 
-  this.command('space', cwd)
+  this.mountGroup('space', cwd)
     .description('Tooling specific to @zanix/space frontend projects.')
     .action(() => {
       cwd.throw(
-        new Error("You must provide a subcommand for the 'space' command (e.g. 'dev'/'build')."),
+        new Error(
+          "You must provide a subcommand for the 'space' command (e.g. 'dev'/'build').",
+        ),
       )
     })
 

@@ -27,7 +27,10 @@ export function collectTsFiles(root: string): string[] {
         if (!SKIP_DIRS.has(entry.name)) stack.push(join(dir, entry.name))
         continue
       }
-      if (entry.isFile && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+      if (
+        entry.isFile &&
+        (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))
+      ) {
         files.push(join(dir, entry.name))
       }
     }

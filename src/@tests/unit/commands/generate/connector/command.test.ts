@@ -46,12 +46,20 @@ Deno.test('generateConnectorAction should write a connector file', async () => {
     const connectorPath = `${projectFolder}/src/server/connectors/payment-gateway.connector.ts`
     const content = await Deno.readTextFile(connectorPath)
 
-    assertEquals(content.includes('export class PaymentGatewayConnector'), true)
+    assertEquals(
+      content.includes('export class PaymentGatewayConnector'),
+      true,
+    )
     assertEquals(content.includes('@Connector()'), true)
     assertEquals(content.includes('extends ZanixConnector'), true)
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/server'], ZANIX_DEPENDENCY_VERSIONS['@zanix/server'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/server'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -88,7 +96,10 @@ Deno.test('generateConnectorAction should never overwrite an existing connector 
 
     await generateConnectorAction.call(new Commander(), {}, 'invoice')
 
-    assertEquals(await Deno.readTextFile(connectorPath), '// customized by hand\n')
+    assertEquals(
+      await Deno.readTextFile(connectorPath),
+      '// customized by hand\n',
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -100,7 +111,11 @@ Deno.test('generateConnectorAction --slot database writes a database connector',
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateConnectorAction.call(new Commander(), { slot: 'database' }, 'MainDb')
+    await generateConnectorAction.call(
+      new Commander(),
+      { slot: 'database' },
+      'MainDb',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/connectors/main-db.connector.ts`,
@@ -121,7 +136,11 @@ Deno.test('generateConnectorAction --slot cache:redis writes a cache connector',
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateConnectorAction.call(new Commander(), { slot: 'cache:redis' }, 'RedisCache')
+    await generateConnectorAction.call(
+      new Commander(),
+      { slot: 'cache:redis' },
+      'RedisCache',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/connectors/redis-cache.connector.ts`,
@@ -143,7 +162,12 @@ Deno.test('generateConnectorAction should throw clearly for an unsupported --slo
 
   try {
     await assertRejects(
-      () => generateConnectorAction.call(new Commander(), { slot: 'asyncmq' }, 'invoice'),
+      () =>
+        generateConnectorAction.call(
+          new Commander(),
+          { slot: 'asyncmq' },
+          'invoice',
+        ),
       Error,
       "Unsupported connector slot 'asyncmq'",
     )
@@ -154,14 +178,25 @@ Deno.test('generateConnectorAction should throw clearly for an unsupported --slo
 })
 
 Deno.test('planConnector without a slot returns a generic connector', () => {
-  const { files } = planConnector('example', 'Example', undefined, '/root/src/server/connectors')
+  const { files } = planConnector(
+    'example',
+    'Example',
+    undefined,
+    '/root/src/server/connectors',
+  )
 
   assertEquals(files.map((f) => f.NAME), ['example.connector.ts'])
 })
 
 Deno.test('planConnector throws for an unsupported slot', () => {
   assertThrows(
-    () => planConnector('example', 'Example', 'asyncmq', '/root/src/server/connectors'),
+    () =>
+      planConnector(
+        'example',
+        'Example',
+        'asyncmq',
+        '/root/src/server/connectors',
+      ),
     Error,
     "Unsupported connector slot 'asyncmq'",
   )

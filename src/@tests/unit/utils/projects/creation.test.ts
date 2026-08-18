@@ -36,7 +36,11 @@ Deno.test('createFilesAndFolders should resolve only after every write completes
       FOLDER: temporaryFolder,
       templates: {
         base: [
-          { PATH: filePath, NAME: 'awaited.txt', content: () => Promise.resolve('done') },
+          {
+            PATH: filePath,
+            NAME: 'awaited.txt',
+            content: () => Promise.resolve('done'),
+          },
         ],
       },
     },
@@ -52,18 +56,31 @@ Deno.test('createFilesAndFolders should resolve only after every write completes
 Deno.test('ensureConstant should create the file+folder when neither exists yet', async () => {
   const filePath = `${temporaryFolder}/ensure-constant-new/constants.ts`
 
-  await ensureConstant(filePath, 'OBJECTID_REGEX', 'export const OBJECTID_REGEX = /a/')
+  await ensureConstant(
+    filePath,
+    'OBJECTID_REGEX',
+    'export const OBJECTID_REGEX = /a/',
+  )
 
-  assertEquals(await Deno.readTextFile(filePath), 'export const OBJECTID_REGEX = /a/\n')
+  assertEquals(
+    await Deno.readTextFile(filePath),
+    'export const OBJECTID_REGEX = /a/\n',
+  )
 
-  await Deno.remove(`${temporaryFolder}/ensure-constant-new`, { recursive: true })
+  await Deno.remove(`${temporaryFolder}/ensure-constant-new`, {
+    recursive: true,
+  })
 })
 
 Deno.test('ensureConstant should append the declaration when the file lacks it', async () => {
   const filePath = `${temporaryFolder}/ensure-constant-append.ts`
   await Deno.writeTextFile(filePath, "export const OTHER = 'x'\n")
 
-  await ensureConstant(filePath, 'OBJECTID_REGEX', 'export const OBJECTID_REGEX = /a/')
+  await ensureConstant(
+    filePath,
+    'OBJECTID_REGEX',
+    'export const OBJECTID_REGEX = /a/',
+  )
 
   assertEquals(
     await Deno.readTextFile(filePath),
@@ -79,7 +96,11 @@ Deno.test({
     const filePath = `${temporaryFolder}/ensure-constant-no-trailing-newline.ts`
     await Deno.writeTextFile(filePath, "export const OTHER = 'x'")
 
-    await ensureConstant(filePath, 'OBJECTID_REGEX', 'export const OBJECTID_REGEX = /a/')
+    await ensureConstant(
+      filePath,
+      'OBJECTID_REGEX',
+      'export const OBJECTID_REGEX = /a/',
+    )
 
     assertEquals(
       await Deno.readTextFile(filePath),
@@ -95,7 +116,11 @@ Deno.test('ensureConstant should never duplicate a declaration already present',
   const original = 'export const OBJECTID_REGEX = /already-here/\n'
   await Deno.writeTextFile(filePath, original)
 
-  await ensureConstant(filePath, 'OBJECTID_REGEX', 'export const OBJECTID_REGEX = /a/')
+  await ensureConstant(
+    filePath,
+    'OBJECTID_REGEX',
+    'export const OBJECTID_REGEX = /a/',
+  )
 
   assertEquals(await Deno.readTextFile(filePath), original)
 

@@ -4,11 +4,12 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase } from 'utils/casing.ts'
+import { toKebabCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { dlqModelTemplate, dlqProcessorTemplate } from 'commands/generate/dlqprocessor/template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface DlqProcessorPlanFile {
   PATH: string
   NAME: string
@@ -41,10 +42,14 @@ export function planDlqProcessor(
   repositoriesFolder: string,
 ): DlqProcessorPlan {
   if (!processType) {
-    throw new Error("The 'dlqprocessor' generator needs a --process-type <type>.")
+    throw new Error(
+      "The 'dlqprocessor' generator needs a --process-type <type>.",
+    )
   }
   if (!schedule) {
-    throw new Error("The 'dlqprocessor' generator needs a --schedule <cron expression>.")
+    throw new Error(
+      "The 'dlqprocessor' generator needs a --schedule <cron expression>.",
+    )
   }
 
   return {
@@ -52,7 +57,10 @@ export function planDlqProcessor(
       {
         PATH: `${dlqFolder}/${kebabName}.defs.ts`,
         NAME: `${kebabName}.defs.ts`,
-        content: () => Promise.resolve(dlqProcessorTemplate(kebabName, processType, schedule)),
+        content: () =>
+          Promise.resolve(
+            dlqProcessorTemplate(kebabName, processType, schedule),
+          ),
       },
       {
         PATH: `${repositoriesFolder}/dlq.defs.ts`,
@@ -63,6 +71,10 @@ export function planDlqProcessor(
   }
 }
 
+/** `zanix generate dlqprocessor <name>`'s real orchestration: writes the reprocessing job, plus
+ * `repositories/dlq.defs.ts` (the shared DLQ model registration) the first time this generator
+ * ever runs in a project, ensures `@zanix/asyncmq`/`@zanix/datamaster` are declared, then
+ * optionally `--verify`s. */
 async function generateDlqProcessorAction(
   this: Commander,
   options: unknown,
@@ -83,13 +95,22 @@ async function generateDlqProcessorAction(
 
   let plan: DlqProcessorPlan
   try {
-    plan = planDlqProcessor(kebabName, processType, schedule, dlqFolder, repositoriesFolder)
+    plan = planDlqProcessor(
+      kebabName,
+      processType,
+      schedule,
+      dlqFolder,
+      repositoriesFolder,
+    )
   } catch (error) {
     this.throw(error as Error)
     return
   }
 
-  const tree: ZanixFolderGenericTree = { FOLDER: dlqFolder, templates: { base: plan.files } }
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: dlqFolder,
+    templates: { base: plan.files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/asyncmq')
@@ -97,7 +118,9 @@ async function generateDlqProcessorAction(
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`DLQ processor file created successfully in 'dlq/${kebabName}.defs.ts'.`)
+  logger.info(
+    `DLQ processor file created successfully in 'dlq/${kebabName}.defs.ts'.`,
+  )
 }
 
 export default generateDlqProcessorAction
@@ -108,7 +131,10 @@ export function registerDlqProcessorCommand(cwd: Commander): void {
       'Generate a DLQ reprocessing job (dlq/<name>.defs.ts) — also ensures the shared DLQ model ' +
         "registration exists at 'repositories/dlq.defs.ts'.",
     )
-    .option('-p --process-type <type:string>', 'The DLQ entry processType to claim and reprocess.')
+    .option(
+      '-p --process-type <type:string>',
+      'The DLQ entry processType to claim and reprocess.',
+    )
     .option(
       '-s --schedule <expression:string>',
       'A 6-field cron expression for how often to check for claimable entries ' +

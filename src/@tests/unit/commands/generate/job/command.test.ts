@@ -43,13 +43,21 @@ Deno.test('generateJobAction without --cron writes a queue-consumed registerJob'
     const jobPath = `${projectFolder}/src/server/jobs/payment-sync.defs.ts`
     const content = await Deno.readTextFile(jobPath)
 
-    assertEquals(content.includes("import { registerJob } from '@zanix/asyncmq'"), true)
+    assertEquals(
+      content.includes("import { registerJob } from '@zanix/asyncmq'"),
+      true,
+    )
     assertEquals(content.includes("name: 'payment-sync'"), true)
     assertEquals(content.includes('registerCronJob'), false)
     assertEquals(content.includes('schedule:'), false)
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/asyncmq'], ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/asyncmq'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -61,12 +69,19 @@ Deno.test('generateJobAction with --cron writes a schedule-driven registerCronJo
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateJobAction.call(new Commander(), { cron: '0 */1 * * * *' }, 'PaymentSync')
+    await generateJobAction.call(
+      new Commander(),
+      { cron: '0 */1 * * * *' },
+      'PaymentSync',
+    )
 
     const jobPath = `${projectFolder}/src/server/jobs/payment-sync.defs.ts`
     const content = await Deno.readTextFile(jobPath)
 
-    assertEquals(content.includes("import { registerCronJob } from '@zanix/asyncmq'"), true)
+    assertEquals(
+      content.includes("import { registerCronJob } from '@zanix/asyncmq'"),
+      true,
+    )
     assertEquals(content.includes("schedule: '0 */1 * * * *'"), true)
     assertEquals(content.includes('isActive: true'), true)
   } finally {
@@ -108,7 +123,10 @@ Deno.test(
       await generateJobAction.call(new Commander(), {}, 'invoice-sync')
 
       const updated = JSON.parse(await Deno.readTextFile(configPath))
-      assertEquals(updated.imports['@zanix/asyncmq'], 'jsr:@zanix/asyncmq@0.1.0')
+      assertEquals(
+        updated.imports['@zanix/asyncmq'],
+        'jsr:@zanix/asyncmq@0.1.0',
+      )
     } finally {
       mockCwd.restore()
       await Deno.remove(projectFolder, { recursive: true })
@@ -136,7 +154,11 @@ Deno.test('generateJobAction should never overwrite an existing job file', async
 })
 
 Deno.test('planJob returns a single <name>.defs.ts', () => {
-  const { files } = planJob('example-job', '0 0 * * * *', '/root/src/server/jobs')
+  const { files } = planJob(
+    'example-job',
+    '0 0 * * * *',
+    '/root/src/server/jobs',
+  )
 
   assertEquals(files.map((f) => f.NAME), ['example-job.defs.ts'])
 })

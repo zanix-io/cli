@@ -44,11 +44,19 @@ Deno.test('generateHandlerAction should write a handler file', async () => {
     const content = await Deno.readTextFile(handlerPath)
 
     assertEquals(content.includes('export class UserSettingsController'), true)
-    assertEquals(content.includes("@Controller({ prefix: 'user-settings' })"), true)
+    assertEquals(
+      content.includes("@Controller({ prefix: 'user-settings' })"),
+      true,
+    )
     assertEquals(content.includes('extends ZanixController'), true)
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/server'], ZANIX_DEPENDENCY_VERSIONS['@zanix/server'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/server'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -85,7 +93,10 @@ Deno.test('generateHandlerAction should never overwrite an existing handler file
 
     await generateHandlerAction.call(new Commander(), {}, 'invoice')
 
-    assertEquals(await Deno.readTextFile(handlerPath), '// customized by hand\n')
+    assertEquals(
+      await Deno.readTextFile(handlerPath),
+      '// customized by hand\n',
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -97,7 +108,11 @@ Deno.test('generateHandlerAction --type graphql writes a resolver file', async (
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateHandlerAction.call(new Commander(), { type: 'graphql' }, 'Products')
+    await generateHandlerAction.call(
+      new Commander(),
+      { type: 'graphql' },
+      'Products',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/handlers/products.resolver.ts`,
@@ -117,7 +132,11 @@ Deno.test('generateHandlerAction --type socket writes a socket file', async () =
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateHandlerAction.call(new Commander(), { type: 'socket' }, 'Chat')
+    await generateHandlerAction.call(
+      new Commander(),
+      { type: 'socket' },
+      'Chat',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/handlers/chat.socket.ts`,
@@ -137,14 +156,21 @@ Deno.test('generateHandlerAction --type ssr writes an ssr file', async () => {
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
   try {
-    await generateHandlerAction.call(new Commander(), { type: 'ssr' }, 'Products')
+    await generateHandlerAction.call(
+      new Commander(),
+      { type: 'ssr' },
+      'Products',
+    )
 
     const content = await Deno.readTextFile(
       `${projectFolder}/src/server/handlers/products.ssr.ts`,
     )
 
     assertEquals(content.includes('export class ProductsController'), true)
-    assertEquals(content.includes("@SsrController({ prefix: 'products' })"), true)
+    assertEquals(
+      content.includes("@SsrController({ prefix: 'products' })"),
+      true,
+    )
     assertEquals(content.includes('extends ZanixSsrController'), true)
   } finally {
     mockCwd.restore()
@@ -158,7 +184,12 @@ Deno.test('generateHandlerAction should throw clearly for an unsupported --type'
 
   try {
     await assertRejects(
-      () => generateHandlerAction.call(new Commander(), { type: 'grpc' }, 'invoice'),
+      () =>
+        generateHandlerAction.call(
+          new Commander(),
+          { type: 'grpc' },
+          'invoice',
+        ),
       Error,
       "Unsupported handler type 'grpc'",
     )
@@ -169,7 +200,12 @@ Deno.test('generateHandlerAction should throw clearly for an unsupported --type'
 })
 
 Deno.test('planHandler rest returns a single <name>.handler.ts', () => {
-  const { files } = planHandler('example', 'Example', 'rest', '/root/src/server/handlers')
+  const { files } = planHandler(
+    'example',
+    'Example',
+    'rest',
+    '/root/src/server/handlers',
+  )
 
   assertEquals(files.map((f) => f.NAME), ['example.handler.ts'])
 })

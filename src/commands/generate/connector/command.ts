@@ -4,13 +4,14 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
 import { connectorTemplate } from 'commands/generate/connector/generic.template.ts'
 import { databaseConnectorTemplate } from 'commands/generate/connector/database.template.ts'
 import { cacheConnectorTemplate } from 'commands/generate/connector/cache.template.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface ConnectorPlanFile {
   PATH: string
   NAME: string
@@ -40,8 +41,9 @@ export function planConnector(
   let content: string
   if (!slot) content = connectorTemplate(pascalName)
   else if (slot === 'database') content = databaseConnectorTemplate(pascalName)
-  else if (slot.startsWith('cache:')) content = cacheConnectorTemplate(pascalName, slot)
-  else {
+  else if (slot.startsWith('cache:')) {
+    content = cacheConnectorTemplate(pascalName, slot)
+  } else {
     throw new Error(
       `Unsupported connector slot '${slot}'. Supported slots: 'database', or any 'cache:<subtype>' ` +
         `(e.g. 'cache:redis'). For 'asyncmq', use @zanix/asyncmq's own connector instead.`,
@@ -57,6 +59,9 @@ export function planConnector(
   }
 }
 
+/** `zanix generate connector <name>`'s real orchestration: `planConnector` selects the right
+ * template for `--slot` (an unsupported slot routes through `this.throw`, before anything is
+ * written), writes the file, ensures `@zanix/server` is declared, then optionally `--verify`s. */
 async function generateConnectorAction(
   this: Commander,
   options: unknown,
@@ -89,7 +94,9 @@ async function generateConnectorAction(
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`Connector file created successfully in 'connectors/${kebabName}.connector.ts'.`)
+  logger.info(
+    `Connector file created successfully in 'connectors/${kebabName}.connector.ts'.`,
+  )
 }
 
 export default generateConnectorAction

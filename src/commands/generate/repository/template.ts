@@ -15,7 +15,10 @@
  */
 
 /** `repositories/<name>/entity.provider.ts` */
-export const entityProviderTemplate = (pascalName: string, modelName: string): string =>
+export const entityProviderTemplate = (
+  pascalName: string,
+  modelName: string,
+): string =>
   `import type { ZanixMongoConnector } from '@zanix/datamaster'
 import type { ${pascalName}Attrs } from './model.defs.ts'
 
@@ -47,7 +50,10 @@ export class ${pascalName}Repository extends ZanixProvider<{ database: ZanixMong
 `
 
 /** `repositories/<name>/model.defs.ts` */
-export const modelDefsTemplate = (pascalName: string, modelName: string): string =>
+export const modelDefsTemplate = (
+  pascalName: string,
+  modelName: string,
+): string =>
   `import { registerModel } from '@zanix/datamaster'
 
 export type ${pascalName}Attrs = {

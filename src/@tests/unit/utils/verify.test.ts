@@ -37,7 +37,9 @@ Deno.test('verifyGeneratedProject logs info when the project compiles cleanly', 
 Deno.test(
   'verifyGeneratedProject warns (without throwing) when the project fails to compile',
   async () => {
-    const root = await makeProject('export const value: number = "not a number"\n')
+    const root = await makeProject(
+      'export const value: number = "not a number"\n',
+    )
     const infoStub = stub(logger, 'info')
     const warnStub = stub(logger, 'warn')
 

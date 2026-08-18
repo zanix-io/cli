@@ -8,7 +8,9 @@ import { join } from '@std/path'
 
 let baseGitHooksFolder: string
 
-/** Base git init function */
+/** Base git init function — also sets the module-level `baseGitHooksFolder` (below), which
+ * `createHook` later reads and explicitly errors on if it was never set (i.e. if `gitInitialization`
+ * was never called first). */
 export async function gitInitialization(baseRoot: string = getRootDir()) {
   const gitFolder = join(baseRoot, GIT_HOOKS_FOLDER)
 
@@ -36,7 +38,18 @@ export async function gitInitialization(baseRoot: string = getRootDir()) {
   return baseGitHooksFolder
 }
 
-/** Base function to create a hook */
+/**
+ * Base function to create a hook.
+ *
+ * @param options - Hook creation options.
+ *   - `baseFolder`: Where the real `.sh` script itself is written. Defaults to
+ *     `GITHUB_HOOKS_FOLDER`.
+ *   - `filename`: Which hook to create — `'pre-commit'` or `'pre-push'`.
+ *   - `createLink`: Whether to symlink the written script into `.git/hooks`. Defaults to `true`;
+ *     `prepareGithub` forces this to `false` when the pre-commit framework is also being set up,
+ *     so the script still exists but Git never runs it (see `prepareGithub`'s own doc).
+ *   - `baseRoot`: The project root. Defaults to `getRootDir()`.
+ */
 export async function createHook(
   options: HookOptions & {
     filename: 'pre-commit' | 'pre-push'
@@ -54,7 +67,10 @@ export async function createHook(
 
   try {
     // Create content for the pre-commit hook
-    const hookContent = await readFileFromCurrentUrl(import.meta.url, `./scripts/${script}.base.sh`)
+    const hookContent = await readFileFromCurrentUrl(
+      import.meta.url,
+      `./scripts/${script}.base.sh`,
+    )
 
     // Create the .github/hooks directory if it doesn't exist
     await Deno.mkdir(dir, { recursive: true })
@@ -63,7 +79,10 @@ export async function createHook(
     const baseFileDir = `${dir}/${script}`
 
     if (fileExists(baseFileDir)) {
-      logger.warn(`${mainScript} file already exists, skipping creation.`, 'noSave')
+      logger.warn(
+        `${mainScript} file already exists, skipping creation.`,
+        'noSave',
+      )
 
       return false
     }
@@ -79,7 +98,9 @@ export async function createHook(
     const chmodResult = await chmod.output()
 
     if (!chmodResult.success) {
-      throw new Error('chmod command failed. Please check your folder permissions and try again.')
+      throw new Error(
+        'chmod command failed. Please check your folder permissions and try again.',
+      )
     }
 
     if (!baseGitHooksFolder) {
@@ -91,9 +112,16 @@ export async function createHook(
     const fileHook = join(baseGitHooksFolder, script)
 
     if (createLink) {
-      // Create a symbolic link in .git/hooks
+      // Create a symbolic link in .git/hooks. `getRelativePath(to, from)` treats `fileHook`'s own
+      // filename as an extra path segment, over-counting one `../` in the result — stripping
+      // exactly one leading `../` compensates for that (verified against `@zanix/helpers`'
+      // `getRelativePath` — a real fix, not defensive filler for a case that can't happen).
       const ln = new Deno.Command('ln', {
-        args: ['-s', getRelativePath(baseFileDir, fileHook).replace(/^\.\.\//, ''), fileHook],
+        args: [
+          '-s',
+          getRelativePath(baseFileDir, fileHook).replace(/^\.\.\//, ''),
+          fileHook,
+        ],
       })
 
       const lnResult = await ln.output()
@@ -109,7 +137,11 @@ export async function createHook(
 
     return true
   } catch (e) {
-    logger.error(`'${mainScript}' hook creation error in '${dir}'`, e, 'noSave')
+    logger.error(
+      `'${mainScript}' hook creation error in '${dir}'`,
+      e,
+      'noSave',
+    )
 
     return false
   }

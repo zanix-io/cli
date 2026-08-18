@@ -23,7 +23,10 @@ Deno.test('generateImports should create correct import mappings', () => {
 
   assertEquals(imports['utils/'], './src/utils/')
   assertEquals(imports['components/'], './src/components/')
-  assertEquals(imports['zanix.test.ts/'], './src/@tests/integration/zanix.test.ts/')
+  assertEquals(
+    imports['zanix.test.ts/'],
+    './src/@tests/integration/zanix.test.ts/',
+  )
 })
 
 Deno.test('generateImports should skip falsy subfolder entries', () => {
@@ -72,7 +75,6 @@ Deno.test('baseZnxConfig should return a valid config object for space projects'
       'utils/': './src/utils/',
       '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
       '@zanix/app/runtime': ZANIX_DEPENDENCY_VERSIONS['@zanix/app/runtime'],
-      '@zanix/server': ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
       react: THIRD_PARTY_DEPENDENCY_VERSIONS.react,
     })
   } finally {
@@ -106,7 +108,12 @@ Deno.test('baseZnxConfig should return a valid config object for space-server pr
 
     assert(config.zanix?.project === 'space-server')
     assert(config.publish?.exclude === undefined)
-    assertEquals(config.lint?.rules?.tags, ['recommended', 'jsr', 'react', 'jsx'])
+    assertEquals(config.lint?.rules?.tags, [
+      'recommended',
+      'jsr',
+      'react',
+      'jsx',
+    ])
     assertEquals(config.imports, {
       'space/': './src/space/',
       'server/': './src/server/',
@@ -221,7 +228,9 @@ Deno.test('saveZanixConfig should update an existing config file', async () => {
   })
 
   assertEquals(file.lint.rules.include, ['other-rule', ...linterBaseRules])
-  assert(file.lint.plugins.includes('jsr:@zanix/utils/linter/deno-zanix-plugin'))
+  assert(
+    file.lint.plugins.includes('jsr:@zanix/utils/linter/deno-zanix-plugin'),
+  )
   assertExists(file.imports['typings/'])
   assertExists(file.imports['modules/'])
   assertExists(file.imports['shared/'])

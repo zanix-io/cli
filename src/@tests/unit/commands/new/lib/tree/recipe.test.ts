@@ -8,7 +8,9 @@ import {
 
 interface FakeLeaf {
   FOLDER: string
-  templates: { base: { PATH: string; NAME: string; content: () => Promise<string> }[] }
+  templates: {
+    base: { PATH: string; NAME: string; content: () => Promise<string> }[]
+  }
 }
 
 interface FakeTree {
@@ -33,13 +35,21 @@ Deno.test("assembleScaffold writes each entry's planned files onto its own leaf"
     {
       leaf: (t) => t.subfolders.a,
       plan: (folder) => ({
-        files: [{ PATH: `${folder}/one.ts`, NAME: 'one.ts', content: () => Promise.resolve('a') }],
+        files: [{
+          PATH: `${folder}/one.ts`,
+          NAME: 'one.ts',
+          content: () => Promise.resolve('a'),
+        }],
       }),
     },
     {
       leaf: (t) => t.subfolders.b,
       plan: (folder) => ({
-        files: [{ PATH: `${folder}/two.ts`, NAME: 'two.ts', content: () => Promise.resolve('b') }],
+        files: [{
+          PATH: `${folder}/two.ts`,
+          NAME: 'two.ts',
+          content: () => Promise.resolve('b'),
+        }],
       }),
     },
   ]
@@ -76,7 +86,10 @@ Deno.test('assembleScaffold appends onto a leaf with content — never replaces 
 
   assembleScaffold(tree, recipe)
 
-  assertEquals(tree.subfolders.a.templates.base.map((f) => f.NAME), ['README.md', 'mod.ts'])
+  assertEquals(tree.subfolders.a.templates.base.map((f) => f.NAME), [
+    'README.md',
+    'mod.ts',
+  ])
 })
 
 Deno.test("assembleScaffold passes each leaf's own FOLDER into its plan", () => {
@@ -112,7 +125,11 @@ Deno.test('assembleScaffold supports a plan returning extra fields beyond files'
     {
       leaf: (t) => t.subfolders.a,
       plan: (folder) => ({
-        files: [{ PATH: `${folder}/x.ts`, NAME: 'x.ts', content: () => Promise.resolve('x') }],
+        files: [{
+          PATH: `${folder}/x.ts`,
+          NAME: 'x.ts',
+          content: () => Promise.resolve('x'),
+        }],
         ensureConstants: async () => {},
       }),
     },
@@ -142,7 +159,10 @@ Deno.test('resolveRecipe throws a clear, listing error for an unknown preset', (
     Error,
     "Unknown template 'does-not-exist'",
   )
-  assertEquals(error.message, "Unknown template 'does-not-exist'. Supported templates: base.")
+  assertEquals(
+    error.message,
+    "Unknown template 'does-not-exist'. Supported templates: base.",
+  )
 })
 
 Deno.test('a 2nd preset needs only a new registry entry — assembleScaffold never changes', () => {
@@ -173,13 +193,20 @@ Deno.test('a 2nd preset needs only a new registry entry — assembleScaffold nev
       }),
     },
   ]
-  const registry: ScaffoldRecipeRegistry<FakeTree> = { base: baseRecipe, alt: altRecipe }
+  const registry: ScaffoldRecipeRegistry<FakeTree> = {
+    base: baseRecipe,
+    alt: altRecipe,
+  }
 
   const baseTree = makeFakeTree()
   assembleScaffold(baseTree, resolveRecipe(registry, 'base'))
-  assertEquals(baseTree.subfolders.a.templates.base.map((f) => f.NAME), ['base.ts'])
+  assertEquals(baseTree.subfolders.a.templates.base.map((f) => f.NAME), [
+    'base.ts',
+  ])
 
   const altTree = makeFakeTree()
   assembleScaffold(altTree, resolveRecipe(registry, 'alt'))
-  assertEquals(altTree.subfolders.a.templates.base.map((f) => f.NAME), ['alt.ts'])
+  assertEquals(altTree.subfolders.a.templates.base.map((f) => f.NAME), [
+    'alt.ts',
+  ])
 })

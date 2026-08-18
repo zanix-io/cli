@@ -27,12 +27,18 @@ const LIBRARY_KNOWN_PRESETS = ['base']
  * against (there's nothing to select between yet; a future `library` preset that changes *which*
  * JSR file gets fetched would branch here, on this same check).
  */
-export const getLibrarySrcTree = (root: string, preset: string = 'base'): ZanixLibrarySrcTree => {
+export const getLibrarySrcTree = (
+  root: string,
+  preset: string = 'base',
+): ZanixLibrarySrcTree => {
   assertKnownPreset(preset, LIBRARY_KNOWN_PRESETS)
 
   const startingPoint = join(root, 'src/modules')
 
-  return ZanixTree.create<ZanixLibrarySrcTree>({ startingPoint, baseRoot: root }, {
+  return ZanixTree.create<ZanixLibrarySrcTree>({
+    startingPoint,
+    baseRoot: root,
+  }, {
     templates: { base: { files: [MAIN_MODULE], jsr: '@zanix/utils' } },
   })
 }

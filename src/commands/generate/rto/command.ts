@@ -5,7 +5,7 @@ import type { FieldDef } from 'commands/generate/rto/parser.ts'
 import { createFilesAndFolders, ensureConstant } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
-import { toKebabCase, toPascalCase } from 'utils/casing.ts'
+import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { parseFields } from 'commands/generate/rto/parser.ts'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
@@ -17,6 +17,7 @@ import {
   rtoTemplate,
 } from 'commands/generate/rto/renderer.ts'
 
+/** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface RtoPlanFile {
   PATH: string
   NAME: string
@@ -77,15 +78,28 @@ export function planRto(
 
   const ensureConstants = async (projectRoot: string) => {
     const constantsPath = `${projectRoot}/src/utils/constants.ts`
-    await ensureConstant(constantsPath, 'OBJECTID_REGEX', OBJECTID_REGEX_CONSTANT)
+    await ensureConstant(
+      constantsPath,
+      'OBJECTID_REGEX',
+      OBJECTID_REGEX_CONSTANT,
+    )
     if (usesPermission) {
-      await ensureConstant(constantsPath, 'PERMISSION_REGEX', PERMISSION_REGEX_CONSTANT)
+      await ensureConstant(
+        constantsPath,
+        'PERMISSION_REGEX',
+        PERMISSION_REGEX_CONSTANT,
+      )
     }
   }
 
   return { files, ensureConstants }
 }
 
+/** `zanix generate rto <name> --field <spec>`'s real orchestration: `--field`'s DSL strings parse
+ * into a structured field model (`parser.ts`), `planRto` renders the 4-class RTO set from it plus
+ * any validator constants the fields need (`IsObjectID.ts`/`IsPermission.ts`, written once), then
+ * ensures `@zanix/validator`/`@zanix/types`/`@zanix/datamaster` are declared, then optionally
+ * `--verify`s. */
 async function generateRtoAction(
   this: Commander,
   options: unknown,
@@ -94,7 +108,10 @@ async function generateRtoAction(
 ) {
   assertProjectType(this, ['server', 'space-server'], 'rto', root)
 
-  const { field: fieldSpecs = [], verify } = options as { field?: string[]; verify?: boolean }
+  const { field: fieldSpecs = [], verify } = options as {
+    field?: string[]
+    verify?: boolean
+  }
 
   let fields: FieldDef[]
   try {
@@ -109,8 +126,16 @@ async function generateRtoAction(
   const pascalName = toPascalCase(name)
   const rtosFolder = `${projectRoot}/src/server/handlers/rtos`
 
-  const { files, ensureConstants } = planRto(kebabName, pascalName, fields, rtosFolder)
-  const tree: ZanixFolderGenericTree = { FOLDER: rtosFolder, templates: { base: files } }
+  const { files, ensureConstants } = planRto(
+    kebabName,
+    pascalName,
+    fields,
+    rtosFolder,
+  )
+  const tree: ZanixFolderGenericTree = {
+    FOLDER: rtosFolder,
+    templates: { base: files },
+  }
 
   await createFilesAndFolders(tree, 'base')
   await ensureConstants(projectRoot)
@@ -120,7 +145,9 @@ async function generateRtoAction(
 
   if (verify) await verifyGeneratedProject(projectRoot)
 
-  logger.info(`RTO file created successfully in 'handlers/rtos/${kebabName}.rto.ts'.`)
+  logger.info(
+    `RTO file created successfully in 'handlers/rtos/${kebabName}.rto.ts'.`,
+  )
 }
 
 export default generateRtoAction

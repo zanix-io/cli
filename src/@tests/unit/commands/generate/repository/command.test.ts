@@ -44,23 +44,37 @@ Deno.test('generateRepositoryAction should write provider and model files', asyn
     await generateRepositoryAction.call(new Commander(), {}, 'PaymentMethod')
 
     const repoFolder = `${projectFolder}/src/server/repositories/payment-method`
-    const provider = await Deno.readTextFile(`${repoFolder}/entity.provider.ts`)
+    const provider = await Deno.readTextFile(
+      `${repoFolder}/entity.provider.ts`,
+    )
     const model = await Deno.readTextFile(`${repoFolder}/model.defs.ts`)
 
-    assertEquals(provider.includes('export class PaymentMethodRepository'), true)
     assertEquals(
-      provider.includes("this.database.getModel<PaymentMethodAttrs>('payment-method')"),
+      provider.includes('export class PaymentMethodRepository'),
       true,
     )
     assertEquals(
-      provider.includes("import type { PaymentMethodAttrs } from './model.defs.ts'"),
+      provider.includes(
+        "this.database.getModel<PaymentMethodAttrs>('payment-method')",
+      ),
+      true,
+    )
+    assertEquals(
+      provider.includes(
+        "import type { PaymentMethodAttrs } from './model.defs.ts'",
+      ),
       true,
     )
     assertEquals(model.includes('export type PaymentMethodAttrs'), true)
     assertEquals(model.includes("name: 'payment-method'"), true)
 
-    const config = JSON.parse(await Deno.readTextFile(`${projectFolder}/deno.jsonc`))
-    assertEquals(config.imports['@zanix/server'], ZANIX_DEPENDENCY_VERSIONS['@zanix/server'])
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/server'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
+    )
     assertEquals(
       config.imports['@zanix/datamaster'],
       ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
@@ -101,7 +115,10 @@ Deno.test('generateRepositoryAction should never overwrite an existing provider 
 
     await generateRepositoryAction.call(new Commander(), {}, 'invoice')
 
-    assertEquals(await Deno.readTextFile(providerPath), '// customized by hand\n')
+    assertEquals(
+      await Deno.readTextFile(providerPath),
+      '// customized by hand\n',
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -109,7 +126,14 @@ Deno.test('generateRepositoryAction should never overwrite an existing provider 
 })
 
 Deno.test('planRepository returns entity.provider.ts + model.defs.ts', () => {
-  const { files } = planRepository('example', 'Example', '/root/src/server/repositories/example')
+  const { files } = planRepository(
+    'example',
+    'Example',
+    '/root/src/server/repositories/example',
+  )
 
-  assertEquals(files.map((f) => f.NAME), ['entity.provider.ts', 'model.defs.ts'])
+  assertEquals(files.map((f) => f.NAME), [
+    'entity.provider.ts',
+    'model.defs.ts',
+  ])
 })

@@ -4,7 +4,7 @@ import prepareGithubAction from 'commands/prepare/actions/github.ts'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
-Deno.test('prepareGithubAction should apply fmtFiles, lintFiles and usePrecommit', async () => {
+Deno.test('prepareGithubAction should apply fmtFiles, lintFiles and hooksEngine', async () => {
   const root = `${temporaryFolder}/with-options`
   await Deno.mkdir(root, { recursive: true })
 
@@ -12,11 +12,20 @@ Deno.test('prepareGithubAction should apply fmtFiles, lintFiles and usePrecommit
 
   await prepareGithubAction.call(
     fakeCommander as never,
-    { projectType: 'library', fmtFiles: 'ts,md', lintFiles: 'ts', usePrecommit: true },
+    {
+      projectType: 'library',
+      fmtFiles: 'ts,md',
+      lintFiles: 'ts',
+      hooksEngine: 'framework',
+    },
     root,
   )
 
-  assert(await Deno.stat(`${root}/.pre-commit-config.yaml`).then(() => true).catch(() => false))
+  assert(
+    await Deno.stat(`${root}/.pre-commit-config.yaml`).then(() => true).catch(
+      () => false,
+    ),
+  )
 
   await Deno.remove(root, { recursive: true })
 })

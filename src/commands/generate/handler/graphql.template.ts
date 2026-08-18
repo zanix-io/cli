@@ -12,7 +12,10 @@
  */
 
 /** `handlers/<name>.resolver.ts` */
-export const graphqlHandlerTemplate = (pascalName: string, kebabName: string): string =>
+export const graphqlHandlerTemplate = (
+  pascalName: string,
+  kebabName: string,
+): string =>
   `import { Query, Resolver, type HandlerContext, ZanixResolver } from '@zanix/server'
 
 /**

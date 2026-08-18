@@ -11,5 +11,9 @@ import { createBaseFile } from 'commands/prepare/lib/github/files/base.ts'
 export function createIgnoreBaseFile(
   options: Omit<BaseGithubHelperOptions, 'baseFolder'> = {},
 ): Promise<boolean> {
-  return createBaseFile({ baseFile: 'ignore.base', filename: '.gitignore', ...options })
+  return createBaseFile({
+    baseFile: 'ignore.base',
+    filename: '.gitignore',
+    ...options,
+  })
 }

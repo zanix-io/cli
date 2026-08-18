@@ -22,13 +22,19 @@
 import { ZANIX_DEPENDENCY_VERSIONS } from '../src/utils/config/dependencies.ts'
 import { HANDLER_TYPES } from '../src/commands/generate/handler/command.ts'
 import { collectTsFiles } from '../src/utils/verify.ts'
+import { getTemporaryFolder } from '@zanix/helpers'
 import logger from '@zanix/utils/logger'
 
 const CLI_ENTRYPOINT = new URL('../mod.ts', import.meta.url).pathname
 
-type CheckResult = { name: string; success: boolean; output: string }
+export type CheckResult = { name: string; success: boolean; output: string }
 
-async function run(args: string[], cwd?: string): Promise<{ success: boolean; output: string }> {
+/** Exported for `scripts/drift-watch.test.ts` — a thin `Deno.Command` wrapper, cheap to cover
+ * directly with real (non-network) subprocesses. */
+export async function run(
+  args: string[],
+  cwd?: string,
+): Promise<{ success: boolean; output: string }> {
   const command = new Deno.Command(args[0], {
     args: args.slice(1),
     cwd,
@@ -36,13 +42,16 @@ async function run(args: string[], cwd?: string): Promise<{ success: boolean; ou
     stderr: 'piped',
   })
   const { success, stdout, stderr } = await command.output()
-  const output = new TextDecoder().decode(stdout) + new TextDecoder().decode(stderr)
+  const output = new TextDecoder().decode(stdout) +
+    new TextDecoder().decode(stderr)
   return { success, output }
 }
 
 /** Exported for `scripts/drift-watch.test.ts` — the one piece of this script's logic worth real
  * unit coverage; the rest is live orchestration already verified manually against real JSR data. */
-export function parseSpecifier(specifier: string): { pkg: string; subpath: string } {
+export function parseSpecifier(
+  specifier: string,
+): { pkg: string; subpath: string } {
   const match = specifier.match(/^jsr:(@[^/]+\/[^@]+)@[^/]+(\/.*)?$/)
   if (!match) throw new Error(`Cannot parse specifier: ${specifier}`)
   return { pkg: match[1], subpath: match[2] ?? '' }
@@ -50,15 +59,20 @@ export function parseSpecifier(specifier: string): { pkg: string; subpath: strin
 
 const latestVersionCache = new Map<string, string | null>()
 
-/** The one live network call this script makes per distinct package — cached so the same package
- * (e.g. `@zanix/utils`, aliased into by both `@zanix/validator` and `@zanix/types`) is only ever
- * fetched once per run regardless of how many generated projects reference it. */
-async function fetchLatestVersion(pkg: string): Promise<void> {
+/** Exported for `scripts/drift-watch.test.ts` — stubbing global `fetch` covers every branch
+ * without a real network call. The one live network call this script makes per distinct package
+ * — cached so the same package (e.g. `@zanix/utils`, aliased into by both `@zanix/validator` and
+ * `@zanix/types`) is only ever fetched once per run regardless of how many generated projects
+ * reference it. */
+export async function fetchLatestVersion(pkg: string): Promise<void> {
   if (latestVersionCache.has(pkg)) return
 
   try {
     const res = await fetch(`https://jsr.io/${pkg}/meta.json`)
-    latestVersionCache.set(pkg, res.ok ? ((await res.json()).latest ?? null) : null)
+    latestVersionCache.set(
+      pkg,
+      res.ok ? ((await res.json()).latest ?? null) : null,
+    )
   } catch {
     latestVersionCache.set(pkg, null)
   }
@@ -71,8 +85,11 @@ async function fetchLatestVersion(pkg: string): Promise<void> {
  * about. Leaves an entry untouched (still on `cli`'s pinned range) if its package can't be
  * resolved at all — that's the `@zanix/app`/`@zanix/space` "not published yet" case (§7), already
  * a known, separately-tracked gap this rewrite can't do anything about either way.
+ *
+ * Exported for `scripts/drift-watch.test.ts` — real temp-dir I/O, with only `fetchLatestVersion`'s
+ * own `fetch` stubbed, so no test here depends on a real network call.
  */
-async function rewriteToLatestVersions(root: string): Promise<void> {
+export async function rewriteToLatestVersions(root: string): Promise<void> {
   const configPath = `${root}/deno.json`
   // deno-lint-ignore no-explicit-any
   const config: any = JSON.parse(await Deno.readTextFile(configPath))
@@ -95,19 +112,38 @@ async function rewriteToLatestVersions(root: string): Promise<void> {
   await Deno.writeTextFile(configPath, JSON.stringify(config, null, 2))
 }
 
-async function checkProject(name: string, root: string): Promise<CheckResult> {
+/** Exported for `scripts/drift-watch.test.ts` — the "no .ts/.tsx files" short-circuit and the
+ * `deno check` dispatch (via `run`, stubbable through `Deno.Command`) are both cheap to cover
+ * directly; `newProject`/`generate`/`main` below stay unexported — they spawn this CLI itself as a
+ * real subprocess against real, freshly-generated projects, which is genuinely live orchestration
+ * (see this file's own top doc), not something worth mocking from in here. */
+export async function checkProject(name: string, root: string): Promise<CheckResult> {
   await rewriteToLatestVersions(root)
 
   const files = collectTsFiles(root)
-  if (files.length === 0) return { name, success: true, output: '(no .ts/.tsx files)' }
+  if (files.length === 0) {
+    return { name, success: true, output: '(no .ts/.tsx files)' }
+  }
 
   const { success, output } = await run(['deno', 'check', ...files], root)
   return { name, success, output }
 }
 
 async function newProject(type: string): Promise<string> {
-  const root = await Deno.makeTempDir({ prefix: `drift-watch-${type}-` })
-  await run(['deno', 'run', '-A', CLI_ENTRYPOINT, 'new', type, '--no-prepare', root])
+  const root = await Deno.makeTempDir({
+    dir: getTemporaryFolder(import.meta.url),
+    prefix: `drift-watch-${type}-`,
+  })
+  await run([
+    'deno',
+    'run',
+    '-A',
+    CLI_ENTRYPOINT,
+    'new',
+    type,
+    '--no-prepare',
+    root,
+  ])
   return root
 }
 
@@ -139,14 +175,34 @@ async function main() {
     // that file, same reasoning as `ensureServerScaffoldSideEffects`'s own sequential loop.
     for (const type of Object.keys(HANDLER_TYPES)) {
       // deno-lint-ignore no-await-in-loop
-      await generate(serverRoot, ['handler', `drift-handler-${type}`, '--type', type])
+      await generate(serverRoot, [
+        'handler',
+        `drift-handler-${type}`,
+        '--type',
+        type,
+      ])
     }
     await generate(serverRoot, ['connector', 'drift-connector-generic'])
-    await generate(serverRoot, ['connector', 'drift-connector-db', '--slot', 'database'])
-    await generate(serverRoot, ['connector', 'drift-connector-cache', '--slot', 'cache:redis'])
+    await generate(serverRoot, [
+      'connector',
+      'drift-connector-db',
+      '--slot',
+      'database',
+    ])
+    await generate(serverRoot, [
+      'connector',
+      'drift-connector-cache',
+      '--slot',
+      'cache:redis',
+    ])
     await generate(serverRoot, ['interactor', 'drift-interactor'])
     await generate(serverRoot, ['job', 'drift-job-ondemand'])
-    await generate(serverRoot, ['job', 'drift-job-cron', '--cron', '0 0 * * * *'])
+    await generate(serverRoot, [
+      'job',
+      'drift-job-cron',
+      '--cron',
+      '0 0 * * * *',
+    ])
     await generate(serverRoot, ['repository', 'drift-repository'])
     await generate(serverRoot, ['seeder', 'drift-repository'])
     await generate(serverRoot, ['subscriber', 'drift-subscriber'])
@@ -209,7 +265,9 @@ async function main() {
     Deno.exit(1)
   }
 
-  logger.info('Everything compiles cleanly against currently published dependency versions.')
+  logger.info(
+    'Everything compiles cleanly against currently published dependency versions.',
+  )
 }
 
 // Guarded so `drift-watch.test.ts` can import `parseSpecifier` for unit coverage without also
