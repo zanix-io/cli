@@ -25,8 +25,8 @@ Deno.test('getCommonTree returns the cached tree on a second call with the same 
 })
 
 Deno.test(
-  'getCommonTree rebuilds (never returns a stale tree) when the same root is reused for a ' +
-    'different project type',
+  "getCommonTree's own shared root files no longer vary by project type — library's real " +
+    'mod.ts is appended afterward by getZnxFolderTree (main.ts), not part of this shared tree',
   () => {
     const libraryTree = getCommonTree('cache-test-root-2', 'library')
     const appTree = getCommonTree('cache-test-root-2', 'app')
@@ -34,9 +34,8 @@ Deno.test(
     const libraryFileNames = (libraryTree.templates?.base ?? []).map((f) => f.NAME)
     const appFileNames = (appTree.templates?.base ?? []).map((f) => f.NAME)
 
-    // Only `library` gets `mod.ts` pushed onto the shared root files (commons.ts:15) — a stale
-    // cache hit for `app` would incorrectly carry it over.
-    assertEquals(libraryFileNames.includes('mod.ts'), true)
+    assertEquals(libraryFileNames.includes('mod.ts'), false)
     assertEquals(appFileNames.includes('mod.ts'), false)
+    assertEquals(libraryFileNames, appFileNames)
   },
 )

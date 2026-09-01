@@ -137,12 +137,17 @@ export async function createHook(
 
     return true
   } catch (e) {
+    // Re-thrown, never swallowed into `return false` — see `docker/files/base.ts`'s own identical
+    // comment for the full reasoning. This also covers the `chmod`/symlink failures thrown a few
+    // lines up (`'chmod command failed...'`, `'Symbolic link creation failed...'`), which land
+    // right back in THIS catch — re-throwing here is what keeps those genuinely fatal, not just a
+    // real file-write error.
     logger.error(
       `'${mainScript}' hook creation error in '${dir}'`,
       e,
       'noSave',
     )
 
-    return false
+    throw e
   }
 }

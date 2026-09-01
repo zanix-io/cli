@@ -30,7 +30,7 @@ import { join } from '@std/path'
  */
 export function compileAndObfuscate(
   options: Partial<CompilerOptions> = {},
-): void | Promise<{ error?: unknown; message?: string }> {
+): Promise<{ error?: unknown; message?: string }> {
   const root = getRootDir()
   const {
     inputFile = join(root, MAIN_MODULE),
@@ -45,19 +45,29 @@ export function compileAndObfuscate(
   if (useWorker) {
     const worker = new WorkerManager()
 
-    return worker.task(mainBuilderFunction, {
-      metaUrl: join(import.meta.url, '../build-runner.ts'),
-      onFinish: (
-        { error, response: { message, error: runtimeError }, ..._args },
-      ) => callback({ error: runtimeError || error, message, ..._args }),
-      autoClose: true,
-    }).invoke({
-      inputFile,
-      outputFile,
-      minify,
-      bundle,
-      onBackground: true,
-      ...opts,
+    // `WorkerManager#task(...).invoke(...)` itself returns `void` — fire-and-forget, completion
+    // only ever signaled via `onFinish`. Wrapped in a real Promise so a caller — `znx build`'s own
+    // command action included — can `await compileAndObfuscate(...)` and see the real outcome
+    // regardless of `useWorker`, rather than resolving before the build even finishes.
+    return new Promise((resolve) => {
+      worker.task(mainBuilderFunction, {
+        metaUrl: join(import.meta.url, '../build-runner.ts'),
+        onFinish: (
+          { error, response: { message, error: runtimeError }, ..._args },
+        ) => {
+          const result = { error: runtimeError || error, message, ..._args }
+          callback(result)
+          resolve(result)
+        },
+        autoClose: true,
+      }).invoke({
+        inputFile,
+        outputFile,
+        minify,
+        bundle,
+        onBackground: true,
+        ...opts,
+      })
     })
   } else {
     return mainBuilderFunction({

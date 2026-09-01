@@ -1,12 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import type { FieldDef } from 'commands/generate/rto/parser.ts'
-import {
-  isObjectIdTemplate,
-  isPermissionTemplate,
-  OBJECTID_REGEX_CONSTANT,
-  PERMISSION_REGEX_CONSTANT,
-  rtoTemplate,
-} from 'commands/generate/rto/renderer.ts'
+import { rtoTemplate } from 'commands/generate/rto/renderer.ts'
 
 const field = (overrides: Partial<FieldDef>): FieldDef => ({
   name: 'field',
@@ -115,7 +109,7 @@ Deno.test('rtoTemplate: an enum field renders the values array and a TS union ty
   assertStringIncludes(output, "accessor status!: 'ACTIVE' | 'INACTIVE'")
   assertStringIncludes(
     output,
-    "import { BaseRTO, IsEnum, IsString } from '@zanix/validator'",
+    "import { BaseRTO, IsEnum, IsObjectID, IsString } from '@zanix/validator'",
   )
 })
 
@@ -128,31 +122,46 @@ Deno.test('rtoTemplate: an enum field with no enumValues falls back to an empty 
   assertStringIncludes(output, 'accessor status!: ')
 })
 
-Deno.test('rtoTemplate: an objectId field imports IsObjectID once, from ./validations/', () => {
+Deno.test('rtoTemplate: an objectId field imports IsObjectID once, from @zanix/validator', () => {
   const output = rtoTemplate('Payment', [
     field({ name: 'currencyId', type: 'objectId' }),
     field({ name: 'accountId', type: 'objectId' }),
   ])
 
-  const importLine = "import { IsObjectID } from './validations/IsObjectID.ts'"
+  const importLine = "import { BaseRTO, IsObjectID, IsString } from '@zanix/validator'"
   const occurrences = output.split(importLine).length - 1
   assertEquals(occurrences, 1)
-  assert(!output.includes("IsObjectID } from '@zanix/validator'"))
+  assert(!output.includes("from './validations/IsObjectID.ts'"))
 })
 
-Deno.test('rtoTemplate: only imports IsPermission when a field actually uses it', () => {
-  const withPermission = rtoTemplate('Role', [
+Deno.test('rtoTemplate: a permission field renders a plain IsString, no local import', () => {
+  // No dedicated `IsPermission` decorator/validator exists anywhere in the ecosystem (a real,
+  // hand-templated `module:action` regex was investigated and removed for rejecting real
+  // production permission strings — see `renderer.ts`'s own doc) — `permission` falls back to
+  // exactly the same rendering as `string`.
+  const output = rtoTemplate('Role', [
     field({ name: 'scope', type: 'permission' }),
   ])
-  assertStringIncludes(
-    withPermission,
-    "import { IsPermission } from './validations/IsPermission.ts'",
-  )
 
-  const withoutPermission = rtoTemplate('Role', [
-    field({ name: 'name', type: 'string' }),
-  ])
-  assert(!withoutPermission.includes('IsPermission'))
+  assertStringIncludes(output, '@IsString({ expose: true })\n  accessor scope!: string')
+  assert(!output.includes('IsPermission'))
+  assert(!output.includes("from './validations/"))
+})
+
+Deno.test('rtoTemplate: a zero-field create class renders `deno fmt`-clean (no blank line)', () => {
+  // Real repro: `zanix new server`'s default scaffold calls `planRto('example', 'Example', [],
+  // folder)` — an empty `fields` array. Only the create class (`${pascalName}RTO`, built from the
+  // raw `fields` with no synthetic field always added) can actually hit zero fields; `Search`/
+  // `Get`/`Edit` always render `QUERY_FIELD`/`ID_FIELD`. A naive `{\n${renderClassBody([])}\n}`
+  // leaves a literal blank line between `{` and `}` that `deno fmt` flags and reformats away —
+  // this asserts the generator emits that already-clean shape directly.
+  const output = rtoTemplate('Example', [])
+
+  assertStringIncludes(
+    output,
+    'export class ExampleRTO extends BaseRTO {\n}',
+  )
+  assert(!output.includes('export class ExampleRTO extends BaseRTO {\n\n}'))
 })
 
 Deno.test('rtoTemplate: validator import list is deduped and alphabetically sorted', () => {
@@ -164,40 +173,6 @@ Deno.test('rtoTemplate: validator import list is deduped and alphabetically sort
 
   assertStringIncludes(
     output,
-    "import { BaseRTO, IsBoolean, IsString } from '@zanix/validator'",
-  )
-})
-
-Deno.test('isObjectIdTemplate/isPermissionTemplate: content matches real production files', () => {
-  const objectId = isObjectIdTemplate()
-  assertStringIncludes(
-    objectId,
-    "import { OBJECTID_REGEX } from 'utils/constants.ts'",
-  )
-  assertStringIncludes(objectId, 'Array.isArray(value)')
-  assertStringIncludes(
-    objectId,
-    'export const IsObjectID = (options?: ValidationOptions) => {',
-  )
-
-  const permission = isPermissionTemplate()
-  assertStringIncludes(
-    permission,
-    "import { PERMISSION_REGEX } from 'utils/constants.ts'",
-  )
-  assertStringIncludes(
-    permission,
-    "must be a valid permission identifier in the format 'module:action'",
-  )
-})
-
-Deno.test('OBJECTID_REGEX_CONSTANT/PERMISSION_REGEX_CONSTANT: verbatim declarations', () => {
-  assertEquals(
-    OBJECTID_REGEX_CONSTANT,
-    'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/',
-  )
-  assertEquals(
-    PERMISSION_REGEX_CONSTANT,
-    'export const PERMISSION_REGEX = /^[A-Za-z-]+:[A-Za-z-]+$/',
+    "import { BaseRTO, IsBoolean, IsObjectID, IsString } from '@zanix/validator'",
   )
 })

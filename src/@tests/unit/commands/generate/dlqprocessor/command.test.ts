@@ -44,6 +44,30 @@ Deno.test(
 )
 
 Deno.test(
+  'generateDlqProcessorAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () =>
+          generateDlqProcessorAction.call(
+            new Commander(),
+            { processType: 'payment.process', schedule: '0,30 * * * * *' },
+            '../../../../victim',
+          ),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
   'generateDlqProcessorAction should throw a clear error when --process-type is missing',
   async () => {
     const projectFolder = await makeProject('server')
@@ -205,6 +229,56 @@ Deno.test('generateDlqProcessorAction should be idempotent when run twice', asyn
     await Deno.remove(projectFolder, { recursive: true })
   }
 })
+
+Deno.test(
+  'generateDlqProcessorAction escapes a single quote in the name, --process-type, and --schedule',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await generateDlqProcessorAction.call(
+        new Commander(),
+        {
+          processType: "payment.process'; console.log('pwned'); //",
+          schedule: "0,30 * * * * *'; console.log('pwned'); //",
+        },
+        "O'Brien Retry",
+      )
+
+      const content = await Deno.readTextFile(
+        `${projectFolder}/src/server/dlq/o'brien-retry.defs.ts`,
+      )
+
+      assertEquals(content.includes("name: 'o\\'brien-retry'"), true)
+      assertEquals(
+        content.includes(
+          "registerDLQProcessor('payment.process\\'; console.log(\\'pwned\\'); //'",
+        ),
+        true,
+      )
+      assertEquals(
+        content.includes(
+          "schedule: '0,30 * * * * *\\'; console.log(\\'pwned\\'); //'",
+        ),
+        true,
+      )
+      // None of the raw, unescaped payloads survive — each would break its own literal apart.
+      assertEquals(content.includes("name: 'o'brien-retry'"), false)
+      assertEquals(
+        content.includes("registerDLQProcessor('payment.process'; console.log"),
+        false,
+      )
+      assertEquals(
+        content.includes("schedule: '0,30 * * * * *'; console.log"),
+        false,
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
 
 Deno.test('planDlqProcessor returns the processor file + the shared model file', () => {
   const { files } = planDlqProcessor(

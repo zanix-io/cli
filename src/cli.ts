@@ -28,8 +28,8 @@ class Commander extends Command {
   /**
    * Setup the name, aliases and description
    */
-  public setup() {
-    new Logger({ storage: false }) // Define instante for not saving logs
+  public setup(): this {
+    new Logger({ storage: false }) // Instance configured to not persist logs
     this.name(name)
       .description(
         `${ZANIX_LOGO}Command-line interface for Zanix framework.`,
@@ -42,7 +42,7 @@ class Commander extends Command {
   /**
    * Set custom error Handler
    */
-  public setErrorHandler() {
+  public setErrorHandler(): this {
     this.errorHandlerFn = (e, cwd) => {
       cwd.showHelp()
       delete e.stack
@@ -57,13 +57,15 @@ class Commander extends Command {
    * Mounts a pre-built pseudo-parent command (e.g. `new`/`generate`/`space`'s own `cwd`, which
    * groups that family's leaf commands) and re-applies this command's error handler onto it.
    *
-   * cliffy's own error-handler lookup only checks one level up the parent chain
-   * (`this.errorHandler ?? this._parent?.errorHandler`, not the full chain — see
-   * `@cliffy/command@1.0.0-rc.8`'s `command.ts:1165-1167`), while `shouldThrowErrors()` walks the
-   * whole chain. So a leaf command mounted two levels below `cli` (e.g. `cli -> new -> space`)
-   * never finds `cli`'s own handler on its own — only the pseudo-parent directly above it does.
-   * Setting the same handler on every pseudo-parent keeps it reachable from any leaf beneath it,
-   * however many of these groups end up nested.
+   * As of `@cliffy/command@1.2.1` (the version this repo pins), `getErrorHandler()` already
+   * walks the whole parent chain natively (`this.settings.errorHandler ?? this.parent?.getErrorHandler()`,
+   * recursive — see `command.ts:1603-1606`), so this re-application is redundant in practice: a
+   * leaf command mounted any number of levels below `cli` now finds `cli`'s own handler on its
+   * own, without needing it copied onto every pseudo-parent in between. It's kept anyway as a
+   * deliberate, low-cost belt-and-suspenders safeguard against a future cliffy release
+   * reintroducing the single-level lookup it had in `1.0.0-rc.8`
+   * (`this.errorHandler ?? this._parent?.errorHandler`) — not an oversight of dead code left
+   * uncleaned.
    */
   public mountGroup(name: string, group: Commander): this {
     const result = this.command(name, group) as unknown as this
@@ -76,7 +78,7 @@ class Commander extends Command {
   /**
    * Set the available commands
    */
-  public setCommands() {
+  public setCommands(): this {
     Object.values(commands).forEach((cmd) => {
       cmd.call(this)
     })
@@ -101,7 +103,9 @@ class Commander extends Command {
   }
 }
 
-const cli = new Commander().setup().setErrorHandler().setCommands()
+/** The real CLI instance `mod.ts` parses `Deno.args` against — fully configured (name/version/
+ * error handler/every registered command) before it's exported. */
+const cli: Commander = new Commander().setup().setErrorHandler().setCommands()
 
 export default cli
 

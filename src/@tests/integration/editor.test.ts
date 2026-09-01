@@ -1,8 +1,8 @@
 import { createVSCodeConfig } from 'commands/prepare/lib/editor/vscode.ts'
 import { createEditorFileConfig } from 'commands/prepare/lib/editor/main.ts'
 import { getTemporaryFolder } from '@zanix/helpers'
-import { assert, assertFalse } from '@std/assert'
-import { editors } from 'commands/prepare/lib/constants.ts'
+import { assert, assertRejects } from '@std/assert'
+import { EDITORS } from 'commands/prepare/lib/constants.ts'
 import { stub } from '@std/testing/mock'
 
 const defaultFolder = getTemporaryFolder(import.meta.url) + '/editor'
@@ -15,8 +15,8 @@ stub(console, 'warn')
 Deno.test('Editor config creation validation', async () => {
   const cwdMock = stub(Deno, 'cwd', () => '')
 
-  const currentEditor = { ...editors.vscode }
-  editors.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
+  const currentEditor = { ...EDITORS.vscode }
+  EDITORS.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
 
   const response = await createVSCodeConfig()
 
@@ -25,7 +25,7 @@ Deno.test('Editor config creation validation', async () => {
   assert(content.includes('"deno.config": "deno.json'))
   await Deno.remove(defaultFolder, { recursive: true })
 
-  editors.vscode = currentEditor
+  EDITORS.vscode = currentEditor
 
   cwdMock.restore()
 })
@@ -33,8 +33,8 @@ Deno.test('Editor config creation validation', async () => {
 Deno.test('Editor config creation merges with an already existing settings file', async () => {
   const cwdMock = stub(Deno, 'cwd', () => '')
 
-  const currentEditor = { ...editors.vscode }
-  editors.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
+  const currentEditor = { ...EDITORS.vscode }
+  EDITORS.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
 
   await createVSCodeConfig() // first call creates the file
   const response = await createVSCodeConfig() // second call must merge with the existing content
@@ -44,17 +44,21 @@ Deno.test('Editor config creation merges with an already existing settings file'
   assert(content.includes('"deno.config": "deno.json'))
   await Deno.remove(defaultFolder, { recursive: true })
 
-  editors.vscode = currentEditor
+  EDITORS.vscode = currentEditor
 
   cwdMock.restore()
 })
 
-Deno.test('Editor config creation returns false on an unknown editor type', async () => {
-  const response = await createEditorFileConfig({
-    type: 'unknown-editor' as never,
-  })
-
-  assertFalse(response)
+Deno.test('Editor config creation rejects on an unknown editor type', async () => {
+  // A genuine error (no template exists for this type) — not the benign "already exists, merge
+  // instead" case, so this now rejects instead of silently resolving `false`; locks in the fix
+  // that made `createEditorFileConfig`'s catch re-throw instead of swallowing every failure into
+  // the same `false` a caller can't tell apart from "nothing went wrong, just skipped."
+  await assertRejects(() =>
+    createEditorFileConfig({
+      type: 'unknown-editor' as never,
+    })
+  )
 })
 
 Deno.test('Editor config creation falls back to the literal deno.json name', async () => {
@@ -62,8 +66,8 @@ Deno.test('Editor config creation falls back to the literal deno.json name', asy
   await Deno.mkdir(emptyDir, { recursive: true })
   const cwdMock = stub(Deno, 'cwd', () => emptyDir) // no deno.json/.jsonc here, so getConfigDir() returns null
 
-  const currentEditor = { ...editors.vscode }
-  editors.vscode = { FOLDER: 'settings-folder', FILENAME: 'settings' }
+  const currentEditor = { ...EDITORS.vscode }
+  EDITORS.vscode = { FOLDER: 'settings-folder', FILENAME: 'settings' }
 
   try {
     const response = await createVSCodeConfig({ baseRoot: defaultFolder })
@@ -76,14 +80,14 @@ Deno.test('Editor config creation falls back to the literal deno.json name', asy
   } finally {
     await Deno.remove(defaultFolder, { recursive: true })
     await Deno.remove(emptyDir, { recursive: true })
-    editors.vscode = currentEditor
+    EDITORS.vscode = currentEditor
     cwdMock.restore()
   }
 })
 
 Deno.test('createEditorFileConfig defaults to the identity callback', async () => {
-  const currentEditor = { ...editors.vscode }
-  editors.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
+  const currentEditor = { ...EDITORS.vscode }
+  EDITORS.vscode = { FOLDER: defaultFolder, FILENAME: 'settings' }
 
   try {
     const response = await createEditorFileConfig({
@@ -96,6 +100,6 @@ Deno.test('createEditorFileConfig defaults to the identity callback', async () =
     assert(content.includes('$DENO_CONFIG')) // left untouched by the default identity callback
   } finally {
     await Deno.remove(defaultFolder, { recursive: true })
-    editors.vscode = currentEditor
+    EDITORS.vscode = currentEditor
   }
 })

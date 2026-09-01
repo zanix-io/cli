@@ -24,10 +24,11 @@ export function baseArgumentActionCommand(
     // Required arguments must come before optional ones in a positional argument declaration —
     // the reverse order is a malformed declaration the moment both are used together.
     .arguments(`${requiredArguments} ${optionalArguments}`.trim())
-    // A regular function, not an arrow one: cliffy invokes this as `this.actionHandler(...)` on
-    // the real leaf command it just created (e.g. `space`, not the `new` pseudo-parent this
-    // factory itself was called with) — an arrow function would ignore that and keep closing
-    // over the outer `this` instead.
+    // A regular function, not an arrow one: cliffy invokes this as
+    // `this.settings.actionHandler?.call(this, options, ...args)` (`@cliffy/command@1.2.1`,
+    // command.ts:2431) on the real leaf command it just created (e.g. `space`, not the `new`
+    // pseudo-parent this factory itself was called with) — an arrow function would ignore that
+    // and keep closing over the outer `this` instead.
     .action(function (options, ...args) {
       return action.call(this, options, ...args)
     })

@@ -11,7 +11,20 @@
  * methods (`getClient`/`set`/`get`/`has`/`delete`/`clear`/`size`/`keys`/`values`) on top of the
  * generic `initialize`/`close`/`isHealthy` lifecycle. Its constructor requires a `ttl` option;
  * left un-overridden here, so instantiation must pass one (the framework's DI options).
+ *
+ * `slot` is free text (only its `cache:` prefix is validated in `command.ts`; the subtype after it
+ * is not), and it's interpolated at TWO different sites below with two different failure modes: the
+ * `@Connector({ slot: ... })` string literal (the same breakout `escapeTsStringLiteral` guards
+ * elsewhere) and the JSDoc comment line above it (a block-comment-terminator breakout instead,
+ * guarded by `escapeJsDocCommentText`) — each site is routed through its own matching helper.
+ * `pascalName` is NOT escaped at either site — it's already constrained to a safe identifier by
+ * `assertValidIdentifier` in `command.ts`.
  */
+
+import {
+  escapeJsDocCommentText,
+  escapeTsStringLiteral,
+} from 'commands/generate/shared/escape-template-string.ts'
 
 /** `connectors/<name>.connector.ts` */
 export const cacheConnectorTemplate = (
@@ -21,12 +34,14 @@ export const cacheConnectorTemplate = (
   `import { Connector, ZanixCacheConnector } from '@zanix/server'
 
 /**
- * Cache connector for ${pascalName}, registered under the '${slot}' core slot.
+ * Cache connector for ${pascalName}, registered under the '${
+    escapeJsDocCommentText(slot)
+  }' core slot.
  *
  * @class
  * @extends ZanixCacheConnector
  */
-@Connector({ slot: '${slot}' })
+@Connector({ slot: '${escapeTsStringLiteral(slot)}' })
 export class ${pascalName}Connector extends ZanixCacheConnector {
   protected override initialize() {
     // Establish the connection to the cache backend here.

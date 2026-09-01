@@ -10,13 +10,17 @@
  * (`defineComet` throws at runtime otherwise — it needs a real name to re-import after the
  * client build), and `defineComet(Component, import.meta.url)` with both arguments, always
  * written at this exact call site.
+ *
+ * Imports `defineComet` from `@zanix/space/comet`, never the root `@zanix/space` — that package's
+ * own root barrel deliberately does not re-export it (a real browser bundler resolving the root
+ * barrel as a whole would otherwise pull server/dev-only code into a Comet's own client bundle).
  */
 
 /** `comets/<name>.comet.tsx` */
 export const cometTemplate = (pascalName: string): string =>
   `'use comet'
 
-import { defineComet } from '@zanix/space'
+import { defineComet } from '@zanix/space/comet'
 
 export function ${pascalName}() {
   return <div>${pascalName}</div>

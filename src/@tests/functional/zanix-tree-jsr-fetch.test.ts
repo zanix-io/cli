@@ -1,23 +1,6 @@
-import { getAllZanixLibrariesInfo } from 'commands/new/lib/tree/info.ts'
-import { versionRegex } from '@zanix/utils/regex'
-import { assertMatch } from '@std/assert/assert-match'
 import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
 import { assert } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-
-Deno.test('Fetching Zanix lates release validation', async () => {
-  const result = await getAllZanixLibrariesInfo()
-
-  assertMatch(result['@zanix/utils'].version, versionRegex)
-  assertMatch(result['@zanix/app'].version, versionRegex)
-  assertMatch(result['@zanix/asyncmq'].version, versionRegex)
-  assertMatch(result['@zanix/auth'].version, versionRegex)
-  assertMatch(result['@zanix/core'].version, versionRegex)
-  assertMatch(result['@zanix/datamaster'].version, versionRegex)
-  assertMatch(result['@zanix/notifications'].version, versionRegex)
-  assertMatch(result['@zanix/server'].version, versionRegex)
-  assertMatch(result['@zanix/worker'].version, versionRegex)
-})
 
 /**
  * The JSR-tagged templates always resolve their content from the latest package
@@ -73,11 +56,14 @@ Deno.test('getZanixPaths should return correct default content from jsr', async 
 
     assert(contentUtils.includes('Utilities Module Template'))
 
+    // `library`'s own root `mod.ts` and `src/modules/mod.ts` are generated locally now (see
+    // `library.ts`'s own `getLibraryRootModTemplate`/`getLibraryModTemplate`) — no `jsr` fetch
+    // involved for either, unlike every other file this test exercises.
     const contentMod = await paths.templates.base[3].content({
       metaUrl: import.meta.url,
     })
 
-    assert(contentMod.includes('Module Template'))
+    assert(contentMod.includes('public entrypoint'))
 
     const contentSecondaryMod = await paths.subfolders.src.subfolders.modules
       .templates.base[0]
@@ -85,7 +71,7 @@ Deno.test('getZanixPaths should return correct default content from jsr', async 
         metaUrl: import.meta.url,
       })
 
-    assert(contentSecondaryMod.includes('export default module'))
+    assert(contentSecondaryMod.includes('export function example'))
 
     const contentLicense = await paths.templates.base[2].content({
       metaUrl: import.meta.url,

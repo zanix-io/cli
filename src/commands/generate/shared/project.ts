@@ -1,6 +1,8 @@
 import type { Commander } from 'cli'
 
 import { getConfigDir, readConfig } from '@zanix/helpers'
+import type { ThemeName } from 'commands/new/lib/tree/themes.ts'
+import { join } from '@std/path'
 
 /**
  * Reads the `zanix.project` type of the Zanix project rooted at `root` (defaults to `Deno.cwd()`),
@@ -64,6 +66,79 @@ export function getProjectRenderer(root?: string): ProjectRenderer {
     return readConfig(configPath).compilerOptions?.jsxImportSource === 'preact' ? 'preact' : 'react'
   } catch {
     return 'react'
+  }
+}
+
+/**
+ * Resolves whether the project rooted at `root` (defaults to `Deno.cwd()`) was scaffolded with
+ * `--theme astronaut` — the one distinction `errorTemplate`/`notFoundTemplate` (`generate/error/
+ * template.ts`, `generate/not-found/template.ts`) need to pick astronaut-flavored fallback copy.
+ *
+ * Unlike `renderer` (a real runtime configuration value with its own compile-time projection,
+ * `jsxImportSource`), `--theme` has no persisted config field at all — it is a pure scaffold-time
+ * content/CSS choice, never read again by `@zanix/space` itself (see `themes.ts`'s own doc). The
+ * one real, on-disk signal a standalone `zanix generate` command (run against an EXISTING project,
+ * long after `zanix new` ran) can check is the theme's own CSS output: `--theme astronaut`
+ * (`space-astronaut.ts`) is the only theme that writes `theme/astronaut.css` at the project root —
+ * if that file exists, the project chose that theme; if it doesn't (no theme, or `--theme
+ * default`), this resolves to `undefined`, and both templates fall back to their plain,
+ * theme-agnostic copy.
+ */
+export function getProjectTheme(root?: string): ThemeName | undefined {
+  const projectRoot = root ?? Deno.cwd()
+  try {
+    Deno.statSync(join(projectRoot, 'theme', 'astronaut.css'))
+    return 'astronaut'
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Resolves the catalog folder names under the project's own `messages/` directory (e.g.
+ * `['en', 'es']`, or `['default']` for `--template population`'s implicit-lang convention — see
+ * `@zanix/space`'s own `DEFAULT_IMPLICIT_LANG`), or `undefined` when no `messages/` directory
+ * exists at all — `errorTemplate`/`notFoundTemplate` (`generate/error/template.ts`, `generate/
+ * not-found/template.ts`) use this to decide whether the generated file should wire up
+ * `IntlProvider`/`useIntl` at all.
+ *
+ * Same disk-existence heuristic {@linkcode getProjectTheme} already uses, for the same reason:
+ * `messagesDir` is a real `defineSpaceApp()` config value, but nothing persists WHICH languages it
+ * declares anywhere a standalone `zanix generate` command (run long after `zanix new` scaffolded
+ * the project) can read back except the catalog folders themselves.
+ */
+export function getProjectMessageLangs(root?: string): string[] | undefined {
+  const projectRoot = root ?? Deno.cwd()
+  try {
+    const langs: string[] = []
+    for (const entry of Deno.readDirSync(join(projectRoot, 'messages'))) {
+      if (entry.isDirectory) langs.push(entry.name)
+    }
+    return langs.length > 0 ? langs : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Whether the project rooted at `root` (defaults to `Deno.cwd()`) already declares `pkg` in its
+ * `deno.json(c)` `imports` map — the same signal `ensureZanixDependency`
+ * (`utils/config/dependencies.ts`) writes to and checks before adding an entry. `false` for any
+ * package not yet declared, or when no config file exists/parses at all.
+ *
+ * Used by a generator that produces a shell depending on some OTHER package's own runtime
+ * registration (see `connector`'s own `--slot database`/`--slot cache:<subtype>` precondition
+ * warning) to give a real, cheap "is the thing this shell needs even present" signal instead of
+ * guessing from the generated file's own content.
+ */
+export function isZanixDependencyDeclared(root: string | undefined, pkg: string): boolean {
+  const configPath = getConfigDir(root)
+  if (!configPath) return false
+
+  try {
+    return Boolean(readConfig(configPath).imports?.[pkg])
+  } catch {
+    return false
   }
 }
 

@@ -50,12 +50,16 @@ export async function createBaseFile(
 
     return true
   } catch (e) {
+    // Re-thrown, never swallowed into `return false` — see `docker/files/base.ts`'s own identical
+    // comment for the full reasoning: swallowing this would make a real write failure
+    // indistinguishable from the benign "already exists" skip above, and would never reach the
+    // action's own `this.throw`.
     logger.error(
       `'${filename}' file creation error in '${baseRoot}'`,
       e,
       'noSave',
     )
 
-    return false
+    throw e
   }
 }

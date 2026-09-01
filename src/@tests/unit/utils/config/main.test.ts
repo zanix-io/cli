@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertRejects } from '@std/assert'
-import { getTemporaryFolder } from '@zanix/helpers'
+import { getFolderName, getTemporaryFolder } from '@zanix/helpers'
 import { saveZanixConfig } from 'utils/config/main.ts'
+import { INITIAL_PROJECT_VERSION } from 'utils/config/base.ts'
 
 const TMP_ROOT = getTemporaryFolder(import.meta.url)
 
@@ -15,6 +16,25 @@ Deno.test(
 
       const written = JSON.parse(await Deno.readTextFile(`${root}/deno.json`))
       assertEquals(written.zanix?.project, 'server')
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'saveZanixConfig writes a real version field, and a name field derived from the real ' +
+    'project folder (root basename) — never a hardcoded literal, and deno publish --dry-run ' +
+    'fails outright without a `version` field regardless of `name`',
+  async () => {
+    const root = await Deno.makeTempDir({ dir: TMP_ROOT })
+
+    try {
+      await saveZanixConfig('library', root)
+
+      const written = JSON.parse(await Deno.readTextFile(`${root}/deno.json`))
+      assertEquals(written.version, INITIAL_PROJECT_VERSION)
+      assertEquals(written.name, `@your-scope/${getFolderName(root)}`)
     } finally {
       await Deno.remove(root, { recursive: true })
     }

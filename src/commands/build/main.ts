@@ -1,5 +1,34 @@
-import { compileAndObfuscate } from 'commands/build/lib/mod.ts'
 import { Commander } from 'cli'
+
+/**
+ * `commands/build/lib/mod.ts`'s own real path, kept as a non-literal reference — never inlined
+ * into the `import(...)` call below. `commands/mod.ts` eagerly imports every command's own module
+ * (this one included) just to REGISTER its CLI surface (name/options/description, needed for
+ * `--help`/tab-completion across the whole tool), regardless of which command a user actually
+ * runs. `commands/build/lib/mod.ts` transitively reaches `esbuild`/`javascript-obfuscator`
+ * (`build-runner.ts`/`obfuscate.ts`) — a literal specifier here would let `cli.ts`'s own
+ * necessarily-eager registration graph statically reach both npm packages merely by resolving
+ * `build`'s CLI surface, regardless of whether `zanix build` is ever actually run. Deno's own
+ * static dependency-graph analysis only follows a dynamic `import()` whose argument it can resolve
+ * as a literal at parse time — routing it through this variable keeps every OTHER `zanix` command
+ * out of that graph entirely.
+ */
+const BUILD_LIB_MODULE_SPECIFIER = 'commands/build/lib/mod.ts'
+
+/**
+ * Narrow, hand-declared shape of `commands/build/lib/mod.ts`'s own real exports — deliberately NOT
+ * `typeof import('commands/build/lib/mod.ts')`: even a whole-module `typeof` type alias, despite
+ * being erased from emitted JS, still forces the same real-source resolution (and the same
+ * `esbuild`/`javascript-obfuscator` reachability) as a value import. Only the one function this
+ * action actually calls, typed loosely enough (`Record<string, unknown>`) to avoid needing
+ * `CompilerOptions` itself — `typings.ts`'s own type additionally carries `esbuild`'s TYPE-position
+ * literal, which would reintroduce the exact leak this file exists to avoid.
+ */
+interface BuildLibModule {
+  compileAndObfuscate: (
+    options: Record<string, unknown>,
+  ) => Promise<{ error?: unknown; message?: string }>
+}
 
 /** 'build' command */
 export default function buildCommand(this: Commander) {
@@ -46,11 +75,19 @@ export default function buildCommand(this: Commander) {
       '--no-bundle',
       "A flag indicating if bundle won't be applied (i.e., not grouping all files into a single output).",
     )
-    .action((options) => {
-      compileAndObfuscate({
+    .action(async (options) => {
+      // Must await/check the result, not fire-and-forget it: a CI pipeline gating on `znx build`'s
+      // exit code needs a real compile failure (esbuild error, obfuscation error) to actually exit
+      // non-zero, not pass silently on a broken build. `compileAndObfuscate` never rejects on its
+      // own (see its own doc) — it resolves with `{ error }` — so this has to explicitly check for
+      // that and hand it to Cliffy's own `this.throw`, the single place this whole CLI turns a
+      // failure into a non-zero exit code (see `cli.ts`'s own handler).
+      const { compileAndObfuscate } = await import(BUILD_LIB_MODULE_SPECIFIER) as BuildLibModule
+      const { error } = await compileAndObfuscate({
         ...options,
         platform: options.platform as never,
         external: options.external?.split(','),
       })
+      if (error) cwd.throw(error instanceof Error ? error : new Error(String(error)))
     })
 }

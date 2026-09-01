@@ -4,6 +4,8 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
+import { assertSafeGeneratorName } from 'commands/generate/shared/safe-name.ts'
+import { assertValidIdentifier } from 'commands/generate/shared/valid-identifier.ts'
 import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
@@ -58,11 +60,13 @@ async function generateRepositoryAction(
   root?: string,
 ) {
   assertProjectType(this, ['server', 'space-server'], 'repository', root)
+  assertSafeGeneratorName(this, name)
 
   const { verify } = options as { verify?: boolean }
   const projectRoot = root ?? Deno.cwd()
   const folderName = toKebabCase(name)
   const pascalName = toPascalCase(name)
+  assertValidIdentifier(this, pascalName, name)
   const repositoryFolder = `${projectRoot}/src/server/repositories/${folderName}`
 
   const { files } = planRepository(folderName, pascalName, repositoryFolder)

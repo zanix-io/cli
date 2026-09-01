@@ -36,6 +36,44 @@ Deno.test(
   },
 )
 
+Deno.test(
+  'generateRepositoryAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateRepositoryAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'generateRepositoryAction should reject a name that produces an invalid TS identifier',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateRepositoryAction.call(new Commander(), {}, '123entity'),
+        Error,
+        "isn't a valid TypeScript identifier",
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateRepositoryAction should write provider and model files', async () => {
   const projectFolder = await makeProject('server')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)

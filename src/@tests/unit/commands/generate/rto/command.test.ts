@@ -38,6 +38,54 @@ Deno.test('generateRtoAction should throw outside a server/space-server project'
   }
 })
 
+Deno.test(
+  'generateRtoAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () =>
+          generateRtoAction.call(
+            new Commander(),
+            { field: ['name:string'] },
+            '../../../../victim',
+          ),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'generateRtoAction should reject a name that produces an invalid TS identifier',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () =>
+          generateRtoAction.call(
+            new Commander(),
+            { field: ['name:string'] },
+            '123entity',
+          ),
+        Error,
+        "isn't a valid TypeScript identifier",
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateRtoAction should throw a clear error when no --field is given', async () => {
   const projectFolder = await makeProject('server')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -54,7 +102,35 @@ Deno.test('generateRtoAction should throw a clear error when no --field is given
   }
 })
 
-Deno.test('generateRtoAction writes RTO+IsObjectID.ts, skips IsPermission.ts', async () => {
+Deno.test(
+  'generateRtoAction should throw a clear error and write nothing when --field names collide',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () =>
+          generateRtoAction.call(
+            new Commander(),
+            { field: ['total:number', 'total:string'] },
+            'invoice',
+          ),
+        Error,
+        "Duplicate --field name(s): 'total' (given 2 times)",
+      )
+
+      const rtosFolder = `${projectFolder}/src/server/handlers/rtos`
+      await assertRejects(() => Deno.stat(`${rtosFolder}/invoice.rto.ts`))
+      await assertRejects(() => Deno.stat(rtosFolder))
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test('generateRtoAction writes RTO with a real IsObjectID import, no local file', async () => {
   const projectFolder = await makeProject('server')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
@@ -69,21 +145,13 @@ Deno.test('generateRtoAction writes RTO+IsObjectID.ts, skips IsPermission.ts', a
     const rto = await Deno.readTextFile(`${rtosFolder}/payment-method.rto.ts`)
     assert(rto.includes('export class PaymentMethodRTO'))
     assert(rto.includes('accessor amount!: number'))
+    assert(rto.includes("IsObjectID, IsString } from '@zanix/validator'"))
 
-    const isObjectId = await Deno.readTextFile(
-      `${rtosFolder}/validations/IsObjectID.ts`,
-    )
-    assert(isObjectId.includes('export const IsObjectID'))
-
+    // `objectId` renders a real `@zanix/validator` import — no more local `IsObjectID.ts`/
+    // `OBJECTID_REGEX` (see `rto/renderer.ts`'s own doc).
+    await assertRejects(() => Deno.stat(`${rtosFolder}/validations/IsObjectID.ts`))
     await assertRejects(() => Deno.stat(`${rtosFolder}/validations/IsPermission.ts`))
-
-    const constants = await Deno.readTextFile(
-      `${projectFolder}/src/utils/constants.ts`,
-    )
-    assertEquals(
-      constants,
-      'export const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/\n',
-    )
+    await assertRejects(() => Deno.stat(`${projectFolder}/src/utils/constants.ts`))
 
     const config = JSON.parse(
       await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
@@ -102,63 +170,56 @@ Deno.test('generateRtoAction writes RTO+IsObjectID.ts, skips IsPermission.ts', a
   }
 })
 
-Deno.test('generateRtoAction writes IsPermission.ts+constant when needed', async () => {
-  const projectFolder = await makeProject('server')
-  const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+Deno.test(
+  'generateRtoAction writes a permission field as plain IsString, no local file',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
-  try {
-    await generateRtoAction.call(
-      new Commander(),
-      { field: ['grantedBy:permission'] },
-      'Role',
-    )
+    try {
+      await generateRtoAction.call(
+        new Commander(),
+        { field: ['grantedBy:permission'] },
+        'Role',
+      )
 
-    const validationsFolder = `${projectFolder}/src/server/handlers/rtos/validations`
-    const isPermission = await Deno.readTextFile(
-      `${validationsFolder}/IsPermission.ts`,
-    )
-    assert(isPermission.includes('export const IsPermission'))
+      const rtosFolder = `${projectFolder}/src/server/handlers/rtos`
+      const rto = await Deno.readTextFile(`${rtosFolder}/role.rto.ts`)
+      assert(rto.includes('@IsString({ expose: true })\n  accessor grantedBy!: string'))
+      assert(!rto.includes('IsPermission'))
 
-    const constants = await Deno.readTextFile(
-      `${projectFolder}/src/utils/constants.ts`,
-    )
-    assert(constants.includes('OBJECTID_REGEX'))
-    assert(constants.includes('PERMISSION_REGEX'))
-  } finally {
-    mockCwd.restore()
-    await Deno.remove(projectFolder, { recursive: true })
-  }
-})
+      // No hand-rolled validator/constant is ever generated for `permission` anymore — see
+      // `renderer.ts`'s own doc for why a dedicated `IsPermission` was removed rather than
+      // replaced.
+      await assertRejects(() => Deno.stat(`${rtosFolder}/validations/IsPermission.ts`))
+      await assertRejects(() => Deno.stat(`${projectFolder}/src/utils/constants.ts`))
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
 
-Deno.test('generateRtoAction appends OBJECTID_REGEX to an existing constants.ts', async () => {
-  const projectFolder = await makeProject('server')
-  const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+Deno.test(
+  'generateRtoAction with only objectId/permission fields never creates constants.ts',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
 
-  try {
-    await Deno.mkdir(`${projectFolder}/src/utils`, { recursive: true })
-    await Deno.writeTextFile(
-      `${projectFolder}/src/utils/constants.ts`,
-      "export const SOMETHING_ELSE = 'x'\n",
-    )
+    try {
+      await generateRtoAction.call(
+        new Commander(),
+        { field: ['id:objectId', 'scope:permission'] },
+        'Thing',
+      )
 
-    await generateRtoAction.call(
-      new Commander(),
-      { field: ['id:objectId'] },
-      'Thing',
-    )
-
-    const constants = await Deno.readTextFile(
-      `${projectFolder}/src/utils/constants.ts`,
-    )
-    assertEquals(
-      constants,
-      "export const SOMETHING_ELSE = 'x'\nexport const OBJECTID_REGEX = /^[0-9a-fA-F]{24}$/\n",
-    )
-  } finally {
-    mockCwd.restore()
-    await Deno.remove(projectFolder, { recursive: true })
-  }
-})
+      await assertRejects(() => Deno.stat(`${projectFolder}/src/utils/constants.ts`))
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
 
 Deno.test('generateRtoAction should be idempotent when run twice', async () => {
   const projectFolder = await makeProject('space-server')
@@ -209,7 +270,7 @@ Deno.test('generateRtoAction should never overwrite an existing RTO file', async
   }
 })
 
-Deno.test('planRto without a permission field returns rto.ts+IsObjectID.ts only', () => {
+Deno.test('planRto without any fields returns only rto.ts', () => {
   const { files } = planRto(
     'example',
     'Example',
@@ -217,10 +278,12 @@ Deno.test('planRto without a permission field returns rto.ts+IsObjectID.ts only'
     '/root/src/server/handlers/rtos',
   )
 
-  assertEquals(files.map((f) => f.NAME), ['example.rto.ts', 'IsObjectID.ts'])
+  assertEquals(files.map((f) => f.NAME), ['example.rto.ts'])
 })
 
-Deno.test('planRto with a permission field also returns IsPermission.ts', () => {
+Deno.test('planRto with a permission field still returns only rto.ts', () => {
+  // No dedicated local file exists for `permission` anymore — it renders a plain `IsString`, same
+  // as `string` — see `renderer.ts`'s own doc for the full investigation.
   const { files } = planRto(
     'role',
     'Role',
@@ -233,32 +296,24 @@ Deno.test('planRto with a permission field also returns IsPermission.ts', () => 
     '/root/src/server/handlers/rtos',
   )
 
-  assertEquals(files.map((f) => f.NAME), [
-    'role.rto.ts',
-    'IsObjectID.ts',
-    'IsPermission.ts',
-  ])
+  assertEquals(files.map((f) => f.NAME), ['role.rto.ts'])
 })
 
 Deno.test(
-  'planRto.ensureConstants writes only OBJECTID_REGEX when no permission field is used',
+  'planRto.ensureConstants is a permanent no-op (no field type needs a generated constant anymore)',
   async () => {
     const projectFolder = await makeProject('server')
 
     try {
       await planRto(
-        'example',
-        'Example',
-        [],
+        'role',
+        'Role',
+        [{ name: 'grantedBy', type: 'permission', optional: false, isArray: false }],
         `${projectFolder}/src/server/handlers/rtos`,
       )
         .ensureConstants(projectFolder)
 
-      const constants = await Deno.readTextFile(
-        `${projectFolder}/src/utils/constants.ts`,
-      )
-      assert(constants.includes('OBJECTID_REGEX'))
-      assert(!constants.includes('PERMISSION_REGEX'))
+      await assertRejects(() => Deno.stat(`${projectFolder}/src/utils/constants.ts`))
     } finally {
       await Deno.remove(projectFolder, { recursive: true })
     }
@@ -266,7 +321,7 @@ Deno.test(
 )
 
 Deno.test(
-  "getServerSrcTree's rto leaf uses planRto, so IsObjectID.ts is never left dangling",
+  "getServerSrcTree's rto leaf uses planRto, so its file list never drifts from zanix generate rto",
   async () => {
     const { getServerSrcTree } = await import(
       'commands/new/lib/tree/projects/server.ts'
@@ -274,9 +329,8 @@ Deno.test(
     const tree = getServerSrcTree(`${temporaryFolder}/${crypto.randomUUID()}`)
     const rtoFiles = tree.subfolders.handlers.subfolders.rtos.templates.base
 
-    assertEquals(rtoFiles.map((f) => f.NAME), [
-      'example.rto.ts',
-      'IsObjectID.ts',
-    ])
+    // `planRto` never generates more than the one `<name>.rto.ts` file today, regardless of
+    // fields — same rule `zanix generate rto` itself follows (see `planRto`'s own doc).
+    assertEquals(rtoFiles.map((f) => f.NAME), ['example.rto.ts'])
   },
 )

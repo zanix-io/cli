@@ -2,9 +2,13 @@ import { assert, assertEquals, assertThrows } from '@std/assert'
 import { APP_RECIPES, assembleAppScaffold } from 'commands/new/lib/tree/projects/app.ts'
 import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
 
-Deno.test('APP_RECIPES only has a base entry, same shape as SERVER_RECIPES/SPACE_RECIPES', () => {
-  assertEquals(Object.keys(APP_RECIPES), ['base'])
-})
+Deno.test(
+  'APP_RECIPES only has a base entry — same registry shape as SERVER_RECIPES/SPACE_RECIPES, ' +
+    'just no second preset of its own yet',
+  () => {
+    assertEquals(Object.keys(APP_RECIPES), ['base'])
+  },
+)
 
 Deno.test('assembleAppScaffold appends mod.ts without wiping commons.ts content', () => {
   const paths = getZanixPaths('app', 'app-recipe-append-test')

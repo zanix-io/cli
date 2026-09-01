@@ -10,8 +10,10 @@ import { join } from '@std/path'
  * Base function to create a YAML workflow file.
  *
  * @param options - Workflow creation options.
- *   - `filename`: Which workflow template to use. Falsy skips creation entirely (with a warning)
- *     — not every project type has one (only `'library'`/`'app'` produce a publish workflow).
+ *   - `filename`: Which single workflow template to use (`'ci'` or `'publish'`) — one call writes
+ *     one file. Falsy skips creation entirely (with a warning); kept for robustness against a
+ *     future caller that hasn't resolved a concrete template yet, not exercised by
+ *     {@link createGitWorkflows}'s own real calls, which always pass a concrete `filename`.
  *   - `baseFolder`: Where the `.yml` file is written. Defaults to `GITHUB_WORKFLOW_FOLDER`.
  *   - `baseRoot`: The project root. Defaults to `getRootDir()`.
  */
@@ -66,8 +68,12 @@ export async function createWorkflow(
 
     return true
   } catch (e) {
+    // Re-thrown, never swallowed into `return false` — see `docker/files/base.ts`'s own identical
+    // comment for the full reasoning: swallowing this would make a real write failure
+    // indistinguishable from the benign "already exists" skip above, and would never reach the
+    // action's own `this.throw`.
     logger.error(`'${mainYamls}' YAML creation error in '${dir}'`, e, 'noSave')
 
-    return false
+    throw e
   }
 }

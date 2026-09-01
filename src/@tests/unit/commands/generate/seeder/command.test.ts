@@ -67,6 +67,25 @@ Deno.test('generateSeederAction should throw clearly for a malformed config file
   }
 })
 
+Deno.test(
+  'generateSeederAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateSeederAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateSeederAction should write the seeder trio and the shared helper', async () => {
   const projectFolder = await makeProject('server')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)

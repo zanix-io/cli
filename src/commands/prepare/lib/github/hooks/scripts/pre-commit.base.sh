@@ -18,8 +18,13 @@ fi
 # Run formatting only on staged files that need it.
 if [ -n "$STAGED_FMT_FILES" ]; then
   echo "\033[0;33minfo[pre-commit]\033[0m: Running formatting on staged files..."
-  deno fmt $STAGED_FMT_FILES -- --allow-read
-  if [ $? -ne 0 ]; then
+  FMT_OUTPUT=$(deno fmt $STAGED_FMT_FILES -- --allow-read 2>&1)
+  FMT_STATUS=$?
+  # A staged file matching a deno.jsonc `exclude` entry (e.g. a fixture that only ever resolves
+  # against a different project's own config) leaves `deno fmt` with zero real targets once every
+  # staged file happens to be one of those — a real, expected outcome, not a formatting failure.
+  if [ $FMT_STATUS -ne 0 ] && ! echo "$FMT_OUTPUT" | grep -q "No target files found"; then
+    echo "$FMT_OUTPUT"
     echo "\033[1;31merror[pre-commit]\033[0m: Formatting failed!"
     exit 1
   fi
@@ -28,8 +33,11 @@ fi
 # Run linting only on staged files that need it.
 if [ -n "$STAGED_LINT_FILES" ]; then
   echo "\033[0;33minfo[pre-commit]\033[0m: Running linting on staged files..."
-  deno lint --fix $STAGED_LINT_FILES -- --allow-read --allow-write
-  if [ $? -ne 0 ]; then
+  LINT_OUTPUT=$(deno lint --fix $STAGED_LINT_FILES -- --allow-read --allow-write 2>&1)
+  LINT_STATUS=$?
+  # Same "every staged file happens to be `exclude`d" case as formatting above.
+  if [ $LINT_STATUS -ne 0 ] && ! echo "$LINT_OUTPUT" | grep -q "No target files found"; then
+    echo "$LINT_OUTPUT"
     echo "\033[1;31merror[pre-commit]\033[0m: Linting failed!"
     exit 1
   fi

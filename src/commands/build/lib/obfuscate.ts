@@ -1,3 +1,5 @@
+import { OBFUSCATOR_SPECIFIER } from 'modules/lazy/specifiers.ts'
+
 /**
  * Obfuscates a single file's own already-built JS content in place — the exact
  * `javascript-obfuscator` options `mainBuilderFunction` (`build-runner.ts`) already used, factored
@@ -9,9 +11,7 @@
  */
 export async function obfuscateFile(filePath: string): Promise<void> {
   const content = await Deno.readTextFile(filePath)
-  const { default: obfuscator } = await import(
-    'npm:javascript-obfuscator@^4.0.2'
-  )
+  const { default: obfuscator } = await import(OBFUSCATOR_SPECIFIER)
 
   const obfuscated = obfuscator.obfuscate(content, {
     compact: true,

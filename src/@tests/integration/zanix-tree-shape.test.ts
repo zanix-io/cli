@@ -23,6 +23,37 @@ Deno.test('getZanixPaths should return correct folder structure for server type 
   assertExists(paths.subfolders.src.subfolders.shared.subfolders.middlewares)
 })
 
+Deno.test(
+  'getZanixPaths middlewares node: generates example.pipe.ts/example.interceptor.ts locally ' +
+    'via planMiddleware — no JSR fetch, the @zanix/core migration (docs/engineering.md §5)',
+  async () => {
+    const paths = getZanixPaths('server', 'my-server')
+    const middlewareFiles =
+      paths.subfolders.src.subfolders.shared.subfolders.middlewares.templates.base
+
+    assertEquals(middlewareFiles.length, 2)
+    assertEquals(
+      middlewareFiles.map((file) => file.NAME).sort(),
+      ['example.interceptor.ts', 'example.pipe.ts'],
+    )
+    assert(
+      middlewareFiles.every((file) => !file.PATH.includes('pipe.defs.ts')),
+      'the old pipe.defs.ts/interceptor.defs.ts JSR-fetched filenames must be gone',
+    )
+
+    // Real proof this no longer depends on `getZanixTemplateContent`'s JSR-fetch machinery: each
+    // `content()` resolves to real, non-empty generated source purely locally — no network
+    // involved, unlike a `jsr`-tagged node (see `commands/new/lib/tree/base-tree.ts`'s own
+    // `createTemplates`).
+    for (const file of middlewareFiles) {
+      // deno-lint-ignore no-await-in-loop
+      const content = await file.content({ metaUrl: import.meta.url })
+      assert(content.includes('defineMiddlewareDecorator'), content)
+      assert(content.includes('ExamplePipe') || content.includes('ExampleInterceptor'), content)
+    }
+  },
+)
+
 Deno.test('getZanixPaths should return correct folder structure for space custom dir', () => {
   const mainFolderName = 'my-space'
   const paths = getZanixPaths('space', 'my-space')
@@ -35,7 +66,24 @@ Deno.test('getZanixPaths should return correct folder structure for space custom
   )
   assert(paths.subfolders.src.subfolders['server' as never] === undefined)
   assert(paths.subfolders.src.subfolders['modules' as never] === undefined)
-  assertExists(paths.subfolders.src.subfolders.shared.subfolders.middlewares)
+  // `space` never boots a `'rest'` server (`bootstrapRemoteApp`/`Zanix.start()` only ever gets
+  // `ssr`/other non-`rest` types there) — `shared/middlewares`'s `@Guard`/`@Pipe`/`@Interceptor`
+  // examples would be structurally dead code by construction, so a pure `space` project no longer
+  // scaffolds this subtree at all. `server`/`space-server` (which DO boot `'rest'`) still get it —
+  // see the tests below.
+  assert(
+    paths.subfolders.src.subfolders.shared.subfolders['middlewares' as never] === undefined,
+  )
+})
+
+Deno.test('getZanixPaths should return correct folder tree for app type custom dir', () => {
+  const paths = getZanixPaths('app', 'my-app')
+
+  // Same reasoning as `space` above — an `app` package is composed by a consumer, never itself
+  // booting a `'rest'` server, so `shared/middlewares` is dead scaffolding for it too.
+  assert(
+    paths.subfolders.src.subfolders.shared.subfolders['middlewares' as never] === undefined,
+  )
 })
 
 Deno.test('getZanixPaths should return correct folder tree for library type custom dir', () => {

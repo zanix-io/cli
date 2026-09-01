@@ -19,21 +19,24 @@ const DEFAULT_DENO_DOCKER_TAG = '2.9.5'
 // falls back to when neither `PORT_<TYPE>` nor `PORT` is set.
 const DEFAULT_PORT = 8000
 // Same value `server.ts`/`space.ts` (this CLI's own `zanix new` scaffold templates) already
-// duplicate locally as `'./dist/client'` — no leading `./` here, unlike there: a `COPY` path
-// doesn't need it, and `/app/./dist/client` would be a needlessly ugly (if still valid) path.
-const CLIENT_BUILD_DIR = 'dist/client'
+// duplicate locally as `'./.dist/client'` — no leading `./` here, unlike there: a `COPY` path
+// doesn't need it, and `/app/./.dist/client` would be a needlessly ugly (if still valid) path.
+const CLIENT_BUILD_DIR = '.dist/client'
 
 /**
  * Generates a `Dockerfile` for containerized deployment — one destination option among several
- * (see `docs/DEPLOY.md`), never the assumed default. `'server'`, `'space'`, `'space-server'`, and
+ * (see `docs/deploy.md`), never the assumed default. `'server'`, `'space'`, `'space-server'`, and
  * `'app'` produce a real file; `'library'` is skipped, with a warning — it has nothing that ever
  * calls `Deno.serve()`, standalone or otherwise.
  *
  * The `space`/`space-server` variant additionally installs real npm dependencies (`nodeModulesDir:
- * 'auto'` — Vite, `@vitejs/plugin-react`, Tailwind, `sharp`) and runs `zanix space build` to
- * produce `${CLIENT_BUILD_DIR}` before the runtime stage — there is no `deno.json` `build` task to
- * invoke instead (`baseZnxConfig` only ever writes `dev`/`start`), so the template calls the CLI
- * directly (`deno run -A jsr:@zanix/cli space build`).
+ * 'auto'` — Vite, `@vitejs/plugin-react`, Tailwind, `sharp`) and runs this project's own `deno task
+ * build` (`baseZnxConfig`'s own `tasks.build: 'zanix space build'`, `space`/`space-server` only) to
+ * produce `${CLIENT_BUILD_DIR}` before the runtime stage — never a second, independently-maintained
+ * `deno run -A jsr:@zanix/cli space build` invocation that could drift from the task's own flags.
+ * The `zanix` binary itself isn't on PATH in a fresh `denoland/deno` image, so the build stage
+ * installs it globally first (`deno install -A -g -n zanix jsr:@zanix/cli` — the same command this
+ * package's own README documents for a real developer machine).
  *
  * `'server'` and `'app'` share the SAME `dockerfile.process.base` template — structurally identical
  * (`FROM`/`WORKDIR`/`ENV`/`COPY`/`EXPOSE`/`CMD ["task", ...]`), differing only in which file gets

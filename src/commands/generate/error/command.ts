@@ -3,11 +3,18 @@ import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
-import { assertProjectType } from 'commands/generate/shared/project.ts'
+import {
+  assertProjectType,
+  getProjectMessageLangs,
+  getProjectRenderer,
+  getProjectTheme,
+} from 'commands/generate/shared/project.ts'
+import { mergeMessageKeys } from 'commands/generate/shared/messages-merge.ts'
+import { assertSafeGeneratorRoutePath } from 'commands/generate/shared/safe-name.ts'
 import { pascalNameFromRoutePath } from 'commands/generate/shared/route-path.ts'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
-import { errorTemplate } from 'commands/generate/error/template.ts'
+import { errorCatalogKeys, errorTemplate } from 'commands/generate/error/template.ts'
 
 async function generateErrorAction(
   this: Commander,
@@ -16,6 +23,7 @@ async function generateErrorAction(
   root?: string,
 ) {
   assertProjectType(this, ['space', 'space-server'], 'error', root)
+  assertSafeGeneratorRoutePath(this, routePath)
 
   const { verify } = options as { verify?: boolean }
   const projectRoot = root ?? Deno.cwd()
@@ -23,6 +31,9 @@ async function generateErrorAction(
   // structure, never reshaped — it determines which segment this error boundary wraps.
   const errorFolder = `${projectRoot}/src/space/routes/${routePath}`
   const pascalName = pascalNameFromRoutePath(routePath)
+  const renderer = getProjectRenderer(root)
+  const theme = getProjectTheme(root)
+  const messageLangs = getProjectMessageLangs(root)
 
   const tree: ZanixFolderGenericTree = {
     FOLDER: errorFolder,
@@ -31,7 +42,7 @@ async function generateErrorAction(
         {
           PATH: `${errorFolder}/error.tsx`,
           NAME: 'error.tsx',
-          content: () => Promise.resolve(errorTemplate(pascalName)),
+          content: () => Promise.resolve(errorTemplate(pascalName, renderer, theme, messageLangs)),
         },
       ],
     },
@@ -39,6 +50,12 @@ async function generateErrorAction(
 
   await createFilesAndFolders(tree, 'base')
   await ensureZanixDependency(root, '@zanix/space')
+  await ensureZanixDependency(root, '@zanix/space-ui')
+  // Only when the project already has `messages/` — seeds the exact keys the generated
+  // `formatMessage(...)` calls read (`errorCatalogKeys`), never overwriting a key it already has.
+  if (messageLangs?.length) {
+    await mergeMessageKeys(projectRoot, messageLangs, (lang) => errorCatalogKeys(theme, lang))
+  }
 
   if (verify) await verifyGeneratedProject(projectRoot)
 

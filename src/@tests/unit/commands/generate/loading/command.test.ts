@@ -33,6 +33,25 @@ Deno.test('generateLoadingAction should throw outside a space/space-server proje
   }
 })
 
+Deno.test(
+  'generateLoadingAction should reject a route path containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('space')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateLoadingAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateLoadingAction should write a real, correctly-shaped loading file', async () => {
   const projectFolder = await makeProject('space')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -107,11 +126,13 @@ Deno.test(
     const mockCwd = stub(Deno, 'cwd', () => projectFolder)
     const cwd = new Commander()
     registerLoadingCommand(cwd)
-    type ActionCommand = { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    type ActionCommand = {
+      settings: { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    }
     const command = cwd.getCommands()[0] as unknown as ActionCommand
 
     try {
-      await command.actionHandler({}, 'wired')
+      await command.settings.actionHandler({}, 'wired')
 
       const content = await Deno.readTextFile(
         `${projectFolder}/src/space/routes/wired/loading.tsx`,

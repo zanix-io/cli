@@ -2,7 +2,7 @@ import type { PrepareGithubOptions } from 'commands/prepare/lib/typings.ts'
 
 import { createPrePushHook } from 'commands/prepare/lib/github/hooks/pre-push.ts'
 import { createPreCommitHook } from 'commands/prepare/lib/github/hooks/pre-commit.ts'
-import { createGitWorkflow } from 'commands/prepare/lib/github/workflows/publish.ts'
+import { createGitWorkflows } from 'commands/prepare/lib/github/workflows/workflow.ts'
 import { createIgnoreBaseFile } from 'commands/prepare/lib/github/files/main.ts'
 import { createPreCommitYaml } from 'commands/prepare/lib/github/files/pre-commit-config.ts'
 import { gitInitialization } from 'commands/prepare/lib/github/hooks/main.ts'
@@ -22,7 +22,7 @@ import { gitInitialization } from 'commands/prepare/lib/github/hooks/main.ts'
  * @param {Object} options - Configuration options for setting up hooks and workflows.
  * @param {true | Object} [options.usePrecommit] - Optional configuration for using the pre-commit framework.
  * @param {Object} [options.legacyHooks] - Optional `preCommit`/`prePush` configuration for the legacy hooks.
- * @param {WorkflowOptions} [options.publishWorkflow] - Optional configuration for the publish workflow.
+ * @param {WorkflowOptions} [options.publishWorkflow] - Optional configuration for the `ci`/`publish` workflow(s).
  * @param {Object} [options.gitIgnoreBase] - Optional configuration for the `.gitignore` file creation.
  */
 export async function prepareGithub(
@@ -39,7 +39,7 @@ export async function prepareGithub(
   await gitInitialization(root)
 
   const promises = [
-    createGitWorkflow(publishWorkflow),
+    createGitWorkflows(publishWorkflow),
     createIgnoreBaseFile(gitIgnoreBase),
   ]
 

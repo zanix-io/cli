@@ -1,6 +1,10 @@
 import { getTemporaryFolder } from '@zanix/helpers'
 import { assertEquals, assertThrows } from '@std/assert'
-import { assertProjectType, getCurrentProjectType } from 'commands/generate/shared/project.ts'
+import {
+  assertProjectType,
+  getCurrentProjectType,
+  isZanixDependencyDeclared,
+} from 'commands/generate/shared/project.ts'
 import { Commander } from 'cli'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
@@ -65,6 +69,48 @@ Deno.test('assertProjectType does not throw when the project type is allowed', a
     'seeder',
     projectFolder,
   )
+
+  await Deno.remove(projectFolder, { recursive: true })
+})
+
+Deno.test(
+  'isZanixDependencyDeclared returns true when the package is in deno.jsonc imports',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const configPath = `${projectFolder}/deno.jsonc`
+    const config = JSON.parse(await Deno.readTextFile(configPath))
+    config.imports = { '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.2.0' }
+    await Deno.writeTextFile(configPath, JSON.stringify(config))
+
+    assertEquals(isZanixDependencyDeclared(projectFolder, '@zanix/datamaster'), true)
+
+    await Deno.remove(projectFolder, { recursive: true })
+  },
+)
+
+Deno.test('isZanixDependencyDeclared returns false when the package is not declared', async () => {
+  const projectFolder = await makeProject('server')
+
+  assertEquals(isZanixDependencyDeclared(projectFolder, '@zanix/datamaster'), false)
+
+  await Deno.remove(projectFolder, { recursive: true })
+})
+
+Deno.test('isZanixDependencyDeclared returns false when no config file exists at all', async () => {
+  const projectFolder = `${temporaryFolder}/${crypto.randomUUID()}`
+  await Deno.mkdir(projectFolder, { recursive: true })
+
+  assertEquals(isZanixDependencyDeclared(projectFolder, '@zanix/datamaster'), false)
+
+  await Deno.remove(projectFolder, { recursive: true })
+})
+
+Deno.test('isZanixDependencyDeclared returns false for a malformed config file', async () => {
+  const projectFolder = `${temporaryFolder}/${crypto.randomUUID()}`
+  await Deno.mkdir(projectFolder, { recursive: true })
+  await Deno.writeTextFile(`${projectFolder}/deno.jsonc`, '{ not valid json')
+
+  assertEquals(isZanixDependencyDeclared(projectFolder, '@zanix/datamaster'), false)
 
   await Deno.remove(projectFolder, { recursive: true })
 })

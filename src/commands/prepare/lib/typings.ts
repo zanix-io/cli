@@ -31,10 +31,22 @@ export type PreCommitHookOptions = HookOptions & {
   }
 }
 
-/** The workflow types */
-export type WorkFlowTypes = 'publish' | null
+/**
+ * The workflow template types, each backing exactly one `.yml` file `createWorkflow` can write.
+ * `'ci'` (checkout, `Setup Deno`, `deno fmt --check`, `deno lint`, `zanix check-cycles` — no
+ * `deno test`, no `deno publish`; also declares `workflow_call`, so it doubles as a reusable
+ * workflow) is written for every real
+ * {@link ZanixProjects} type. `'publish'` (checkout, `Setup Deno`, `deno test`, `deno publish` —
+ * no `check-cycles` of its own; its own `ci` job instead `uses: ./.github/workflows/ci.yml`, and
+ * its `publish` job declares `needs: ci`) is written ADDITIONALLY, only for `'library'`/`'app'` —
+ * see {@link createGitWorkflows} for the orchestration that decides which template(s) a given
+ * project type gets. `null` stays part of the type for robustness against a future caller that
+ * hasn't resolved a concrete template yet, even though every real call today passes a concrete
+ * string.
+ */
+export type WorkFlowTypes = 'publish' | 'ci' | null
 
-/** Options accepted by {@link createGitWorkflow}. */
+/** Options accepted by {@link createGitWorkflows}. */
 export type WorkflowOptions = BaseGithubHelperOptions & {
   /**
    * The Zanix project type the workflow should be generated for. Defaults to `'library'`.
@@ -75,10 +87,11 @@ export type PrepareGithubOptions = {
    */
   usePrecommit?: true | Omit<BaseGithubHelperOptions, 'baseFolder'>
   /**
-   * createGitWorkflow options
-   *   - `baseFolder`: The directory where the workflow file should be created.
-   *   - `mainBranch`: The main branch that will trigger the workflow when publishing a new version.
-   *   - `projectType`: Optional ZanixProject type to define correct workflow. Defaults to `library`
+   * createGitWorkflows options
+   *   - `baseFolder`: The directory where the workflow file(s) should be created.
+   *   - `mainBranch`: The main branch that will trigger the workflow(s) when publishing a new version.
+   *   - `projectType`: Optional ZanixProject type to define which workflow(s) are written — `ci.yml`
+   *     always, `publish.yml` additionally for `'library'`/`'app'`. Defaults to `library`
    */
   publishWorkflow?: WorkflowOptions
   /**

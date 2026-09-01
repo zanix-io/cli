@@ -4,6 +4,7 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
+import { assertSafeGeneratorName } from 'commands/generate/shared/safe-name.ts'
 import { toKebabCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
@@ -42,6 +43,7 @@ async function generateJobAction(
   root?: string,
 ) {
   assertProjectType(this, ['server', 'space-server'], 'job', root)
+  assertSafeGeneratorName(this, name)
 
   const { cron, verify } = options as { cron?: string; verify?: boolean }
 
@@ -56,7 +58,7 @@ async function generateJobAction(
   }
 
   await createFilesAndFolders(tree, 'base')
-  await ensureZanixDependency(root, '@zanix/asyncmq')
+  await ensureZanixDependency(root, '@zanix/asyncmq/jobs')
 
   if (verify) await verifyGeneratedProject(projectRoot)
 

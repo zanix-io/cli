@@ -10,13 +10,27 @@ import {
   ZANIX_DEPENDENCY_VERSIONS,
 } from 'utils/config/dependencies.ts'
 
-/** Shared by every generated runnable task (`start`/`worker`, and `zanix prepare --docker -p
+/**
+ * Shared by every generated runnable task (`start`/`worker`, and `zanix prepare --docker -p
  * app`'s own `serve` task — see `commands/prepare/lib/docker/files/app-entrypoint.ts`) — a single
- * source of truth so the two can never drift apart. */
+ * source of truth so the two can never drift apart.
+ *
+ * `--allow-run=ffmpeg,ffprobe` (named, not blanket `--allow-run`) is here for the same reason
+ * `--allow-ffi` already is: `@zanix/space`'s own `VideoTranscoder` needs it to invoke system
+ * `ffmpeg`/`ffprobe` (`Deno.Command`), but only if an app's own code actually calls it — inert
+ * otherwise, same as `--allow-ffi` is for an app that never touches `sharp`. Granted here
+ * unconditionally, for every project type, rather than only `space`/`space-server` — this constant
+ * is deliberately one shared value (see its own doc above); scoping it per type would need
+ * `start`/`worker`/`serve` to each resolve a different permission string, real, unrelated surgery
+ * to the task-generation path this feature doesn't need. `@zanix/space` never installs either
+ * binary itself — see `deploy.md`'s own "Media transcoding" section for who does, per target.
+ */
 export const RUN_PERMISSIONS =
-  '--allow-net --allow-env --allow-read --allow-sys --allow-write --allow-ffi --no-prompt'
+  '--allow-net --allow-env --allow-read --allow-sys --allow-write --allow-ffi --allow-run=ffmpeg,ffprobe --no-prompt'
 
-export const linterBaseRules = [
+/** The lint rules every generated project's own `deno.json` enables on top of its `linterTags`
+ * preset (`recommended`/`jsr`), regardless of project type. */
+export const LINTER_BASE_RULES = [
   'eqeqeq',
   'default-param-last',
   'camelcase',
@@ -42,7 +56,7 @@ export function generateImports(
   // deno-lint-ignore no-explicit-any
   folders: Record<string, any>,
   testsPath?: string,
-) {
+): Record<string, string> {
   const imports: Record<string, string> = {}
 
   Object.keys(folders.subfolders).forEach((key) => {
@@ -57,20 +71,43 @@ export function generateImports(
 }
 
 /**
+ * The version every freshly-scaffolded, never-yet-published `zanix new`/`zanix generate` project
+ * starts at — matches the common Deno/JSR "first version" convention (confirmed against
+ * `@zanix/space`'s own real, still-early `deno.json`, itself pinned at `0.1.0`), not a guess.
+ * `deno publish --dry-run` fails outright on a `deno.json` with no `version` field at all
+ * (`ConfigFile['version']` is optional in `@zanix/types`, but JSR itself requires it at publish
+ * time), so this is written unconditionally for every project type, not only `library`/`app` —
+ * see `baseZnxConfig`'s own doc for why a consistent default beats a per-type inconsistency.
+ */
+export const INITIAL_PROJECT_VERSION: NonNullable<ConfigFile['version']> = '0.1.0'
+
+/**
  * Define a base `deno` configuration file
  * @param type - Zanix project type (`app`, `server`, `space`, `space-server` or `library`)
  * @param renderer - `--renderer`'s own value, `space`/`space-server` only. Defaults to `'react'`,
  * identical in every respect to omitting it — same convention `@zanix/space`'s own
  * `SpacePluginOptions.renderer` already establishes. Ignored for every other project type.
+ * @param root - The same `root`/project-name value `saveZanixConfig` itself receives — a plain
+ * leaf directory name in the common `zanix new <type> <name>` case, but occasionally a full
+ * nested/absolute path (e.g. an isolated temp directory in this project's own test suite). Only
+ * its basename (`getFolderName`) is ever used, to derive the generated `name` field's
+ * package-name half. Optional — omitted entirely, the field falls back to the literal `'name'` so
+ * the emitted `deno.json` stays a well-formed, unmistakable placeholder either way.
  */
 export function baseZnxConfig(
   type: ZanixProjects,
   renderer: 'react' | 'preact' = 'react',
+  root: string | undefined = undefined,
 ): ConfigFile {
   const paths = getZanixPaths(type)
   const znxMainFolders = paths.subfolders
   const dist = znxMainFolders['.dist'].NAME
-  const name = '@project/name'
+  // `@your-scope` is deliberately, unmistakably fake — no `zanix new`/`zanix generate` invocation
+  // can ever know a user's REAL, owned JSR scope, so this can never become instantly publishable
+  // on its own; it must always be hand-edited before a real `deno publish`. What it CAN do
+  // correctly is derive the package-name half from the real, already-known project name, instead
+  // of a second forgotten literal (`'@project/name'`) that looked deceptively real.
+  const name = `@your-scope/${root ? getFolderName(root) : 'name'}`
   const testsPaths = znxMainFolders.src.subfolders['@tests']
   const imports = generateImports(znxMainFolders.src, testsPaths.NAME)
   const linterTags = ['recommended', 'jsr']
@@ -105,11 +142,30 @@ export function baseZnxConfig(
   const hasWorkerEntrypoint = type === 'server' || type === 'space-server'
   const tasks: ConfigFile['tasks'] = hasRunnableEntrypoint
     ? {
+      // `deno install` runs first, ONLY for `space`/`space-server` — `zanix space dev`'s own Vite
+      // server resolves npm-backed imports (e.g. `@zanix/space`'s client hydration code importing
+      // `react-dom` directly) straight from the local npm cache/node_modules, never lazily on
+      // first request the way Deno's own module graph does. A project scaffolded and immediately
+      // run via this task (never having run `deno install`/`deno run` once beforehand) would
+      // otherwise hit a confusing Vite "Does the file exist?" pre-transform error on its very
+      // first Comet. Idempotent and near-instant
+      // once already installed, so this is safe to run unconditionally on every `dev` invocation,
+      // not just the first. The generic `deno run --watch` task below needs no equivalent: a plain
+      // `server`/`app` project's own module graph is Deno-native, resolved lazily as normal.
       dev: isSpaceType
-        ? 'zanix space dev'
+        ? 'deno install && zanix space dev'
         : `deno check && deno run --watch --env-file=.env -A ${MAIN_MODULE}`,
+      // `space`/`space-server` only — the client-bundle build step (`zanix space build`) other
+      // project types have no equivalent of (a plain `deno run --watch` dev loop needs no separate
+      // build task; `zanix space dev` already builds nothing, it serves through Vite directly).
+      // `zanix prepare --docker`'s own `dockerfile.space.base` runs this exact task (`deno task
+      // build`) in its BUILD stage, rather than invoking `deno run -A jsr:@zanix/cli space build`
+      // directly — one declared build step, not two independently-maintained copies of the same
+      // command that could drift apart (a pinned `--out-dir`/`--obfuscate` flag added to one but
+      // not the other, for instance).
+      ...(isSpaceType ? { build: 'zanix space build' } : {}),
       // `--env-file=.env` degrades gracefully (a Deno warning, not an error) when `.env` doesn't
-      // exist yet — verified empirically, so this is safe as a default even though `zanix new`
+      // exist yet, so this is safe as a default even though `zanix new`
       // itself never scaffolds a `.env` file.
       start: `deno run --env-file=.env ${RUN_PERMISSIONS} ${MAIN_MODULE}`,
       // Same permission set as `start` (this process never opens its own HTTP listener, but still
@@ -139,7 +195,7 @@ export function baseZnxConfig(
   }
   if (type === 'library' || type === 'app') {
     // A `defineZanixApp()`-based package is published/consumed exactly like any other Deno/JSR
-    // library — see `@zanix/app`'s own `docs/PUBLISHING.md` — so it gets the same `exports`/
+    // library — see `@zanix/app`'s own `docs/publishing.md` — so it gets the same `exports`/
     // `publish` shape `library` already does, not a bespoke one.
     libraryOpts.exports = { '.': `./${MAIN_MODULE}` }
     libraryOpts.publish = {
@@ -164,10 +220,31 @@ export function baseZnxConfig(
     // Never both `react` and `preact` declared at once — matches `defineSpaceApp({ renderer })`'s
     // own "whole project, never a hybrid" contract.
     imports[renderer] = THIRD_PARTY_DEPENDENCY_VERSIONS[renderer]
+    // Unlike the renderer's own `jsxImportSource`-driven `<renderer>/jsx-runtime` import just
+    // above (compiler-mediated, auto-resolved) — a PLAIN hand-written subpath import in generated
+    // application code (`preact/hooks`, imported by `--theme astronaut`'s own comet demo under
+    // this renderer — see `getHooksEntry`, `lib/renderer.ts`) is an ordinary import Deno's own
+    // import-map resolution needs declared explicitly, the same as any other npm subpath. Declared
+    // unconditionally whenever `renderer === 'preact'`, not gated on `--theme` too — see
+    // `THIRD_PARTY_DEPENDENCY_VERSIONS`'s own doc for why a declared-but-unused entry is the safer
+    // default here.
+    if (renderer === 'preact') {
+      imports['preact/hooks'] = THIRD_PARTY_DEPENDENCY_VERSIONS['preact/hooks']
+    }
+    // React Compiler has no Preact equivalent — `@zanix/space`'s own build pipeline only wires
+    // `@vitejs/plugin-react`'s `reactCompiler` option under the `react` renderer, and that plugin
+    // resolves this package by name from the consuming project (see its own doc in
+    // `THIRD_PARTY_DEPENDENCY_VERSIONS`). Without this, a freshly generated `react`-renderer
+    // project's own `zanix space build` fails immediately on its first `.tsx` comet.
+    if (renderer === 'react') {
+      imports['babel-plugin-react-compiler'] =
+        THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler']
+    }
   }
 
   return {
     name,
+    version: INITIAL_PROJECT_VERSION,
     zanix: {
       project: type,
     },
@@ -176,12 +253,10 @@ export function baseZnxConfig(
     lint: {
       rules: {
         tags: linterTags,
-        include: linterBaseRules,
+        include: LINTER_BASE_RULES,
       },
       exclude: [dist],
-      plugins: [
-        'jsr:@zanix/utils/linter/deno-zanix-plugin',
-      ],
+      plugins: [ZANIX_DEPENDENCY_VERSIONS['@zanix/utils/linter']],
       report: 'pretty',
     },
     fmt: {

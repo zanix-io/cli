@@ -69,7 +69,9 @@ Deno.test(
         projectPath,
       )
 
-      assertEquals(commandStub.calls.length, 1)
+      // 2, not 1: `formatGeneratedProject` (unconditional, `deno fmt`) always runs one subprocess
+      // call of its own before `--verify`'s own `deno check` — same stub intercepts both.
+      assertEquals(commandStub.calls.length, 2)
     } finally {
       commandStub.restore()
       await Deno.remove(root, { recursive: true })

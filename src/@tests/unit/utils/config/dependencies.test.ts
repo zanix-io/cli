@@ -49,6 +49,23 @@ Deno.test('ensureZanixDependency should never overwrite an already-declared vers
   await Deno.remove(root, { recursive: true })
 })
 
+Deno.test('ensureZanixDependency should add @zanix/server/graphql as its own key', async () => {
+  const root = await makeProject()
+
+  await ensureZanixDependency(root, '@zanix/server/graphql')
+
+  const config = JSON.parse(await Deno.readTextFile(`${root}/deno.json`))
+  assertEquals(
+    config.imports['@zanix/server/graphql'],
+    ZANIX_DEPENDENCY_VERSIONS['@zanix/server/graphql'],
+  )
+  // Never conflated with the bare package's own entry — a project can declare one without the
+  // other (e.g. a `rest`-only project never gets this key at all).
+  assertEquals(config.imports['@zanix/server'], undefined)
+
+  await Deno.remove(root, { recursive: true })
+})
+
 Deno.test('ensureZanixDependency should preserve unrelated existing imports', async () => {
   const root = await makeProject({ 'shared/': './src/shared/' })
 
@@ -82,6 +99,44 @@ Deno.test('PROJECT_TYPE_DEPENDENCIES.library should declare no dependencies', ()
   assertEquals(PROJECT_TYPE_DEPENDENCIES.library, [])
 })
 
+Deno.test('ZANIX_DEPENDENCY_VERSIONS pins @zanix/core to a published ^2.0.0 range', () => {
+  // `@zanix/core@2.0.0` renamed `ConfigOptions.errorLogThrottle` to `ConfigOptions.errors
+  // .logThrottle` and moved its logger auto-detect/`notifications` config onto
+  // `@zanix/datamaster`/`@zanix/notifications`'s own selector-based env-var renames — no
+  // dual-read compat shim on either side, so a project scaffolded against `^1.0.0` would never
+  // resolve into a real, currently-published `@zanix/core` release.
+  assertEquals(
+    ZANIX_DEPENDENCY_VERSIONS['@zanix/core'],
+    'jsr:@zanix/core@^3.0.0',
+  )
+})
+
+Deno.test(
+  'ZANIX_DEPENDENCY_VERSIONS pins @zanix/datamaster to the version @zanix/core ' +
+    'needs',
+  () => {
+    assertEquals(
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
+      'jsr:@zanix/datamaster@^1.8.0',
+    )
+  },
+)
+
+Deno.test(
+  'ZANIX_DEPENDENCY_VERSIONS pins @zanix/server/graphql to the same version as the bare ' +
+    '@zanix/server entry — the version that first carries the ./graphql subpath',
+  () => {
+    // Derived from the bare `@zanix/server` entry rather than a hardcoded literal: the two are
+    // meant to always move together (same real published package, `./graphql` just a subpath of
+    // it — see the `@zanix/server/graphql` entry's own comment in `dependencies.ts`), so this stays
+    // correct across a version bump instead of needing a matching edit here every time.
+    assertEquals(
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server/graphql'],
+      `${ZANIX_DEPENDENCY_VERSIONS['@zanix/server']}/graphql`,
+    )
+  },
+)
+
 Deno.test('baseZnxConfig gives server/space/space-server a dev/start task', () => {
   for (const type of ['server', 'space', 'space-server'] as const) {
     const config = baseZnxConfig(type)
@@ -107,8 +162,8 @@ Deno.test('baseZnxConfig gives server/space/space-server a dev/start task', () =
   // `space-server` get `zanix space dev` instead — real HMR, never a bare process restart — which
   // never references `mod.ts` itself (it imports the project's own `space.app.ts`, not `mod.ts`).
   assertEquals(baseZnxConfig('server').tasks?.dev?.includes('mod.ts'), true)
-  assertEquals(baseZnxConfig('space').tasks?.dev, 'zanix space dev')
-  assertEquals(baseZnxConfig('space-server').tasks?.dev, 'zanix space dev')
+  assertEquals(baseZnxConfig('space').tasks?.dev, 'deno install && zanix space dev')
+  assertEquals(baseZnxConfig('space-server').tasks?.dev, 'deno install && zanix space dev')
 })
 
 Deno.test('baseZnxConfig gives library/app no dev/start task — no runnable process', () => {

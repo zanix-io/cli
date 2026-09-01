@@ -36,6 +36,44 @@ Deno.test(
   },
 )
 
+Deno.test(
+  'generateCometAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('space')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateCometAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'generateCometAction should reject a name that produces an invalid TS identifier',
+  async () => {
+    const projectFolder = await makeProject('space')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateCometAction.call(new Commander(), {}, '123entity'),
+        Error,
+        "isn't a valid TypeScript identifier",
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateCometAction should write a real, correctly-shaped comet file', async () => {
   const projectFolder = await makeProject('space')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -111,11 +149,13 @@ Deno.test(
     const mockCwd = stub(Deno, 'cwd', () => projectFolder)
     const cwd = new Commander()
     registerCometCommand(cwd)
-    type ActionCommand = { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    type ActionCommand = {
+      settings: { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    }
     const command = cwd.getCommands()[0] as unknown as ActionCommand
 
     try {
-      await command.actionHandler({}, 'WiredCounter')
+      await command.settings.actionHandler({}, 'WiredCounter')
 
       const content = await Deno.readTextFile(
         `${projectFolder}/src/space/comets/wired-counter.comet.tsx`,

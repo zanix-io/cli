@@ -33,6 +33,25 @@ Deno.test('generateJobAction should throw outside a server/space-server project'
   }
 })
 
+Deno.test(
+  'generateJobAction should reject a name containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generateJobAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generateJobAction without --cron writes a queue-consumed registerJob', async () => {
   const projectFolder = await makeProject('server')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -44,7 +63,7 @@ Deno.test('generateJobAction without --cron writes a queue-consumed registerJob'
     const content = await Deno.readTextFile(jobPath)
 
     assertEquals(
-      content.includes("import { registerJob } from '@zanix/asyncmq'"),
+      content.includes("import { registerJob } from '@zanix/asyncmq/jobs'"),
       true,
     )
     assertEquals(content.includes("name: 'payment-sync'"), true)
@@ -55,8 +74,8 @@ Deno.test('generateJobAction without --cron writes a queue-consumed registerJob'
       await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
     )
     assertEquals(
-      config.imports['@zanix/asyncmq'],
-      ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+      config.imports['@zanix/asyncmq/jobs'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq/jobs'],
     )
   } finally {
     mockCwd.restore()
@@ -79,7 +98,7 @@ Deno.test('generateJobAction with --cron writes a schedule-driven registerCronJo
     const content = await Deno.readTextFile(jobPath)
 
     assertEquals(
-      content.includes("import { registerCronJob } from '@zanix/asyncmq'"),
+      content.includes("import { registerCronJob } from '@zanix/asyncmq/jobs'"),
       true,
     )
     assertEquals(content.includes("schedule: '0 */1 * * * *'"), true)
@@ -109,7 +128,7 @@ Deno.test('generateJobAction should be idempotent when run twice', async () => {
 })
 
 Deno.test(
-  'generateJobAction should never overwrite an already-pinned @zanix/asyncmq version',
+  'generateJobAction should never overwrite an already-pinned @zanix/asyncmq/jobs version',
   async () => {
     const projectFolder = await makeProject('server')
     const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -117,15 +136,15 @@ Deno.test(
     try {
       const configPath = `${projectFolder}/deno.jsonc`
       const config = JSON.parse(await Deno.readTextFile(configPath))
-      config.imports = { '@zanix/asyncmq': 'jsr:@zanix/asyncmq@0.1.0' }
+      config.imports = { '@zanix/asyncmq/jobs': 'jsr:@zanix/asyncmq@0.1.0/jobs' }
       await Deno.writeTextFile(configPath, JSON.stringify(config))
 
       await generateJobAction.call(new Commander(), {}, 'invoice-sync')
 
       const updated = JSON.parse(await Deno.readTextFile(configPath))
       assertEquals(
-        updated.imports['@zanix/asyncmq'],
-        'jsr:@zanix/asyncmq@0.1.0',
+        updated.imports['@zanix/asyncmq/jobs'],
+        'jsr:@zanix/asyncmq@0.1.0/jobs',
       )
     } finally {
       mockCwd.restore()
@@ -152,6 +171,65 @@ Deno.test('generateJobAction should never overwrite an existing job file', async
     await Deno.remove(projectFolder, { recursive: true })
   }
 })
+
+Deno.test(
+  "generateJobAction escapes a single quote in the name (kebabName isn't identifier-validated)",
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await generateJobAction.call(new Commander(), {}, "O'Brien Sync")
+
+      const content = await Deno.readTextFile(
+        `${projectFolder}/src/server/jobs/o'brien-sync.defs.ts`,
+      )
+
+      // The raw `'` is escaped, not left to break out of the string literal.
+      assertEquals(content.includes("name: 'o\\'brien-sync'"), true)
+      assertEquals(content.includes("name: 'o'brien-sync'"), false)
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'generateJobAction escapes a single quote + backslash in --cron so it cannot break out of the ' +
+    'schedule string literal',
+  async () => {
+    const projectFolder = await makeProject('server')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await generateJobAction.call(
+        new Commander(),
+        { cron: "0 0 * * *'; console.log('pwned'); //\\" },
+        'payment-sync',
+      )
+
+      const content = await Deno.readTextFile(
+        `${projectFolder}/src/server/jobs/payment-sync.defs.ts`,
+      )
+
+      assertEquals(
+        content.includes(
+          "schedule: '0 0 * * *\\'; console.log(\\'pwned\\'); //\\\\'",
+        ),
+        true,
+      )
+      // The unescaped payload never appears — it would break the object literal apart.
+      assertEquals(
+        content.includes("schedule: '0 0 * * *'; console.log('pwned')"),
+        false,
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
 
 Deno.test('planJob returns a single <name>.defs.ts', () => {
   const { files } = planJob(

@@ -115,12 +115,43 @@ Deno.test('generateHandlerAction --type graphql writes a resolver file', async (
     )
 
     const content = await Deno.readTextFile(
-      `${projectFolder}/src/server/handlers/products.resolver.ts`,
+      `${projectFolder}/src/server/handlers/products.resolver.handler.ts`,
     )
 
     assertEquals(content.includes('export class ProductsResolver'), true)
     assertEquals(content.includes("@Resolver({ prefix: 'products' })"), true)
     assertEquals(content.includes('extends ZanixResolver'), true)
+    // `ZanixResolver`/`Resolver`/`Query` live at `@zanix/server`'s own `./graphql` subpath, not the
+    // root — see `graphql.template.ts`'s own header doc.
+    assertEquals(
+      content.includes(
+        "import { Query, Resolver, ZanixResolver } from '@zanix/server/graphql'",
+      ),
+      true,
+    )
+    assertEquals(
+      content.includes("import type { HandlerContext } from '@zanix/server'"),
+      true,
+    )
+    // Real dispatch (`graphql/decorators/assembly.ts`'s `handler.call(instance, payload, ctx)`)
+    // always invokes `@Query`/`@Mutation` methods with two arguments — the stub must declare both,
+    // never just `ctx`, or `ctx` silently receives `payload` instead at runtime.
+    assertEquals(
+      content.includes(
+        'public list(_payload: Record<string, never>, _ctx: HandlerContext) {',
+      ),
+      true,
+    )
+
+    // `--type graphql` also declares the `./graphql` subpath — the resolver's own real imports
+    // need it, on top of the plain `@zanix/server` entry every handler type declares.
+    const config = JSON.parse(
+      await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
+    )
+    assertEquals(
+      config.imports['@zanix/server/graphql'],
+      ZANIX_DEPENDENCY_VERSIONS['@zanix/server/graphql'],
+    )
   } finally {
     mockCwd.restore()
     await Deno.remove(projectFolder, { recursive: true })
@@ -139,7 +170,7 @@ Deno.test('generateHandlerAction --type socket writes a socket file', async () =
     )
 
     const content = await Deno.readTextFile(
-      `${projectFolder}/src/server/handlers/chat.socket.ts`,
+      `${projectFolder}/src/server/handlers/chat.socket.handler.ts`,
     )
 
     assertEquals(content.includes('export class ChatSocket'), true)
@@ -163,7 +194,7 @@ Deno.test('generateHandlerAction --type ssr writes an ssr file', async () => {
     )
 
     const content = await Deno.readTextFile(
-      `${projectFolder}/src/server/handlers/products.ssr.ts`,
+      `${projectFolder}/src/server/handlers/products.ssr.handler.ts`,
     )
 
     assertEquals(content.includes('export class ProductsController'), true)
@@ -208,6 +239,21 @@ Deno.test('planHandler rest returns a single <name>.handler.ts', () => {
   )
 
   assertEquals(files.map((f) => f.NAME), ['example.handler.ts'])
+})
+
+// Every non-`rest` type's file name must still end in `.handler.ts` — that's the exact real
+// `@zanix/server` `ZANIX_SERVER_MODULES` suffix `@zanix/core`'s `defineLocalMetadata` auto-scans
+// for (see `HANDLER_TYPES`'s own doc in `command.ts`); a suffix that didn't would silently never
+// be auto-discovered, which is exactly the bug `discovery-live.test.ts` (sibling file) guards
+// against end-to-end. This unit test only pins the plain planning-level shape/naming.
+Deno.test('planHandler graphql/socket/ssr all end in .handler.ts, with distinct prefixes', () => {
+  const graphql = planHandler('example', 'Example', 'graphql', '/root/src/server/handlers')
+  const socket = planHandler('example', 'Example', 'socket', '/root/src/server/handlers')
+  const ssr = planHandler('example', 'Example', 'ssr', '/root/src/server/handlers')
+
+  assertEquals(graphql.files.map((f) => f.NAME), ['example.resolver.handler.ts'])
+  assertEquals(socket.files.map((f) => f.NAME), ['example.socket.handler.ts'])
+  assertEquals(ssr.files.map((f) => f.NAME), ['example.ssr.handler.ts'])
 })
 
 Deno.test('planHandler throws for an unsupported type', () => {

@@ -43,10 +43,27 @@ let serverSideEffects: ScaffoldSideEffect[] = []
  * the pure-`space` entrypoint in `space.ts`'s own `getSpaceModTemplate`, which calls
  * `bootstrapRemoteApp` directly instead). Imports the manifest from {@linkcode SPACE_APP_MODULE}
  * rather than declaring it inline — same split, and the same reason (`zanix space dev` needs the
- * manifest in isolation), as `space.ts`'s own `getSpaceAppTemplate`. Also loads `zanix space
- * build`'s own output BEFORE `Zanix.start(...)` — same reasoning and same `'./dist/client'`
- * convention as `space.ts`'s own `getSpaceModTemplate`, just placed before `Zanix.start` instead of
- * `bootstrapRemoteApp`, since this entrypoint never calls that itself.
+ * manifest in isolation), as `space.ts`'s own `getSpaceAppTemplate`.
+ *
+ * **Never manually loads `zanix space build`'s own output here either — same convention
+ * `space.ts`'s own `getSpaceModTemplate` established.** `Zanix.start({ apps })` routes through
+ * the exact same `activateApps()` (`@zanix/app/runtime`) `bootstrapRemoteApp` calls internally —
+ * `@zanix/core`'s own `start.ts` imports `activateApps`/`bootstrapAppServer` from
+ * `@zanix/app/runtime` directly, never a parallel activation path of its own. `defineSpaceApp()`'s
+ * own composition-scope auto-load (`@zanix/space`'s `define-space-app.ts`, gated on
+ * `clientBuildDir`) therefore already runs — for all seven manifest/build-output functions, not
+ * just three — the moment {@linkcode SPACE_APP_MODULE} imports below and `Zanix.start()` activates
+ * it, regardless of which of the two activation entrypoints got here. A hand-written
+ * `loadCometManifest`/`loadCssManifest`/`loadPwaBuildOutput` block here would be pure duplicate
+ * work against those same seven, not a second real gap this template needs to cover itself.
+ *
+ * `server: getBootstrapSpaceAppConfig().server` — same reasoning as `space.ts`'s own
+ * `getSpaceModTemplate` doc: a hand-written `server: { ssr: {} }` here would be the IDENTICAL bug
+ * (naming `ssr` alone excludes `rest`, so `POST /api/log` 404s), just reached through
+ * `Zanix.start({ apps })` instead of `bootstrapRemoteApp` directly. Only `.server`
+ * is pulled out here (never the whole config) — `remoteInstances`/`uses`/`resources` are
+ * `bootstrapRemoteApp`-specific concepts that don't apply to an app embedded via `Zanix.start`'s
+ * own `apps` option.
  */
 export const getServerModTemplate = (
   projectName: string,
@@ -69,13 +86,7 @@ await Zanix.start()
 
   return `import Zanix from '@zanix/core'
 import spaceApp from './${SPACE_APP_MODULE}'
-import { loadCometManifest, loadCssManifest, loadPwaBuildOutput } from '@zanix/space'
-
-// Matches \`zanix space build\`'s own default \`--out-dir\` — edit both together if you customize it.
-const CLIENT_BUILD_DIR = './dist/client'
-await loadCometManifest(\`\${CLIENT_BUILD_DIR}/comets-manifest.json\`)
-await loadCssManifest(\`\${CLIENT_BUILD_DIR}/css-manifest.json\`)
-loadPwaBuildOutput(CLIENT_BUILD_DIR)
+import { getBootstrapSpaceAppConfig } from '@zanix/space'
 
 /**
  * ${name}'s entrypoint — bootstraps this project's own REST/GraphQL/socket handlers (auto-
@@ -86,7 +97,10 @@ loadPwaBuildOutput(CLIENT_BUILD_DIR)
  */
 await Zanix.start({
   apps: {
-    [spaceApp.definition.name]: { definition: spaceApp, server: { ssr: {} } },
+    [spaceApp.definition.name]: {
+      definition: spaceApp,
+      server: getBootstrapSpaceAppConfig().server,
+    },
   },
 })
 `
@@ -127,8 +141,9 @@ await Zanix.startWorker()
 // `plan<Name>(...)` functions, with a placeholder `'example'`/`'Example'` name — no JSR fetch, no
 // separately hand-maintained static file to drift out of sync with what `zanix generate` actually
 // produces, and no per-leaf imperative assignment either: `SERVER_RECIPES.base`
-// (`assembleScaffold`'s own doc, `recipe.ts`) is the "Scaffold Recipe" `cli/ENGINEERING.md`'s
-// Known Follow-ups described — one declarative entry per leaf instead of a hand-written block.
+// (`assembleScaffold`'s own doc, `recipe.ts`) is the "Scaffold Recipe" `cli`'s own
+// `docs/engineering.md` (§6.1) describes — one declarative entry per leaf instead of
+// a hand-written block.
 // `repository` deliberately still calls `modelDefsTemplate` directly, not `planRepository` — see
 // that entry's own comment below for why.
 const SERVER_RECIPE_BASE: ScaffoldRecipeEntry<ZanixServerSrcTree>[] = [
@@ -185,14 +200,31 @@ const SERVER_RECIPE_BASE: ScaffoldRecipeEntry<ZanixServerSrcTree>[] = [
 ]
 
 /**
- * `server`'s whole preset registry — today just `base` (`SERVER_RECIPE_BASE` above), the
- * formalization of the scaffold `zanix new server` has always produced. `zanix new server` (no
- * `--template`) and `zanix new server --template base` resolve to the exact same entry here — see
- * `presets.ts`'s own doc for what adding a real preset #2 later actually involves (an entry here,
- * nothing else).
+ * `server`'s whole preset registry — `base` (`SERVER_RECIPE_BASE` above) is the formalization of
+ * the scaffold `zanix new server` has always produced; `zanix new server` (no `--template`) and
+ * `zanix new server --template base` resolve to the exact same entry here.
+ *
+ * `welcome`/`population`/`population-lang` are ALSO registered, deliberately aliased to the SAME
+ * `SERVER_RECIPE_BASE` array, not distinct ones — each is a real, space-only preset over on
+ * `space.ts`'s own side (a landing page, or an i18n/population reference — see that file's own
+ * `getSpaceRecipes`); the server side of a project has no "landing page"/"i18n" concept of its own
+ * to differ on. This alias exists ONLY so `zanix new spacecraft --template welcome`/`population`/
+ * `population-lang` actually resolves at all: `getZnxFolderTree` (`projects/main.ts`) threads the
+ * SAME `preset` string into both `getSpaceSrcTree` AND `getServerSrcTree` for `type ===
+ * 'space-server'` — with no matching entry here, `resolveRecipe(SERVER_RECIPES, preset)` would
+ * throw `"Unknown template '<preset>'"` for the server half of every such scaffold, even though the
+ * space half resolved fine. A plain `zanix new server --template welcome` (no `space` half at all)
+ * also resolves this way, to output identical to `--template base` — a deliberate, harmless side
+ * effect of the same registry both project types share, not a distinct server-only feature.
+ *
+ * `--theme` never reaches this registry at all — it's a `space`-only axis (see `themes.ts`'s own
+ * doc), forwarded only to `getSpaceSrcTree`/`getSpaceAppTemplate`, never `getServerSrcTree`.
  */
 export const SERVER_RECIPES: ScaffoldRecipeRegistry<ZanixServerSrcTree> = {
   base: SERVER_RECIPE_BASE,
+  welcome: SERVER_RECIPE_BASE,
+  population: SERVER_RECIPE_BASE,
+  'population-lang': SERVER_RECIPE_BASE,
 }
 
 /**

@@ -4,6 +4,7 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType, getProjectRenderer } from 'commands/generate/shared/project.ts'
+import { assertSafeGeneratorRoutePath } from 'commands/generate/shared/safe-name.ts'
 import { pascalNameFromRoutePath } from 'commands/generate/shared/route-path.ts'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
@@ -53,6 +54,7 @@ async function generateLayoutAction(
   root?: string,
 ) {
   assertProjectType(this, ['space', 'space-server'], 'layout', root)
+  assertSafeGeneratorRoutePath(this, routePath)
 
   const { verify } = options as { verify?: boolean }
   const projectRoot = root ?? Deno.cwd()

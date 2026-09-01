@@ -90,11 +90,13 @@ Deno.test(
     const mockCwd = stub(Deno, 'cwd', () => projectFolder)
     const cwd = new Commander()
     registerNotFoundCommand(cwd)
-    type ActionCommand = { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    type ActionCommand = {
+      settings: { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    }
     const command = cwd.getCommands()[0] as unknown as ActionCommand
 
     try {
-      await command.actionHandler({})
+      await command.settings.actionHandler({})
 
       const content = await Deno.readTextFile(
         `${projectFolder}/src/space/routes/not-found.tsx`,

@@ -14,7 +14,7 @@
  * in your actual rendering call by hand.
  */
 
-/** `handlers/<name>.ssr.ts` */
+/** `handlers/<name>.ssr.handler.ts` */
 export const ssrHandlerTemplate = (
   pascalName: string,
   kebabName: string,

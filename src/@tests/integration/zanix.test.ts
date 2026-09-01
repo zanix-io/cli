@@ -1,4 +1,4 @@
-import { baseZnxConfig, generateImports, linterBaseRules } from 'utils/config/base.ts'
+import { baseZnxConfig, generateImports, LINTER_BASE_RULES } from 'utils/config/base.ts'
 import {
   THIRD_PARTY_DEPENDENCY_VERSIONS,
   ZANIX_DEPENDENCY_VERSIONS,
@@ -75,6 +75,7 @@ Deno.test('baseZnxConfig should return a valid config object for space projects'
       'utils/': './src/utils/',
       '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
       '@zanix/app/runtime': ZANIX_DEPENDENCY_VERSIONS['@zanix/app/runtime'],
+      'babel-plugin-react-compiler': THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler'],
       react: THIRD_PARTY_DEPENDENCY_VERSIONS.react,
     })
   } finally {
@@ -124,9 +125,10 @@ Deno.test('baseZnxConfig should return a valid config object for space-server pr
       '@zanix/server': ZANIX_DEPENDENCY_VERSIONS['@zanix/server'],
       '@zanix/datamaster': ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
       '@zanix/asyncmq': ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq'],
+      '@zanix/asyncmq/jobs': ZANIX_DEPENDENCY_VERSIONS['@zanix/asyncmq/jobs'],
       '@zanix/validator': ZANIX_DEPENDENCY_VERSIONS['@zanix/validator'],
-      '@zanix/types': ZANIX_DEPENDENCY_VERSIONS['@zanix/types'],
       '@zanix/core': ZANIX_DEPENDENCY_VERSIONS['@zanix/core'],
+      'babel-plugin-react-compiler': THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler'],
       react: THIRD_PARTY_DEPENDENCY_VERSIONS.react,
     })
   } finally {
@@ -146,7 +148,7 @@ Deno.test('saveZanixConfig should write a valid config file', async () => {
 
   assert(file.zanix.project === 'library')
   assert(file.lint.rules.tags[0] === 'recommended')
-  assert(file.lint.plugins[0] === 'jsr:@zanix/utils/linter/deno-zanix-plugin')
+  assert(file.lint.plugins[0] === ZANIX_DEPENDENCY_VERSIONS['@zanix/utils/linter'])
   assertExists(file.name)
   assertExists(file.fmt)
   assertExists(file.lint)
@@ -227,9 +229,9 @@ Deno.test('saveZanixConfig should update an existing config file', async () => {
     'semiColons': false,
   })
 
-  assertEquals(file.lint.rules.include, ['other-rule', ...linterBaseRules])
+  assertEquals(file.lint.rules.include, ['other-rule', ...LINTER_BASE_RULES])
   assert(
-    file.lint.plugins.includes('jsr:@zanix/utils/linter/deno-zanix-plugin'),
+    file.lint.plugins.includes(ZANIX_DEPENDENCY_VERSIONS['@zanix/utils/linter']),
   )
   assertExists(file.imports['typings/'])
   assertExists(file.imports['modules/'])

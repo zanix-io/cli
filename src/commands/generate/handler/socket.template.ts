@@ -12,7 +12,7 @@
  * point, matching the decorator's own doc-comment example).
  */
 
-/** `handlers/<name>.socket.ts` */
+/** `handlers/<name>.socket.handler.ts` */
 export const socketHandlerTemplate = (
   pascalName: string,
   kebabName: string,

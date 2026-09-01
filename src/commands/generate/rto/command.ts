@@ -2,20 +2,16 @@ import type { ZanixFolderGenericTree } from '@zanix/types'
 import type { Commander } from 'cli'
 import type { FieldDef } from 'commands/generate/rto/parser.ts'
 
-import { createFilesAndFolders, ensureConstant } from 'utils/projects/creation.ts'
+import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
+import { assertSafeGeneratorName } from 'commands/generate/shared/safe-name.ts'
+import { assertValidIdentifier } from 'commands/generate/shared/valid-identifier.ts'
 import { toKebabCase, toPascalCase } from '@zanix/helpers'
 import { parseFields } from 'commands/generate/rto/parser.ts'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
-import {
-  isObjectIdTemplate,
-  isPermissionTemplate,
-  OBJECTID_REGEX_CONSTANT,
-  PERMISSION_REGEX_CONSTANT,
-  rtoTemplate,
-} from 'commands/generate/rto/renderer.ts'
+import { rtoTemplate } from 'commands/generate/rto/renderer.ts'
 
 /** One file this generator writes — same shape/reasoning as `CometPlanFile` (`comet/command.ts`). */
 export interface RtoPlanFile {
@@ -27,22 +23,27 @@ export interface RtoPlanFile {
 export interface RtoPlan {
   files: RtoPlanFile[]
   /**
-   * Ensures `OBJECTID_REGEX`/`PERMISSION_REGEX` exist in `projectRoot`'s `src/utils/constants.ts`
-   * — every RTO's `IsObjectID`/`IsPermission.ts` (in `files` above) imports one or both of these,
-   * so a caller that writes `files` without also calling this leaves an import to a constant that
-   * doesn't exist. Kept as part of the same plan (not a separate step a caller could forget) for
-   * exactly that reason.
+   * A permanent no-op: kept only so `RtoPlan` keeps the same `{ files, ensureConstants }` shape
+   * `zanix new server`'s recipe (`projects/server.ts`) and `planSeeder`'s own `ensureHelper`
+   * already rely on for the shared `sideEffects: ScaffoldSideEffect[]` mechanism
+   * (`new/lib/tree/recipe.ts`) — a caller can keep unconditionally destructuring/calling it
+   * without special-casing "this generator has no side effect." No field type generates a local
+   * validator file (or the `constants.ts` a hand-rolled one would import from) anymore: `objectId`
+   * is a real `@zanix/validator` decorator and `permission` falls back to plain `IsString` — see
+   * `rto/renderer.ts`'s own doc for why a dedicated `permission` validator was removed rather than
+   * replaced.
    */
   ensureConstants: (projectRoot: string) => Promise<void>
 }
 
 /**
- * Pure planning for an RTO: given a name + parsed fields + the target `rtos/` folder, returns
- * every file it needs (the RTO itself, `IsObjectID.ts` always, `IsPermission.ts` only if a
- * `permission` field is used) plus the `constants.ts` side effect those files depend on. No
- * `Commander`/`assertProjectType`/logging — safe to call from anywhere that needs "the real
- * output of generating an RTO," including `zanix new`'s own scaffold (`projects/server.ts`), not
- * just `zanix generate rto`'s own action below.
+ * Pure planning for an RTO: given a name + parsed fields + the target `rtos/` folder, returns the
+ * single `<name>.rto.ts` file it needs. No field type generates any other file (`IsObjectID`/
+ * `IsPermission` were both real-decorator/plain-`IsString` fallbacks by the time this shipped —
+ * see `rto/renderer.ts`'s own doc), so `ensureConstants` is a permanent no-op (see `RtoPlan`'s own
+ * doc for why it's kept regardless). No `Commander`/`assertProjectType`/logging — safe to call
+ * from anywhere that needs "the real output of generating an RTO," including `zanix new`'s own
+ * scaffold (`projects/server.ts`), not just `zanix generate rto`'s own action below.
  */
 export function planRto(
   kebabName: string,
@@ -50,56 +51,28 @@ export function planRto(
   fields: FieldDef[],
   rtosFolder: string,
 ): RtoPlan {
-  const validationsFolder = `${rtosFolder}/validations`
-  const usesPermission = fields.some((field) => field.type === 'permission')
-
   const files: RtoPlanFile[] = [
     {
       PATH: `${rtosFolder}/${kebabName}.rto.ts`,
       NAME: `${kebabName}.rto.ts`,
       content: () => Promise.resolve(rtoTemplate(pascalName, fields)),
     },
-    // Every RTO here has a `Get`/`Edit` variant with an `id: objectId` field, so `IsObjectID` is
-    // always needed — generated once, alongside, never overwritten on a later `rto` run.
-    {
-      PATH: `${validationsFolder}/IsObjectID.ts`,
-      NAME: 'IsObjectID.ts',
-      content: () => Promise.resolve(isObjectIdTemplate()),
-    },
   ]
 
-  if (usesPermission) {
-    files.push({
-      PATH: `${validationsFolder}/IsPermission.ts`,
-      NAME: 'IsPermission.ts',
-      content: () => Promise.resolve(isPermissionTemplate()),
-    })
-  }
-
-  const ensureConstants = async (projectRoot: string) => {
-    const constantsPath = `${projectRoot}/src/utils/constants.ts`
-    await ensureConstant(
-      constantsPath,
-      'OBJECTID_REGEX',
-      OBJECTID_REGEX_CONSTANT,
-    )
-    if (usesPermission) {
-      await ensureConstant(
-        constantsPath,
-        'PERMISSION_REGEX',
-        PERMISSION_REGEX_CONSTANT,
-      )
-    }
-  }
+  const ensureConstants = (_projectRoot: string): Promise<void> => Promise.resolve()
 
   return { files, ensureConstants }
 }
 
 /** `zanix generate rto <name> --field <spec>`'s real orchestration: `--field`'s DSL strings parse
- * into a structured field model (`parser.ts`), `planRto` renders the 4-class RTO set from it plus
- * any validator constants the fields need (`IsObjectID.ts`/`IsPermission.ts`, written once), then
- * ensures `@zanix/validator`/`@zanix/types`/`@zanix/datamaster` are declared, then optionally
- * `--verify`s. */
+ * into a structured field model (`parser.ts`), `planRto` renders the 4-class RTO set from it — no
+ * field type generates a second local file anymore (`objectId`/`permission` both import straight
+ * from `@zanix/validator`, see `rto/renderer.ts`'s own doc) — then ensures `@zanix/validator`/
+ * `@zanix/datamaster` are declared, then optionally `--verify`s.
+ * No longer ensures `@zanix/types`: it was only needed by `permission`'s old `IsPermission.ts`
+ * local validator (the last real consumer), which is gone — matches
+ * `PROJECT_TYPE_DEPENDENCIES.server`/`.space-server` (`utils/config/dependencies.ts`), which
+ * dropped the same now-dead entry in the same change. */
 async function generateRtoAction(
   this: Commander,
   options: unknown,
@@ -107,6 +80,7 @@ async function generateRtoAction(
   root?: string,
 ) {
   assertProjectType(this, ['server', 'space-server'], 'rto', root)
+  assertSafeGeneratorName(this, name)
 
   const { field: fieldSpecs = [], verify } = options as {
     field?: string[]
@@ -124,6 +98,7 @@ async function generateRtoAction(
   const projectRoot = root ?? Deno.cwd()
   const kebabName = toKebabCase(name)
   const pascalName = toPascalCase(name)
+  assertValidIdentifier(this, pascalName, name)
   const rtosFolder = `${projectRoot}/src/server/handlers/rtos`
 
   const { files, ensureConstants } = planRto(
@@ -140,7 +115,6 @@ async function generateRtoAction(
   await createFilesAndFolders(tree, 'base')
   await ensureConstants(projectRoot)
   await ensureZanixDependency(root, '@zanix/validator')
-  await ensureZanixDependency(root, '@zanix/types')
   await ensureZanixDependency(root, '@zanix/datamaster')
 
   if (verify) await verifyGeneratedProject(projectRoot)

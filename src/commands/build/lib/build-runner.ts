@@ -1,8 +1,9 @@
 import type { CompilerOptions } from 'commands/build/lib/typings.ts'
 
 import { denoPlugins } from 'jsr:@luca/esbuild-deno-loader@~0.11.1'
-import { defaultNpmModules, npmModulesPlugin } from 'commands/build/lib/plugins/npm-modules.ts'
+import { DEFAULT_NPM_MODULES, npmModulesPlugin } from 'commands/build/lib/plugins/npm-modules.ts'
 import { obfuscateFile } from 'commands/build/lib/obfuscate.ts'
+import { ESBUILD_SPECIFIER } from 'modules/lazy/specifiers.ts'
 import logger from '@zanix/logger'
 
 /**
@@ -30,7 +31,7 @@ export const mainBuilderFunction = async (
   const result: { error?: unknown; message?: string } = {}
   const npmExternals = npm.split(',')
 
-  const { build, stop } = await import('npm:esbuild@0.20.2')
+  const { build, stop } = await import(ESBUILD_SPECIFIER)
 
   try {
     // Build the file using esbuild
@@ -45,7 +46,7 @@ export const mainBuilderFunction = async (
       entryPoints: [inputFile],
       outfile: outputFile,
       platform,
-      external: [...defaultNpmModules, ...npmExternals, ...external],
+      external: [...DEFAULT_NPM_MODULES, ...npmExternals, ...external],
       format: 'esm',
       ...options,
     }).finally(stop)

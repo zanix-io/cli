@@ -22,6 +22,9 @@ export default function newCommand(this: Commander) {
       optionalArgs: ['app-name'],
       action: newSpaceAction,
       rendererAware: true,
+      iconsAware: true,
+      themeAware: true,
+      pagesAware: true,
     },
     server: {
       description:
@@ -35,6 +38,9 @@ export default function newCommand(this: Commander) {
       optionalArgs: ['project-name'],
       action: newSpacecraftAction,
       rendererAware: true,
+      iconsAware: true,
+      themeAware: true,
+      pagesAware: true,
     },
     library: {
       description:

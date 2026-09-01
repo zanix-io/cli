@@ -4,6 +4,7 @@ import type { Commander } from 'cli'
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { ensureZanixDependency } from 'utils/config/dependencies.ts'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
+import { assertSafeGeneratorName } from 'commands/generate/shared/safe-name.ts'
 import { toKebabCase } from '@zanix/helpers'
 import { verifyGeneratedProject } from 'utils/verify.ts'
 import logger from '@zanix/utils/logger'
@@ -82,6 +83,7 @@ async function generateDlqProcessorAction(
   root?: string,
 ) {
   assertProjectType(this, ['server', 'space-server'], 'dlqprocessor', root)
+  assertSafeGeneratorName(this, name)
 
   const { processType, schedule, verify } = options as {
     processType?: string

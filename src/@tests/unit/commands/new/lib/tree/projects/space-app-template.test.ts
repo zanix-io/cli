@@ -11,6 +11,43 @@ Deno.test(
 )
 
 Deno.test(
+  "getSpaceAppTemplate: always writes clientBuildDir: './.dist/client', unconditionally — " +
+    'independent of renderer/theme, so a scaffolded app auto-loads its production build output ' +
+    'with zero manual configuration',
+  () => {
+    for (
+      const content of [
+        getSpaceAppTemplate('storefront'),
+        getSpaceAppTemplate('storefront', 'preact'),
+        getSpaceAppTemplate('storefront', undefined, 'default'),
+        getSpaceAppTemplate('storefront', undefined, 'astronaut'),
+      ]
+    ) {
+      assert(content.includes("clientBuildDir: './.dist/client',"), content)
+    }
+  },
+)
+
+Deno.test(
+  "getSpaceAppTemplate: always writes assetsDir: './assets', unconditionally — independent of " +
+    'renderer/theme, since @zanix/space only registers its /assets/:path* route (which serves ' +
+    "clientBuildDir's own hashed JS/CSS output) when assetsDir is declared; a scaffold that " +
+    'omitted it would 404 its own production build the moment one ran',
+  () => {
+    for (
+      const content of [
+        getSpaceAppTemplate('storefront'),
+        getSpaceAppTemplate('storefront', 'preact'),
+        getSpaceAppTemplate('storefront', undefined, 'default'),
+        getSpaceAppTemplate('storefront', undefined, 'astronaut'),
+      ]
+    ) {
+      assert(content.includes("assetsDir: './assets',"), content)
+    }
+  },
+)
+
+Deno.test(
   "getSpaceAppTemplate: renderer: 'react' explicitly is identical to omitting it",
   () => {
     assert(
@@ -25,7 +62,12 @@ Deno.test(
   () => {
     const content = getSpaceAppTemplate('storefront', 'preact')
     assert(content.includes("renderer: 'preact',"), content)
-    assert(content.includes("import { defineSpaceApp } from '@zanix/space'"), content)
+    assert(
+      content.includes(
+        "import { createNotFoundHandler, defineBootstrapSpaceAppConfig, defineSpaceApp } from '@zanix/space'",
+      ),
+      content,
+    )
     assert(content.includes("name: 'storefront',"), content)
   },
 )

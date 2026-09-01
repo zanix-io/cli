@@ -225,33 +225,79 @@ export function assertNoCompileFailures(result: CompileTreeResult): void {
 }
 
 /**
- * Compiles every catalog under `dirs` and writes each one back to the EXACT source path it was
- * read from — in place, same filename, same `messagesDir` a project's `space.app.ts` already
- * declares. `@zanix/space`'s own `loadMessages()` never learns anything happened: it reads the
- * same path either way, and never inspects a value's shape (string vs. AST) — the file just
- * contains different JSON after this runs.
+ * Writes an ALREADY-compiled, ALREADY-validated {@linkcode CompileTreeResult} to
+ * `{outDir}/messages/{rootIndex}/...` — mirroring `dirs`' own array order/index (root `0`, `1`,
+ * ...; a single, non-array `dirs` is root `0`), NEVER the source path a catalog was read from.
+ * `messagesDir` itself — a project's hand-authored, human-readable ICU source — is never touched,
+ * matching `clientBuildDir`'s own "compiled output lives in its own directory" contract for the
+ * client bundle (comets/CSS/assets manifests). `@zanix/space`'s own `loadMessages()` reads this
+ * same `{outDir}/messages/{index}/...` layout back via `getMessagesBuildDir()`, in production only.
  *
- * This is the one function `zanix space build` calls — never `compileMessagesTree` +
- * `assertNoCompileFailures` + a hand-rolled write loop duplicated at the call site. Fails hard
- * (via `assertNoCompileFailures`) before writing anything: a compile failure anywhere in the tree
- * means NOTHING gets written, not a partial tree with some catalogs updated and others silently
- * left on old (or broken) content.
+ * Split out from {@linkcode writeCompiledMessagesTree} specifically so a caller can compile +
+ * validate BEFORE a step that might delete `outDir`'s own contents (`zanix space build`'s own
+ * `buildSpaceClient` runs Vite with `emptyOutDir: true`), and only WRITE here, after that step:
+ * writing before `buildSpaceClient` (the natural fail-fast order) would get silently wiped the
+ * moment Vite empties `outDir` for its own build. `dirs` must be the exact same value
+ * {@linkcode compileMessagesTree} compiled `result` from — this function trusts that pairing, it
+ * doesn't re-derive or verify it.
  *
- * **In-place, on purpose — intended for a CI/deploy build, never a developer's live working
- * copy.** Compiling is idempotent (`compileCatalog`'s own doc — an already-compiled value passes
- * through unchanged), so running this against an already-compiled tree, or running it twice in the
- * same pipeline, is safe and a no-op the second time. `zanix space dev` never calls this — see
- * this module's own doc for why dev mode needs no compilation step at all.
- *
- * @returns Every source path that was (re)written, for a caller that wants to log what changed.
+ * @param dirs - Same `messagesDir` value `result` was compiled from.
+ * @param outDir - The client build's own output directory (e.g. `.dist/client`) — compiled
+ * catalogs land under `{outDir}/messages/`, alongside `comets-manifest.json`/`assets/`/etc.
+ * @returns Every DESTINATION path written, for a caller that wants to log what changed.
  */
-export async function writeCompiledMessagesTree(dirs: string | string[]): Promise<string[]> {
+export async function writeCompiledCatalogs(
+  result: CompileTreeResult,
+  dirs: string | string[],
+  outDir: string,
+): Promise<string[]> {
+  const roots = Array.isArray(dirs) ? dirs : [dirs]
+  const sourcePaths = Object.keys(result.compiled)
+  const destinations = sourcePaths.map((path) => {
+    const rootIndex = roots.findIndex((root) => path.startsWith(root))
+    // `compileMessagesTree` only ever discovers paths by walking `dirs` itself (`collectJsonFiles`,
+    // this module's own), so every one of its keys necessarily starts with one of `roots` —
+    // anything else would mean `dirs` doesn't match what `result` was actually compiled from.
+    if (rootIndex === -1) {
+      throw new Error(`Compiled path '${path}' does not belong to any configured messagesDir root`)
+    }
+    const relative = path.slice(roots[rootIndex].length)
+    return `${outDir}/messages/${rootIndex}${relative}`
+  })
+
+  await Promise.all(
+    sourcePaths.map(async (path, i) => {
+      const destination = destinations[i]
+      await Deno.mkdir(destination.slice(0, destination.lastIndexOf('/')), { recursive: true })
+      await Deno.writeTextFile(destination, JSON.stringify(result.compiled[path]))
+    }),
+  )
+  return destinations
+}
+
+/**
+ * Compiles every catalog under `dirs`, fails hard on any compile error
+ * ({@linkcode assertNoCompileFailures} — nothing gets written, not a partial tree), then writes the
+ * result via {@linkcode writeCompiledCatalogs}. The convenience all-in-one for a caller with no
+ * `emptyOutDir`-style timing constraint of its own — `zanix space build` does have one (see
+ * `writeCompiledCatalogs`'s own doc) and calls `compileMessagesTree`/`assertNoCompileFailures`/
+ * `writeCompiledCatalogs` separately instead, straddling `buildSpaceClient`.
+ *
+ * Compiling is idempotent (`compileCatalog`'s own doc — an already-compiled value passes through
+ * unchanged), so running this twice against the same source is safe and simply rewrites the same
+ * output. `zanix space dev` never calls this — see this module's own doc for why dev mode needs no
+ * compilation step at all.
+ *
+ * @param dirs - Same `messagesDir` value a project's `space.app.ts` declares (via
+ * `getMessagesDir()`) — a single root, or several for host composition.
+ * @param outDir - The client build's own output directory — see `writeCompiledCatalogs`'s own doc.
+ * @returns Every DESTINATION path written.
+ */
+export async function writeCompiledMessagesTree(
+  dirs: string | string[],
+  outDir: string,
+): Promise<string[]> {
   const result = await compileMessagesTree(dirs)
   assertNoCompileFailures(result)
-
-  const paths = Object.keys(result.compiled)
-  await Promise.all(
-    paths.map((path) => Deno.writeTextFile(path, JSON.stringify(result.compiled[path]))),
-  )
-  return paths
+  return writeCompiledCatalogs(result, dirs, outDir)
 }

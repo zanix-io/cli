@@ -1,12 +1,13 @@
 /**
- * Drift Watch (§8.2 of `ENGINEERING.md`'s Generator API Drift Strategy) — regenerates every
+ * Drift Watch (§7.2 of `engineering.md`'s Generator API Drift Strategy) — regenerates every
  * `zanix new` project type plus a representative `zanix generate` variant matrix, rewrites each
  * generated project's `@zanix/*` imports to the REAL latest published JSR version (not `cli`'s own
  * pinned range in `ZANIX_DEPENDENCY_VERSIONS`), and runs `deno check` against each. A failure here
- * means an upstream Zanix package changed in a way that broke generation (or hasn't published yet
- * — see `ENGINEERING.md` §7), not that `cli` itself regressed. Never blocks anything — meant to
- * run on a schedule/on push, informational only (see `.github/workflows/drift-watch.yml`); this
- * script's own exit code is only there to make that CI step show red, nothing depends on it.
+ * means an upstream Zanix package changed in a way that broke generation, or one of its declared
+ * dependencies isn't resolvable on JSR right now, not that `cli` itself regressed. Never blocks
+ * anything — meant to run on a schedule/on push, informational only (see
+ * `.github/workflows/drift-watch.yml`); this script's own exit code is only there to make that CI
+ * step show red, nothing depends on it.
  *
  * The `--type`/`--slot`/`--cron`/`--field`/etc. variant matrix below is deliberately a *curated*
  * set, not a fully generic derivation — `--type` for `handler` genuinely is a closed enum
@@ -21,12 +22,16 @@
 
 import { ZANIX_DEPENDENCY_VERSIONS } from '../src/utils/config/dependencies.ts'
 import { HANDLER_TYPES } from '../src/commands/generate/handler/command.ts'
+import { MIDDLEWARE_TYPES } from '../src/commands/generate/middleware/command.ts'
+import { GLOBAL_MIDDLEWARE_TYPES } from '../src/commands/generate/globalmiddleware/command.ts'
 import { collectTsFiles } from '../src/utils/verify.ts'
 import { getTemporaryFolder } from '@zanix/helpers'
 import logger from '@zanix/utils/logger'
 
 const CLI_ENTRYPOINT = new URL('../mod.ts', import.meta.url).pathname
 
+/** One `deno check` result for a single generated project/variant group — `name` identifies it in
+ * the final report, `output` is the raw combined stdout/stderr when `success` is `false`. */
 export type CheckResult = { name: string; success: boolean; output: string }
 
 /** Exported for `scripts/drift-watch.test.ts` — a thin `Deno.Command` wrapper, cheap to cover
@@ -48,7 +53,8 @@ export async function run(
 }
 
 /** Exported for `scripts/drift-watch.test.ts` — the one piece of this script's logic worth real
- * unit coverage; the rest is live orchestration already verified manually against real JSR data. */
+ * unit coverage; the rest is live orchestration against real JSR data and real subprocesses,
+ * exercised by `.github/workflows/drift-watch.yml`'s own scheduled/on-push runs instead. */
 export function parseSpecifier(
   specifier: string,
 ): { pkg: string; subpath: string } {
@@ -83,8 +89,8 @@ export async function fetchLatestVersion(pkg: string): Promise<void> {
  * REAL latest published version instead of `cli`'s own pinned range — this is what actually makes
  * Drift Watch test against "what's live on JSR right now," not just what `cli` already knows
  * about. Leaves an entry untouched (still on `cli`'s pinned range) if its package can't be
- * resolved at all — that's the `@zanix/app`/`@zanix/space` "not published yet" case (§7), already
- * a known, separately-tracked gap this rewrite can't do anything about either way.
+ * resolved at all — nothing this rewrite can do either way for a `@zanix/*` package that isn't
+ * resolvable on JSR at the moment it runs.
  *
  * Exported for `scripts/drift-watch.test.ts` — real temp-dir I/O, with only `fetchLatestVersion`'s
  * own `fetch` stubbed, so no test here depends on a real network call.
@@ -114,9 +120,7 @@ export async function rewriteToLatestVersions(root: string): Promise<void> {
 
 /** Exported for `scripts/drift-watch.test.ts` — the "no .ts/.tsx files" short-circuit and the
  * `deno check` dispatch (via `run`, stubbable through `Deno.Command`) are both cheap to cover
- * directly; `newProject`/`generate`/`main` below stay unexported — they spawn this CLI itself as a
- * real subprocess against real, freshly-generated projects, which is genuinely live orchestration
- * (see this file's own top doc), not something worth mocking from in here. */
+ * directly. */
 export async function checkProject(name: string, root: string): Promise<CheckResult> {
   await rewriteToLatestVersions(root)
 
@@ -125,11 +129,29 @@ export async function checkProject(name: string, root: string): Promise<CheckRes
     return { name, success: true, output: '(no .ts/.tsx files)' }
   }
 
-  const { success, output } = await run(['deno', 'check', ...files], root)
+  // `--min-dep-age 0` disables Deno's own client-side "minimum dependency age" policy (a 24h
+  // default guard against installing a just-published version) — without it, a generated project
+  // citing a package's own just-published latest version (which its template always does) fails
+  // this check with a false negative for ~24h after every release of that package, indistinguishable
+  // from a real drift/breaking-change failure without reading the raw stderr.
+  const { success, output } = await run(
+    ['deno', 'check', ...files, '--min-dep-age', '0'],
+    root,
+  )
   return { name, success, output }
 }
 
-async function newProject(type: string): Promise<string> {
+/**
+ * `extraArgs` (e.g. `['--icons']`) lands between the project `type` and `--no-prepare` — same
+ * flags-before-the-final-positional shape {@linkcode generate} already uses for its own trailing
+ * `root`. Defaults to none: every `newProject` call site except the `space` variants block below
+ * still just wants a plain scaffold.
+ *
+ * Exported for `scripts/drift-watch.test.ts` — stubbing `Deno.Command` (the same seam `run` already
+ * goes through) covers the real argument shape and the temp-dir lifecycle without spawning this CLI
+ * for real.
+ */
+export async function newProject(type: string, extraArgs: string[] = []): Promise<string> {
   const root = await Deno.makeTempDir({
     dir: getTemporaryFolder(import.meta.url),
     prefix: `drift-watch-${type}-`,
@@ -141,17 +163,25 @@ async function newProject(type: string): Promise<string> {
     CLI_ENTRYPOINT,
     'new',
     type,
+    ...extraArgs,
     '--no-prepare',
     root,
   ])
   return root
 }
 
-async function generate(root: string, args: string[]): Promise<void> {
+/** Exported for `scripts/drift-watch.test.ts` — same `Deno.Command`-stubbing seam as `newProject`. */
+export async function generate(root: string, args: string[]): Promise<void> {
   await run(['deno', 'run', '-A', CLI_ENTRYPOINT, 'generate', ...args, root])
 }
 
-async function main() {
+/**
+ * Exported for `scripts/drift-watch.test.ts` — every real subprocess this orchestrates goes through
+ * `run`/`Deno.Command` (via `newProject`/`generate`/`checkProject`), so stubbing that one seam plus
+ * `Deno.exit` covers the full success/failure reporting path and the temp-dir cleanup without a real
+ * live run against JSR/`deno check`.
+ */
+export async function main() {
   const results: CheckResult[] = []
   const cleanup: string[] = []
 
@@ -206,6 +236,24 @@ async function main() {
     await generate(serverRoot, ['repository', 'drift-repository'])
     await generate(serverRoot, ['seeder', 'drift-repository'])
     await generate(serverRoot, ['subscriber', 'drift-subscriber'])
+    for (const kind of Object.keys(MIDDLEWARE_TYPES)) {
+      // deno-lint-ignore no-await-in-loop
+      await generate(serverRoot, [
+        'middleware',
+        `drift-middleware-${kind}`,
+        '--kind',
+        kind,
+      ])
+    }
+    for (const kind of Object.keys(GLOBAL_MIDDLEWARE_TYPES)) {
+      // deno-lint-ignore no-await-in-loop
+      await generate(serverRoot, [
+        'globalmiddleware',
+        `drift-globalmiddleware-${kind}`,
+        '--kind',
+        kind,
+      ])
+    }
     await generate(serverRoot, [
       'rto',
       'drift-rto',
@@ -229,15 +277,27 @@ async function main() {
 
     results.push(await checkProject('generate (backend variants)', serverRoot))
 
-    // --- `zanix generate`: space variants, against a fresh `space` project ---
-    const spaceRoot = await newProject('space')
+    // --- `zanix generate`: space variants, against a fresh `space --icons` project ---
+    // `--icons` is the ONLY path that ever pulls in `@zanix/space-ui` (`ensureSpaceUiDependency`,
+    // `commands/new/lib/tree/projects/space-icons.ts`) — a `zanix new space` with no flags never
+    // declares that dependency at all, so exercising it here is the only way Drift Watch ever
+    // checks `@zanix/space-ui`'s real published API (e.g. `CatalogIcon`/`CatalogIconProps`)
+    // against the generated `catalog-icon.ts` wrapper that imports it.
+    const spaceRoot = await newProject('space', ['--icons'])
     cleanup.push(spaceRoot)
 
     await generate(spaceRoot, ['comet', 'DriftCounter'])
+    await generate(spaceRoot, ['component', 'DriftCard'])
     await generate(spaceRoot, ['page', 'drift-page'])
     await generate(spaceRoot, ['layout', 'drift-layout'])
+    // `interactor` also runs in a plain `space` project now (a `space` app consuming a remote,
+    // typed Zanix API needs one too), landing in its own per-domain folder rather than `space`'s
+    // other artifacts' shared subfolders — exercises
+    // the same `@zanix/server` import a backend project gets, but added on demand via
+    // `ensureZanixDependency` rather than present in the fresh scaffold already.
+    await generate(spaceRoot, ['interactor', 'drift-triggers'])
 
-    results.push(await checkProject('generate (space variants)', spaceRoot))
+    results.push(await checkProject('generate (space variants, --icons)', spaceRoot))
   } finally {
     await Promise.all(
       cleanup.map((dir) => Deno.remove(dir, { recursive: true }).catch(() => {})),
@@ -270,8 +330,14 @@ async function main() {
   )
 }
 
-// Guarded so `drift-watch.test.ts` can import `parseSpecifier` for unit coverage without also
-// triggering a full live run (with real network calls and `Deno.exit(1)`) as an import side effect.
+// Guarded so `drift-watch.test.ts` can import `parseSpecifier` (and every other function above,
+// including `main` itself) for unit coverage without also triggering a full live run as an import
+// side effect. This `true` branch stays outside unit coverage on purpose: reaching it for real means
+// spawning this file as its own child `deno run` process, which crosses a process boundary no stub
+// in this test file can follow — `Deno.Command`/`fetch` would be real again, making it the exact
+// same live run (real subprocesses, real JSR network calls, real `deno check`, `Deno.exit(1)`)
+// `.github/workflows/drift-watch.yml` already exercises on every push/schedule. Not worth forcing
+// with a test-only seam when the real thing already runs on its own schedule.
 if (import.meta.main) {
   await main()
 }

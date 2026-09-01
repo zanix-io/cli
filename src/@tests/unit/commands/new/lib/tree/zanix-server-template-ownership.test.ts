@@ -8,7 +8,7 @@ import { stub } from '@std/testing/mock'
  * `connector`/`interactor`/`jobs` used to fetch a static example from `@zanix/server`/
  * `@zanix/asyncmq`'s own `src/templates/` because no `zanix generate` counterpart existed yet for
  * them. Once those generators shipped, the same retirement already applied to
- * `handler`/`rto`/`repository`/`seeder` applied to them too — see `cli/ENGINEERING.md` §5/§7.
+ * `handler`/`rto`/`repository`/`seeder` applied to them too — see `cli/engineering.md` §5/§7.
  */
 async function fetchedJsrPackage(
   content: () => Promise<string>,
@@ -114,7 +114,7 @@ Deno.test("server tree content matches each artifact's own cli generator", async
   assertStringIncludes(interactorContent, 'export class ExampleService')
   assertStringIncludes(
     jobContent,
-    "import { registerCronJob } from '@zanix/asyncmq'",
+    "import { registerCronJob } from '@zanix/asyncmq/jobs'",
   )
   assertStringIncludes(handlerContent, 'export class ExampleController')
   assertStringIncludes(rtoContent, 'export class ExampleRTO')

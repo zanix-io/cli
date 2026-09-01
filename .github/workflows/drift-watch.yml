@@ -1,13 +1,13 @@
 # .github/workflows/drift-watch.yml
 #
-# Drift Watch (ENGINEERING.md §8.2) — regenerates every `zanix new` project type plus a
+# Drift Watch (engineering.md §8.2) — regenerates every `zanix new` project type plus a
 # representative `zanix generate` variant matrix against the REAL latest published version of
 # every Zanix dependency, and runs `deno check` against each. Detects upstream API drift as early
 # as possible.
 #
 # Deliberately informational, not a required check: this workflow is never referenced by branch
 # protection and never gates `publish.yml` — a red run here means an upstream Zanix package
-# changed in a way that broke generation (or hasn't published yet, see ENGINEERING.md §7), not
+# changed in a way that broke generation (or hasn't published yet, see engineering.md §7), not
 # that this repo introduced a regression. See `scripts/drift-watch.ts` for the actual check.
 
 name: Drift Watch

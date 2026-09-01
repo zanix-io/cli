@@ -1,11 +1,14 @@
 import { assertEquals } from '@std/assert'
-import { baseZnxConfig } from 'utils/config/base.ts'
+import { baseZnxConfig, INITIAL_PROJECT_VERSION, RUN_PERMISSIONS } from 'utils/config/base.ts'
+import type { ZanixProjects } from '@zanix/types'
 
 Deno.test(
-  'baseZnxConfig: space/space-server get `zanix space dev`, never the generic watch-reload',
+  'baseZnxConfig: space/space-server get `deno install && zanix space dev`, never the generic ' +
+    'watch-reload — `deno install` runs first so Vite never hits an unresolved npm-backed import ' +
+    "(e.g. react-dom) on a fresh scaffold's very first run",
   () => {
-    assertEquals(baseZnxConfig('space').tasks?.dev, 'zanix space dev')
-    assertEquals(baseZnxConfig('space-server').tasks?.dev, 'zanix space dev')
+    assertEquals(baseZnxConfig('space').tasks?.dev, 'deno install && zanix space dev')
+    assertEquals(baseZnxConfig('space-server').tasks?.dev, 'deno install && zanix space dev')
   },
 )
 
@@ -29,7 +32,7 @@ Deno.test(
     assertEquals(spaceStart, spaceServerStart)
     assertEquals(
       spaceStart,
-      'deno run --env-file=.env --allow-net --allow-env --allow-read --allow-sys --allow-write --allow-ffi --no-prompt mod.ts',
+      `deno run --env-file=.env ${RUN_PERMISSIONS} mod.ts`,
     )
     assertEquals(serverStart, spaceStart)
   },
@@ -45,7 +48,7 @@ Deno.test(
   () => {
     assertEquals(
       baseZnxConfig('server').tasks?.worker,
-      'deno run --env-file=.env --allow-net --allow-env --allow-read --allow-sys --allow-write --allow-ffi --no-prompt worker.ts',
+      `deno run --env-file=.env ${RUN_PERMISSIONS} worker.ts`,
     )
     assertEquals(
       baseZnxConfig('space-server').tasks?.worker,
@@ -82,6 +85,20 @@ Deno.test(
 )
 
 Deno.test(
+  "baseZnxConfig: renderer 'preact' also declares preact/hooks — a plain hand-written subpath " +
+    "import (--theme astronaut's own comet demo uses it), unlike the compiler-mediated " +
+    'jsx-runtime import, needs its own explicit import-map entry or a freshly generated ' +
+    "'--renderer preact' project fails outright the moment anything imports it",
+  () => {
+    const config = baseZnxConfig('space', 'preact')
+    assertEquals(config.imports?.['preact/hooks'], 'npm:preact@^10.29.0/hooks')
+
+    const reactConfig = baseZnxConfig('space', 'react')
+    assertEquals(reactConfig.imports?.['preact/hooks'], undefined)
+  },
+)
+
+Deno.test(
   'baseZnxConfig: renderer applies the same way to space-server as it does to plain space',
   () => {
     const config = baseZnxConfig('space-server', 'preact')
@@ -97,5 +114,38 @@ Deno.test(
     assertEquals(config.compilerOptions?.jsxImportSource, undefined)
     assertEquals(config.imports?.preact, undefined)
     assertEquals(config.imports?.react, undefined)
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: every project type gets a real, valid-shaped version field — deno publish ' +
+    "--dry-run fails outright without one, regardless of a type's own publish block",
+  () => {
+    const types: ZanixProjects[] = ['app', 'library', 'server', 'space', 'space-server']
+    for (const type of types) {
+      assertEquals(baseZnxConfig(type).version, INITIAL_PROJECT_VERSION)
+    }
+    assertEquals(INITIAL_PROJECT_VERSION, '0.1.0')
+  },
+)
+
+Deno.test(
+  "baseZnxConfig: name's package-name half is the real project name (root's basename), " +
+    'never the old hardcoded literal — scope half stays an unmistakable placeholder',
+  () => {
+    assertEquals(baseZnxConfig('library', 'react', 'my-lib').name, '@your-scope/my-lib')
+    assertEquals(baseZnxConfig('app', 'react', 'my-app').name, '@your-scope/my-app')
+    // A nested/absolute root (e.g. an isolated temp dir) only ever contributes its basename.
+    assertEquals(
+      baseZnxConfig('library', 'react', '/tmp/some/nested/mylib').name,
+      '@your-scope/mylib',
+    )
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: name falls back to an unmistakable placeholder leaf when root is omitted',
+  () => {
+    assertEquals(baseZnxConfig('library').name, '@your-scope/name')
   },
 )

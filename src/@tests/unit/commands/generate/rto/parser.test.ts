@@ -74,8 +74,30 @@ Deno.test('parseFieldSpec: rejects an enum with no values', () => {
 })
 
 Deno.test('parseFields: parses every spec in order', () => {
-  const fields = parseFields(['name:string', 'age:number?'])
-  assertEquals(fields.map((field) => field.name), ['name', 'age'])
+  const fields = parseFields([
+    'name:string',
+    'age:number?',
+    'tags:string[]',
+    'active:boolean',
+    'email:email',
+    'dueDate:date?',
+    'ref:uuid',
+    'userId:objectId',
+    'grantedBy:permission',
+    'status:enum(ACTIVE,INACTIVE)',
+  ])
+  assertEquals(fields.map((field) => field.name), [
+    'name',
+    'age',
+    'tags',
+    'active',
+    'email',
+    'dueDate',
+    'ref',
+    'userId',
+    'grantedBy',
+    'status',
+  ])
 })
 
 Deno.test('parseFields: throws a clear error when given an empty list', () => {
@@ -83,5 +105,21 @@ Deno.test('parseFields: throws a clear error when given an empty list', () => {
     () => parseFields([]),
     Error,
     "The 'rto' generator needs at least one --field",
+  )
+})
+
+Deno.test('parseFields: throws a clear error when two specs share the same name', () => {
+  assertThrows(
+    () => parseFields(['total:number', 'total:string']),
+    Error,
+    "Duplicate --field name(s): 'total' (given 2 times)",
+  )
+})
+
+Deno.test('parseFields: reports every duplicated name, not just the first', () => {
+  assertThrows(
+    () => parseFields(['total:number', 'total:string', 'name:string', 'name:string?']),
+    Error,
+    "Duplicate --field name(s): 'total' (given 2 times), 'name' (given 2 times)",
   )
 })

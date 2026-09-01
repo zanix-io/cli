@@ -8,7 +8,10 @@ import { CONFIG_FILE } from '@zanix/utils/constants'
 /**
  * Write a `deno` base config file for **Zanix** projects
  * @param type - Zanix project type (`app`, `server`, `space`, `space-server` or `library`). Defaults to `space-server`
- * @param root - The optional root dir. Defaults to the current working directory's config file
+ * @param root - The optional root dir. Defaults to the current working directory's config file.
+ * Also forwarded to {@linkcode baseZnxConfig} unchanged, to derive the generated `deno.json`'s
+ * `name` field's package-name half from the real project name (its basename) rather than a
+ * hardcoded literal.
  * @param renderer - `--renderer`'s own value — forwarded to {@linkcode baseZnxConfig} unchanged,
  * ignored for any `type` other than `space`/`space-server`. Defaults to `'react'`, identical in
  * every respect to passing it explicitly.
@@ -18,7 +21,7 @@ export async function saveZanixConfig(
   root: string | undefined = undefined,
   renderer: 'react' | 'preact' = 'react',
 ) {
-  let config = baseZnxConfig(type, renderer)
+  let config = baseZnxConfig(type, renderer, root)
   const configPath = root !== undefined ? `${root}/${CONFIG_FILE}` : getConfigDir()
 
   try {

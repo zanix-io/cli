@@ -33,6 +33,25 @@ Deno.test('generatePageAction should throw outside a space/space-server project'
   }
 })
 
+Deno.test(
+  'generatePageAction should reject a route path containing a ".." path-traversal segment',
+  async () => {
+    const projectFolder = await makeProject('space')
+    const mockCwd = stub(Deno, 'cwd', () => projectFolder)
+
+    try {
+      await assertRejects(
+        () => generatePageAction.call(new Commander(), {}, '../../../../victim'),
+        Error,
+        'path-traversal segment',
+      )
+    } finally {
+      mockCwd.restore()
+      await Deno.remove(projectFolder, { recursive: true })
+    }
+  },
+)
+
 Deno.test('generatePageAction should write a real, correctly-shaped page file', async () => {
   const projectFolder = await makeProject('space')
   const mockCwd = stub(Deno, 'cwd', () => projectFolder)
@@ -56,7 +75,7 @@ Deno.test('generatePageAction should write a real, correctly-shaped page file', 
       ),
       true,
     )
-    assertEquals(content.includes('component = ProductsView'), true)
+    assertEquals(content.includes('public override component = ProductsView'), true)
 
     const config = JSON.parse(
       await Deno.readTextFile(`${projectFolder}/deno.jsonc`),
@@ -123,11 +142,13 @@ Deno.test(
     const mockCwd = stub(Deno, 'cwd', () => projectFolder)
     const cwd = new Commander()
     registerPageCommand(cwd)
-    type ActionCommand = { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    type ActionCommand = {
+      settings: { actionHandler: (options: unknown, ...args: unknown[]) => Promise<void> }
+    }
     const command = cwd.getCommands()[0] as unknown as ActionCommand
 
     try {
-      await command.actionHandler({}, 'wired')
+      await command.settings.actionHandler({}, 'wired')
 
       const content = await Deno.readTextFile(
         `${projectFolder}/src/space/routes/wired/page.tsx`,
@@ -182,7 +203,7 @@ Deno.test(
       const source = await Deno.readTextFile(
         `${projectFolder}/src/space/routes/products/page.tsx`,
       )
-      assertStringIncludes(source, "static head = { title: 'Products' }")
+      assertStringIncludes(source, "public static override head = { title: 'Products' }")
     } finally {
       mockCwd.restore()
       await Deno.remove(projectFolder, { recursive: true })

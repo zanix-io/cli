@@ -1,9 +1,21 @@
 import { getTemporaryFolder } from '@zanix/helpers'
-import { assertEquals } from '@std/assert'
+import { assertEquals, assertRejects } from '@std/assert'
 import { join } from '@std/path'
 import { stub } from '@std/testing/mock'
 import { Commander } from 'cli'
 import newAppAction from 'commands/new/actions/app.ts'
+
+// Regression coverage for a confirmed risk: `appName` used to reach `getZanixPaths` with no
+// validation at all — a name containing a `..` traversal segment could write outside the intended
+// directory. `this.throw` (real `Commander` behavior) rejects instead of writing anything.
+Deno.test(
+  'newAppAction rejects a project name containing a ".." traversal segment',
+  async () => {
+    await assertRejects(() =>
+      newAppAction.call(new Commander(), { template: 'base' }, '../../etc/cron.d/evil')
+    )
+  },
+)
 
 // Real end-to-end proof, same shape as `space-renderer.test.ts`'s own use of the real action:
 // writes to a real, isolated temp directory rather than mocking `createFilesAndFolders`/
@@ -28,7 +40,9 @@ Deno.test(
     try {
       await newAppAction.call(new Commander(), { template: 'base', verify: true }, appPath)
 
-      assertEquals(commandStub.calls.length, 1)
+      // 2, not 1: `formatGeneratedProject` (unconditional, `deno fmt`) always runs one subprocess
+      // call of its own before `--verify`'s own `deno check` — same stub intercepts both.
+      assertEquals(commandStub.calls.length, 2)
     } finally {
       commandStub.restore()
       await Deno.remove(root, { recursive: true })

@@ -15,6 +15,8 @@ function prepareEditorAction(
 
   switch (editor) {
     case 'vscode':
+      // A real write failure rejects instead of resolving `false` (see `createEditorFileConfig`'s
+      // own doc), so `.catch` alone is enough to route it to a non-zero exit code.
       return createVSCodeConfig({ baseRoot: root }).catch((e) => this.throw(e))
     default:
       this.throw(

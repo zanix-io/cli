@@ -20,28 +20,40 @@ import { join } from '@std/path'
  * `routes`/`jobs`/`dependencies`/`resources` once the app actually needs them, following
  * `@zanix/app`'s own manifest reference.
  *
+ * Lint-clean against the project's OWN scaffolded rules, not just formatted: logs through the real
+ * Zanix `logger` (`@zanix/utils/logger`), never `console` — `no-znx-console` has a real auto-fix
+ * (`@zanix/utils`'s own `zanix-logger.ts` source, already inside `cli`'s own pinned
+ * `@zanix/utils@^4.1.0` floor), so the installed pre-commit hook's `deno lint --fix` would rewrite
+ * a `console` call here on its own — logging through `logger` directly avoids that unnecessary
+ * rewrite on a project's very first commit. The default export is explicitly typed via
+ * `as ZanixAppDefinition` — confirmed empirically (`deno publish --dry-run`,
+ * no `--allow-slow-types`) to satisfy JSR's fast-check analyzer; a bare `defineZanixApp({...})`
+ * default export trips `unsupported-default-export-expr` (fast-check can't infer the type of a
+ * default export expression on its own).
+ *
  * Generated locally, same reasoning as `server.ts`/`space.ts`'s own header comments: `@zanix/app`
  * has no `src/templates/` directory for this to resolve against via a JSR fetch.
  */
 export const getAppModTemplate = (appName: string): string => {
   const name = toKebabCase(appName)
 
-  return `import { defineZanixApp } from '@zanix/app'
+  return `import { defineZanixApp, type ZanixAppDefinition } from '@zanix/app'
+import logger from '@zanix/utils/logger'
 
 /**
  * Example Zanix App manifest — a Zanix App is \`manifest + dependencies + resources + routes +
  * jobs + events + lifecycle\`; nothing here requires an HTTP server. Add \`routes\`/\`jobs\`/
  * \`dependencies\`/\`resources\` as this app actually needs them — see \`@zanix/app\`'s own README for
  * the full manifest reference and \`.serve()\` (a one-app, isolated dev loop), and its
- * \`docs/PUBLISHING.md\` if you're distributing this as a package for a different team's host to
+ * \`docs/publishing.md\` if you're distributing this as a package for a different team's host to
  * install.
  */
 export default defineZanixApp({
   name: '${name}',
   onStart: () => {
-    console.log('${name} started')
+    logger.info('${name} started')
   },
-})
+}) as ZanixAppDefinition
 `
 }
 
@@ -71,9 +83,8 @@ export const APP_RECIPES: ScaffoldRecipeRegistry<ZanixFolderTree<'app'>> = {
  * Resolves and runs `app`'s own recipe against the already-built whole-project `tree` — gives `app`
  * the same per-type `resolveRecipe` validation (defense in depth beyond the global
  * `assertKnownPreset` check `getZnxFolderTree` already runs) that `server`/`space` get for their own
- * content, instead of relying solely on the global check the way `app` used to. Mutates `tree` in
- * place, same as `assembleScaffold` always does — `main.ts` calls this instead of hand-pushing
- * `mod.ts` onto `tree.templates.base` directly.
+ * content. Mutates `tree` in place, same as `assembleScaffold` always does — `main.ts` calls this
+ * instead of hand-pushing `mod.ts` onto `tree.templates.base` directly.
  *
  * Appends onto whatever `tree.templates.base` already holds (`assembleScaffold`'s own append
  * semantics, not a replace) — `commons.ts` (`getCommonTree`) always populates the same root node

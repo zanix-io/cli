@@ -79,12 +79,16 @@ Deno.test(
   },
 )
 
-// Regression coverage for the companion bug: cliffy's own `getErrorHandler()` only checks one
+// Regression coverage for the belt-and-suspenders safeguard `Commander.mountGroup` applies (see
+// its own doc in `cli.ts`): in `@cliffy/command@1.0.0-rc.8`, `getErrorHandler()` only checked one
 // level up the parent chain (`this.errorHandler ?? this._parent?.errorHandler`, not the full
-// chain — @cliffy/command@1.0.0-rc.8's `command.ts:1165-1167`), so before `Commander.mountGroup`
-// existed, an error escaping a leaf command's action two levels below `cli` (e.g. `cli -> new ->
-// space`, `cli.ts`'s only place with a registered `.error()` handler) never reached it — it
-// free-fell as a raw, unformatted rejection instead of the clean `logger.error` + exit(1) UX.
+// chain), so before `Commander.mountGroup` existed, an error escaping a leaf command's action two
+// levels below `cli` (e.g. `cli -> new -> space`, `cli.ts`'s only place with a registered
+// `.error()` handler) never reached it on its own — it free-fell as a raw, unformatted rejection
+// instead of the clean `logger.error` + exit(1) UX. As of `@cliffy/command@1.2.1` (the version
+// this repo pins), `getErrorHandler()` already walks the whole chain natively
+// (`command.ts:1603-1606`), so this scenario no longer reproduces without `mountGroup` either —
+// this test now verifies the safeguard still works, not a live cliffy limitation.
 Deno.test(
   'an error escaping a leaf action two levels below the root still reaches the root error handler',
   async () => {

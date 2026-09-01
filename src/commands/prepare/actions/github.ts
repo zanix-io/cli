@@ -2,6 +2,7 @@ import type { ZanixProjects } from '@zanix/types'
 import type { Commander } from 'cli'
 
 import { prepareGithub } from 'commands/prepare/lib/github/prepare.ts'
+import { assertValidProjectType } from 'commands/prepare/shared/project-type.ts'
 
 /**
  * `zanix prepare -g/--github`'s real orchestration — maps `--hooks-engine` (`'native'`, the
@@ -20,6 +21,8 @@ function prepareGithubAction(
   },
   root?: string,
 ) {
+  assertValidProjectType(this, options.projectType)
+
   const projectType = options.projectType as ZanixProjects
   const hooksEngine = options.hooksEngine || 'native'
 

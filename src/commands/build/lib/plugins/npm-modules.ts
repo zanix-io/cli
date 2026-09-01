@@ -12,7 +12,7 @@ import type { OnResolveArgs, Plugin } from 'npm:esbuild@0.20.2'
  * @returns {Plugin} esbuild plugin to ignore resolution errors for specific modules.
  */
 export function npmModulesPlugin(libraries: string[]): Plugin {
-  const externals = [...defaultNpmModules, ...libraries]
+  const externals = [...DEFAULT_NPM_MODULES, ...libraries]
   return {
     name: 'npm-modules',
     setup(build) {
@@ -27,4 +27,4 @@ export function npmModulesPlugin(libraries: string[]): Plugin {
   }
 }
 
-export const defaultNpmModules = ['esbuild', 'javascript-obfuscator']
+export const DEFAULT_NPM_MODULES = ['esbuild', 'javascript-obfuscator']

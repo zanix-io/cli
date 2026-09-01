@@ -3,7 +3,7 @@ import { assertEquals } from '@std/assert'
 import { stub } from '@std/testing/mock'
 import cli from 'cli'
 
-type ErrorHandlerHolder = { errorHandler: (e: Error, cwd: Commander) => void }
+type ErrorHandlerHolder = { settings: { errorHandler: (e: Error, cwd: Commander) => void } }
 
 console.error = () => {}
 console.info = () => {}
@@ -13,7 +13,7 @@ Deno.test('cli error handler should strip the stack, log the message and exit(1)
   const error = new Error('boom')
 
   try {
-    ;(cli as unknown as ErrorHandlerHolder).errorHandler(error, cli)
+    ;(cli as unknown as ErrorHandlerHolder).settings.errorHandler(error, cli)
   } finally {
     exitStub.restore()
   }

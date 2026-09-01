@@ -2,7 +2,7 @@ import type { BaseEditorHelperOptions, EditorOptions } from 'commands/prepare/li
 
 import { capitalize, fileExists, getRootDir } from '@zanix/helpers'
 import { readFileFromCurrentUrl } from 'utils/read-current-file.ts'
-import { editors } from 'commands/prepare/lib/constants.ts'
+import { EDITORS } from 'commands/prepare/lib/constants.ts'
 import logger from '@zanix/logger'
 import { join } from '@std/path'
 
@@ -32,13 +32,13 @@ export async function createEditorFileConfig(
 
     const { baseRoot = getRootDir() } = options
 
-    const baseFolder = join(baseRoot, editors[type].FOLDER)
+    const baseFolder = join(baseRoot, EDITORS[type].FOLDER)
 
     // Create the directory if it doesn't exist
     await Deno.mkdir(baseFolder, { recursive: true })
 
     // file dir
-    const baseFileDir = `${baseFolder}/${editors[type].FILENAME}`
+    const baseFileDir = `${baseFolder}/${EDITORS[type].FILENAME}`
 
     if (fileExists(baseFileDir)) {
       const currentContent = JSON.parse(await Deno.readTextFile(baseFileDir))
@@ -55,12 +55,14 @@ export async function createEditorFileConfig(
 
     return true
   } catch (e) {
+    // Re-thrown, never swallowed into `return false` — see `docker/files/base.ts`'s own identical
+    // comment for the full reasoning.
     logger.error(
       `'${editorName}' configuration file creation error`,
       e,
       'noSave',
     )
 
-    return false
+    throw e
   }
 }

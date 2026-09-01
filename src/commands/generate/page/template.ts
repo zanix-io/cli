@@ -9,6 +9,15 @@
  * exactly where this command writes it — an explicit path argument would be redundant), and
  * `component` as a class-field arrow-compatible assignment (a plain function reference is valid
  * here too, matching `@zanix/space`'s own scaffold example in `cli`'s `new space` templates).
+ * Both `head` and `component` carry an explicit `public` modifier — the generated project's own
+ * `deno-zanix-plugin/require-access-modifier` lint rule has no auto-fix, so an implicit modifier
+ * would leave every scaffolded page permanently failing `deno lint`. `head` additionally needs
+ * `override` (`SpacePageController.head` is a concrete, non-abstract member, so the generated
+ * project's own `strict: true` — which enables `noImplicitOverride` on the TypeScript version
+ * this CLI targets — rejects overriding it without the keyword; confirmed with a real `deno
+ * check`, not assumed). `component` implements an `abstract` member, which TypeScript never
+ * requires `override` for, but it carries the keyword too anyway, matching every real page
+ * fixture in `@zanix/space`'s own test suite.
  *
  * **Emits a `static head` and an `<h1>`, and these are scaffolding conventions — not requirements.**
  * The distinction is deliberate and worth stating where the code lives:
@@ -38,8 +47,8 @@ function ${pascalName}View() {
 
 @Page()
 export default class ${pascalName}Page extends SpacePageController {
-  static head = { title: '${pascalName}' }
+  public static override head = { title: '${pascalName}' }
 
-  component = ${pascalName}View
+  public override component = ${pascalName}View
 }
 `

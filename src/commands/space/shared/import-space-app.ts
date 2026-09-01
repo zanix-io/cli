@@ -1,8 +1,9 @@
 import type { Commander } from 'cli'
 
-import { resolve, toFileUrl } from '@std/path'
+import { resolve } from '@std/path'
 import { isZanixAppDefinition, type ZanixAppDefinition } from '@zanix/app'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
+import { importProjectModule } from 'commands/space/shared/import-project-module.ts'
 
 /**
  * Imports `${root}/space.app.ts`'s default export as a `ZanixAppDefinition` — never
@@ -18,6 +19,12 @@ import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
  *
  * Shared between `zanix space dev` and `zanix space build` — a single source of truth for this
  * import, rather than two independently-maintained copies that could drift.
+ *
+ * Uses {@linkcode importProjectModule} rather than a plain `import()` — `space.app.ts` belongs to
+ * `root`, not to `@zanix/cli`, and its own bare specifiers (`@zanix/auth`, a package the project
+ * imports only transitively through a relative import, ...) need to resolve against `root`'s own
+ * `deno.json(c)`, including any `"links"` override it declares. See that function's own doc for
+ * the full mechanism.
  */
 export async function importSpaceApp(
   cwd: Commander,
@@ -26,7 +33,7 @@ export async function importSpaceApp(
   const path = resolve(root, SPACE_APP_MODULE)
   let imported: unknown
   try {
-    imported = (await import(toFileUrl(path).href)).default
+    imported = (await importProjectModule(path)).default
   } catch (error) {
     cwd.throw(
       new Error(

@@ -6,6 +6,8 @@ import {
   compileCatalog,
   compileMessagesTree,
   MessageCompileError,
+  writeCompiledCatalogs,
+  writeCompiledMessagesTree,
 } from 'commands/space/shared/compile-messages.ts'
 
 const TMP_ROOT = getTemporaryFolder(import.meta.url)
@@ -250,5 +252,83 @@ Deno.test(
     assert(error.message.includes('bad key'))
     assert(error.message.includes('/messages/es/index.json'))
     assert(error.message.includes('also bad'))
+  },
+)
+
+// --- writeCompiledMessagesTree / writeCompiledCatalogs ---------------------------------------------
+
+Deno.test(
+  'writeCompiledMessagesTree: writes to {outDir}/messages/0/... for a single-root messagesDir, ' +
+    'and the source file itself is left untouched',
+  async () => {
+    const dir = await Deno.makeTempDir({ dir: TMP_ROOT })
+    const outDir = await Deno.makeTempDir({ dir: TMP_ROOT })
+    try {
+      await writeJson(`${dir}/en/index.json`, { title: 'Welcome' })
+
+      const written = await writeCompiledMessagesTree(dir, outDir)
+
+      assertEquals(written, [`${outDir}/messages/0/en/index.json`])
+      const compiled = JSON.parse(await Deno.readTextFile(`${outDir}/messages/0/en/index.json`))
+      assertEquals(compiled, { title: parse('Welcome') })
+
+      const source = JSON.parse(await Deno.readTextFile(`${dir}/en/index.json`))
+      assertEquals(source, { title: 'Welcome' })
+    } finally {
+      await Deno.remove(dir, { recursive: true })
+      await Deno.remove(outDir, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'writeCompiledMessagesTree(messagesDir[]): each root writes under its own ARRAY INDEX ' +
+    'subdirectory — 0 for the first root, 1 for the second, preserving which root a file came from',
+  async () => {
+    const rootA = await Deno.makeTempDir({ dir: TMP_ROOT })
+    const rootB = await Deno.makeTempDir({ dir: TMP_ROOT })
+    const outDir = await Deno.makeTempDir({ dir: TMP_ROOT })
+    try {
+      await writeJson(`${rootA}/en/populations/zanix.json`, { title: 'Override' })
+      await writeJson(`${rootB}/en/index.json`, { title: 'Base' })
+
+      const written = await writeCompiledMessagesTree([rootA, rootB], outDir)
+
+      assertEquals(
+        written.sort(),
+        [
+          `${outDir}/messages/0/en/populations/zanix.json`,
+          `${outDir}/messages/1/en/index.json`,
+        ].sort(),
+      )
+    } finally {
+      await Deno.remove(rootA, { recursive: true })
+      await Deno.remove(rootB, { recursive: true })
+      await Deno.remove(outDir, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'writeCompiledCatalogs: writes an already-compiled result without re-compiling — a caller ' +
+    'that already ran compileMessagesTree/assertNoCompileFailures separately (e.g. to straddle a ' +
+    'step that empties outDir) gets the same destination layout',
+  async () => {
+    const dir = await Deno.makeTempDir({ dir: TMP_ROOT })
+    const outDir = await Deno.makeTempDir({ dir: TMP_ROOT })
+    try {
+      await writeJson(`${dir}/en/index.json`, { title: 'Welcome' })
+      const result = await compileMessagesTree(dir)
+      assertNoCompileFailures(result)
+
+      const written = await writeCompiledCatalogs(result, dir, outDir)
+
+      assertEquals(written, [`${outDir}/messages/0/en/index.json`])
+      const compiled = JSON.parse(await Deno.readTextFile(`${outDir}/messages/0/en/index.json`))
+      assertEquals(compiled, { title: parse('Welcome') })
+    } finally {
+      await Deno.remove(dir, { recursive: true })
+      await Deno.remove(outDir, { recursive: true })
+    }
   },
 )

@@ -42,10 +42,33 @@ Deno.test('Docker create Dockerfile for a space project', async () => {
   const content = await Deno.readTextFile(defaultFolder + '/Dockerfile')
 
   assert(content.includes('deno install'))
-  assert(content.includes('jsr:@zanix/cli space build'))
+  // Installs the `zanix` binary globally FIRST (not on PATH in a fresh `denoland/deno` image),
+  // then builds via this project's own declared `deno task build` — never a second,
+  // independently-maintained `deno run -A jsr:@zanix/cli space build` invocation.
+  assert(content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
+  assert(content.includes('RUN deno task build'))
+  assert(!content.includes('deno run -A jsr:@zanix/cli space build'))
   assert(content.includes('dist/client'))
   assert(content.includes('COPY --from=build'))
   assertFalse(/\$\{[A-Z_]+\}/.test(content))
+
+  // The RUNTIME stage copies explicit, minimal paths — never a blanket `COPY . .` there (the
+  // BUILD stage above it still legitimately does, exactly once, to have the full source available
+  // for `zanix space build`). Confirms the fix for a real bug: the runtime stage used to also
+  // `COPY . .`, shipping `theme/`/`messages/`/`docs/`/tests/etc. that production never reads.
+  assertEquals(content.match(/^COPY \. \.$/gm)?.length, 1)
+  assert(content.includes('COPY src ./src'))
+  assert(content.includes('COPY deno.json* deno.jsonc* deno.lock* mod.ts space.app.ts ./'))
+  // Never copied into the runtime image — `assetsPlugin` already emits every `assetsDir` file
+  // into `dist/client/assets/` at build time, and a raw `COPY assets ./assets` here would both
+  // duplicate that AND fail outright for a project with no `assetsDir` (or an empty one) at all.
+  // Anchored to an actual instruction LINE (no leading `#`) — the surrounding comment legitimately
+  // mentions the same string as guidance for when to add it back by hand.
+  assertFalse(/^COPY assets/m.test(content))
+  assert(!content.includes('COPY theme'))
+  assert(!content.includes('COPY messages'))
+  assert(!content.includes('COPY docs'))
+  assert(!content.includes('COPY README'))
 
   await Deno.remove(defaultFolder, { recursive: true })
 })
@@ -60,10 +83,17 @@ Deno.test('Docker create Dockerfile for a space-server project', async () => {
   const content = await Deno.readTextFile(defaultFolder + '/Dockerfile')
 
   assert(content.includes('deno install'))
-  assert(content.includes('jsr:@zanix/cli space build'))
+  // Installs the `zanix` binary globally FIRST (not on PATH in a fresh `denoland/deno` image),
+  // then builds via this project's own declared `deno task build` — never a second,
+  // independently-maintained `deno run -A jsr:@zanix/cli space build` invocation.
+  assert(content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
+  assert(content.includes('RUN deno task build'))
+  assert(!content.includes('deno run -A jsr:@zanix/cli space build'))
   assert(content.includes('dist/client'))
   assert(content.includes('COPY --from=build'))
   assertFalse(/\$\{[A-Z_]+\}/.test(content))
+  assertEquals(content.match(/^COPY \. \.$/gm)?.length, 1)
+  assert(content.includes('COPY src ./src'))
 
   await Deno.remove(defaultFolder, { recursive: true })
 })

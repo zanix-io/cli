@@ -10,6 +10,6 @@ import type { Editors } from 'commands/prepare/lib/typings.ts'
 export const GITHUB_HOOKS_FOLDER = '.github/hooks'
 export const GITHUB_WORKFLOW_FOLDER = '.github/workflows'
 export const GIT_HOOKS_FOLDER = '.git/hooks'
-export const editors: Record<Editors, { FOLDER: string; FILENAME: string }> = {
+export const EDITORS: Record<Editors, { FOLDER: string; FILENAME: string }> = {
   vscode: { FOLDER: '.vscode', FILENAME: 'settings.json' },
 }

@@ -1,7 +1,7 @@
 # Zanix - CLI
 
 [![Version](https://img.shields.io/jsr/v/@zanix/cli?color=blue&label=jsr)](https://jsr.io/@zanix/cli/versions)
-
+[![Release](https://img.shields.io/github/v/release/zanix-io/cli?color=blue&label=git)](https://github.com/zanix-io/cli/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ## Table of Contents
@@ -30,8 +30,9 @@ and editor configuration — all from one `zanix` binary.
   `server`, `spacecraft`, or `library`).
 - **`zanix generate <artifact> <name>`** — add one artifact (`seeder`,
   `repository`, `handler`, `rto`, `connector`, `interactor`, `job`,
-  `dlqprocessor`, `subscriber`, `comet`, `page`, `layout`, `error`, `loading`,
-  `not-found`) to an already-existing project.
+  `dlqprocessor`, `subscriber`, `middleware`, `globalmiddleware`, `openapi`,
+  `graphql-schema`, `comet`, `component`, `page`, `layout`, `error`,
+  `loading`, `not-found`) to an already-existing project.
 - **`zanix build`** — compile and optionally obfuscate/bundle your code with
   esbuild.
 - **`zanix space <dev|build>`** — run a `@zanix/space` frontend project in dev
@@ -39,7 +40,22 @@ and editor configuration — all from one `zanix` binary.
 - **`zanix prepare`** — scaffold Git hooks, a GitHub Actions publish workflow,
   editor configuration (currently VS Code), and (opt-in, `--docker`) a
   `Dockerfile`/`.dockerignore` for containerized deployment — one destination
-  option among several, see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
+  option among several, see [`docs/deploy.md`](./docs/deploy.md).
+- **`zanix report-issue`** — file a real GitHub issue via the REST API (no
+  `gh` CLI required) against any `zanix-io/<repo>`, using a `GITHUB_TOKEN`
+  from the environment.
+- **`zanix check-cycles`** — detect a real intra-package circular import
+  combined with a top-level side effect that reads a binding still inside
+  that same cycle. Exits non-zero on a confirmed finding, safe to gate CI on.
+- **`zanix credentials mesh <id1> <id2> ...`** — generate a real, matched set
+  of RSA keypairs for N cooperating service identities, printing
+  ready-to-paste, correctly-cross-referenced `.env` blocks. Local-dev/
+  first-integration-setup convenience only — never writes a file, never a
+  production secrets-provisioning path.
+- **`zanix credentials password-hash [password]`** — hash a password via
+  `@zanix/helpers`'s `generateHash()`, printing a single-quoted, ready-to-paste
+  `.env` value (closes a real Deno `--env-file` `$`-expansion footgun).
+  Prompts interactively (hidden input) when no password argument is given.
 
 ## Installation
 
@@ -187,17 +203,26 @@ Full guides for every command live under [`docs/`](./docs):
   `server`, `spacecraft`, `library`).
 - [`generate`](./docs/generate.md) — add one backend artifact (seeder,
   repository, handler, RTO, connector, interactor, job, DLQ processor,
-  subscriber) to an existing project; see
-  [`generate-space.md`](./docs/generate-space.md) for the 6 frontend
-  artifacts (comet, page, layout, error boundary, loading fallback,
-  not-found view).
+  subscriber, middleware, global middleware, OpenAPI spec, GraphQL schema
+  cache) to an existing project; see
+  [`generate-space.md`](./docs/generate-space.md) for the 7 frontend
+  artifacts (comet, component, page, layout, error boundary, loading
+  fallback, not-found view).
 - [`build`](./docs/build.md) — compile and optionally obfuscate/bundle your
   code.
 - [`space`](./docs/space.md) — run a `@zanix/space` project in dev mode with
   real HMR, or build its real, production client bundle.
 - [`prepare`](./docs/prepare.md) — scaffold Git hooks, CI workflow, editor
   configuration, and Docker packaging.
-- [`DEPLOY`](./docs/DEPLOY.md) — destination-agnostic deployment (Docker, a bare
+- [`report-issue`](./docs/report-issue.md) — file a real GitHub issue via the
+  REST API, no `gh` CLI required.
+- [`check-cycles`](./docs/check-cycles.md) — detect a real intra-package
+  circular import combined with a top-level side effect, safe to gate CI on.
+- [`credentials`](./docs/credentials.md) — generate a real, matched set of RSA
+  keypairs for a multi-identity service-to-service auth mesh, or a
+  single-password hash, printing ready-to-paste `.env` values; never writes a
+  file.
+- [`DEPLOY`](./docs/deploy.md) — destination-agnostic deployment (Docker, a bare
   Deno host, Deno Deploy).
 
 For the Zanix framework itself, see the

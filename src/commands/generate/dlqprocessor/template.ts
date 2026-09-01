@@ -10,7 +10,15 @@
  * entry per tick and runs `handler` against it; `registerDLQModel` (from `@zanix/datamaster`'s
  * root) is a separate, one-time-per-app call that must run before `DLQProvider`/
  * `registerDLQProcessor` can resolve the DLQ collection at all — see `dlqModelTemplate` below.
+ *
+ * `kebabName`/`processType`/`schedule` are all free text (`kebabName` has no identifier validation
+ * — `dlqprocessor` doesn't emit a PascalCase class name at all — and `processType`/`schedule` are
+ * unvalidated `--process-type`/`--schedule` flags), so all three are routed through
+ * `escapeTsStringLiteral` right where they're embedded in a string literal below — see that
+ * helper's own doc for why this is required, not optional.
  */
+
+import { escapeTsStringLiteral } from 'commands/generate/shared/escape-template-string.ts'
 
 /** `dlq/<name>.defs.ts` — one `registerDLQProcessor` call per reprocessing job. */
 export const dlqProcessorTemplate = (
@@ -20,9 +28,9 @@ export const dlqProcessorTemplate = (
 ): string =>
   `import { registerDLQProcessor } from '@zanix/asyncmq/dlq'
 
-registerDLQProcessor('${processType}', {
-  name: '${kebabName}',
-  schedule: '${schedule}',
+registerDLQProcessor('${escapeTsStringLiteral(processType)}', {
+  name: '${escapeTsStringLiteral(kebabName)}',
+  schedule: '${escapeTsStringLiteral(schedule)}',
   isActive: true,
   processingQueue: 'soft',
   handler: async function (entry) {

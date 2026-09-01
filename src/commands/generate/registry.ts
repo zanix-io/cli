@@ -9,7 +9,12 @@ import { registerInteractorCommand } from 'commands/generate/interactor/command.
 import { registerJobCommand } from 'commands/generate/job/command.ts'
 import { registerDlqProcessorCommand } from 'commands/generate/dlqprocessor/command.ts'
 import { registerSubscriberCommand } from 'commands/generate/subscriber/command.ts'
+import { registerMiddlewareCommand } from 'commands/generate/middleware/command.ts'
+import { registerGlobalMiddlewareCommand } from 'commands/generate/globalmiddleware/command.ts'
+import { registerOpenapiCommand } from 'commands/generate/openapi/command.ts'
+import { registerGraphqlSchemaCommand } from 'commands/generate/graphql-schema/command.ts'
 import { registerCometCommand } from 'commands/generate/comet/command.ts'
+import { registerComponentCommand } from 'commands/generate/component/command.ts'
 import { registerPageCommand } from 'commands/generate/page/command.ts'
 import { registerLayoutCommand } from 'commands/generate/layout/command.ts'
 import { registerErrorCommand } from 'commands/generate/error/command.ts'
@@ -32,7 +37,12 @@ export const generatorRegistry: Array<(cwd: Commander) => void> = [
   registerJobCommand,
   registerDlqProcessorCommand,
   registerSubscriberCommand,
+  registerMiddlewareCommand,
+  registerGlobalMiddlewareCommand,
+  registerOpenapiCommand,
+  registerGraphqlSchemaCommand,
   registerCometCommand,
+  registerComponentCommand,
   registerPageCommand,
   registerLayoutCommand,
   registerErrorCommand,

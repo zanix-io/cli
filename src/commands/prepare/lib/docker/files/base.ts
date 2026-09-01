@@ -53,12 +53,18 @@ export async function createDockerBaseFile(
 
     return true
   } catch (e) {
+    // Re-thrown, never swallowed into `return false` — that would make a real write failure
+    // (permission error, disk full) indistinguishable from the benign "file already exists,
+    // skipped" case above, which also returns `false`. The caller's own `Promise.all`/
+    // `.catch(this.throw)` chain (`prepareDocker`'s own action) exists specifically to turn a
+    // rejection like this one into a non-zero exit code — that only works if this function lets
+    // the rejection through.
     logger.error(
       `'${filename}' file creation error in '${baseRoot}'`,
       e,
       'noSave',
     )
 
-    return false
+    throw e
   }
 }

@@ -47,14 +47,14 @@ export interface ScaffoldRecipeEntry<Tree> {
  * Runs every entry in `recipe` against the already-built `tree` skeleton (from `ZanixTree.create`),
  * appending each leaf's planned files onto its `templates.base` and returning every collected
  * `sideEffects` entry, flattened, in recipe order. This is the "Scaffold Assembler"
- * `cli/ENGINEERING.md`'s Known Follow-ups described: what used to be one hand-written imperative
- * assignment block per leaf (repeated, near-identically, in both `server.ts` and `space.ts`) is now
- * one shared loop over a declarative list — adding leaf #N to a project type's scaffold is adding
- * one entry to its own recipe array, not writing a new imperative block.
+ * `cli`'s own `docs/engineering.md` (§6.1) describes: one shared loop over a
+ * declarative list, rather than a hand-written imperative assignment block per leaf repeated,
+ * near-identically, in both `server.ts` and `space.ts` — adding leaf #N to a project type's
+ * scaffold is adding one entry to its own recipe array, not writing a new imperative block.
  *
  * Appends, deliberately not `leaf.templates = { base: plan.files }` (a full replace) — every leaf
  * `server`/`space` populate this way starts as an empty placeholder (`{ base: [] }`, see
- * `SERVER_RECIPE_BASE`'s/`SPACE_RECIPE_BASE`'s own comment), so append and replace were previously
+ * `SERVER_RECIPE_BASE`'s/`SPACE_RECIPE_BASE`'s own comment), so append and replace are
  * indistinguishable there. They stop being interchangeable the moment a recipe's `leaf` resolves to
  * a node that already carries real content before this function runs — the whole-project ROOT node,
  * which `commons.ts` (`getCommonTree`) always pre-populates with `README.md`/`CHANGELOG.md`/
@@ -90,9 +90,11 @@ export function assembleScaffold<Tree>(
 
 /**
  * A project type's full set of named presets — `zanix new <type> --template <preset>` resolves
- * here. `{base: [...]}` today (`server.ts`'s `SERVER_RECIPES`, `space.ts`'s `SPACE_RECIPES`,
- * `app.ts`'s `APP_RECIPES`); a future preset #2 is one more entry, added to this object literal
- * alone — `resolveRecipe`/`assembleScaffold` and every generator's own `command.ts` stay untouched.
+ * here. `app.ts`'s `APP_RECIPES` is still just `{ base: [...] }` (a single root `mod.ts` entry has
+ * nothing else to vary on); `server.ts`'s `SERVER_RECIPES` and `space.ts`'s `getSpaceRecipes(theme,
+ * renderer)` have since grown real preset #2/#3/#4 content (`welcome`/`population`/
+ * `population-lang`) — either way, adding one more entry to the object literal is all a new preset
+ * needs: `resolveRecipe`/`assembleScaffold` and every generator's own `command.ts` stay untouched.
  */
 export type ScaffoldRecipeRegistry<Tree> = Record<
   string,

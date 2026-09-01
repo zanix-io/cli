@@ -9,10 +9,11 @@
  *   name:type[]?         optional array field
  *   name:enum(A,B,C)     enum field (values become both the decorator's list and the TS union)
  *
- * Supported `type`s mirror what real `@zanix/validator` decorators + this repo's two hand-invented
- * validators (`IsObjectID`, `IsPermission` — evidenced in `handlers/rtos/validations/` across every
- * real project sampled) actually cover: `string`, `number`, `boolean`, `email`, `date`, `uuid`,
- * `objectId`, `permission`, plus `enum(...)`.
+ * Supported `type`s mirror what real `@zanix/validator` decorators actually cover: `string`,
+ * `number`, `boolean`, `email`, `date`, `uuid`, `objectId`, plus `enum(...)`. `permission` is also
+ * supported (still a meaningful label in a `--field` spec) even though it has no dedicated
+ * decorator of its own — it renders identically to `string`; see `./renderer.ts`'s own doc for why
+ * a previous hand-invented `IsPermission` validator was removed rather than kept/replaced.
  */
 
 export type FieldType =
@@ -92,12 +93,35 @@ export function parseFieldSpec(spec: string): FieldDef {
   }
 }
 
-/** Parses every `--field` value given to the command. Throws if none were given. */
+/**
+ * Parses every `--field` value given to the command. Throws if none were given, or if two (or
+ * more) specs share the same field `name` — each field becomes one `accessor` on the generated
+ * RTO class, so a duplicate name would otherwise silently produce two class members with the
+ * same identifier (invalid TypeScript) with no warning at generation time.
+ */
 export function parseFields(specs: string[]): FieldDef[] {
   if (specs.length === 0) {
     throw new Error(
       "The 'rto' generator needs at least one --field, e.g. --field name:string.",
     )
   }
-  return specs.map(parseFieldSpec)
+
+  const fields = specs.map(parseFieldSpec)
+
+  const seen = new Map<string, number>()
+  for (const field of fields) {
+    seen.set(field.name, (seen.get(field.name) ?? 0) + 1)
+  }
+  const duplicates = [...seen.entries()].filter(([, count]) => count > 1)
+
+  if (duplicates.length > 0) {
+    const detail = duplicates
+      .map(([name, count]) => `'${name}' (given ${count} times)`)
+      .join(', ')
+    throw new Error(
+      `Duplicate --field name(s): ${detail}. Each field needs a unique name.`,
+    )
+  }
+
+  return fields
 }

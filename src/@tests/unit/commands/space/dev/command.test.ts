@@ -1,7 +1,7 @@
 import { getTemporaryFolder } from '@zanix/helpers'
 import { assertRejects } from '@std/assert'
 import { stub } from '@std/testing/mock'
-import spaceDevAction from 'commands/space/dev/command.ts'
+import spaceDevAction from 'commands/space/dev/action.ts'
 import { Commander } from 'cli'
 
 // `spaceDevAction`'s own real orchestration (importing `space.app.ts`, wiring the dev engine,
