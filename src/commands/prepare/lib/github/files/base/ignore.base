@@ -24,6 +24,11 @@ dist-ssr/
 # alike) — regenerated automatically whenever `zanix space dev`/`zanix space build` runs, never
 # meant to be committed.
 **/*.module.css.d.ts
+# A real, temporary sibling `@zanix/cli`'s `importProjectModule` writes next to a project file
+# whose own bare specifiers it's rewriting (`space.app.ts`, a discovered page/layout, ...) —
+# deleted the instant the import that created it resolves. Only ever survives on disk at all if
+# the process was killed mid-import; carries its own "safe to delete" header when it does.
+**/.zanix-import-*.js
 
 # Environment & config files
 .env

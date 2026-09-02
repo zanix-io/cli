@@ -23,6 +23,7 @@ import { getRoutesDir } from '@zanix/space'
 import { dirname, resolve } from '@std/path'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
+import { sweepStaleGeneratedModules } from 'commands/space/shared/import-project-module.ts'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
 import { reportValidation } from 'commands/space/shared/report-validation.ts'
 import { runDevValidation } from 'commands/space/dev/validation.ts'
@@ -146,6 +147,12 @@ async function spaceDevAction(
   assertProjectType(this, ['space', 'space-server'], 'space dev')
 
   const root = Deno.cwd()
+  // Before anything else touches this project's own tree — a killed earlier `zanix space dev`/
+  // `build` session (Ctrl+C, a crash) can leave a `.zanix-import-*.js` temp file behind (see
+  // `sweepStaleGeneratedModules`'s own doc for why nothing legitimate ever survives to a LATER,
+  // separate invocation); this sweep is what actually reclaims it, since nothing else ever revisits
+  // an orphan a random UUID names uniquely.
+  await sweepStaleGeneratedModules(root)
   const spaceApp = await importSpaceApp(this, root)
 
   // Same guard `zanix space build` runs, for the same reason: a renderer mismatch between

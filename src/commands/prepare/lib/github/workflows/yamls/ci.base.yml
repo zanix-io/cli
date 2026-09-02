@@ -37,3 +37,6 @@ jobs:
 
       - name: Check for circular-import hazards
         run: deno run -A jsr:@zanix/cli check-cycles
+
+      - name: Check for duplicate '@zanix/*' dependencies
+        run: deno run -A jsr:@zanix/cli check-duplicates

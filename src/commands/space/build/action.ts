@@ -4,6 +4,10 @@ import type { CompileTreeResult } from 'commands/space/shared/compile-messages.t
 
 import { assertProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
+import {
+  importProjectModule,
+  sweepStaleGeneratedModules,
+} from 'commands/space/shared/import-project-module.ts'
 import { toValidationFlags } from 'commands/space/shared/validation-flags.ts'
 import {
   failOnBlockingDiagnostics,
@@ -80,6 +84,11 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   assertProjectType(this, ['space', 'space-server'], 'space build')
 
   const root = Deno.cwd()
+  // Before anything else touches this project's own tree — same reasoning as `zanix space dev`'s
+  // own identical call: a killed earlier session can leave a `.zanix-import-*.js` temp file
+  // behind, and nothing else ever revisits an orphan a random UUID names uniquely. See
+  // `sweepStaleGeneratedModules`'s own doc for the full account.
+  await sweepStaleGeneratedModules(root)
   await importSpaceApp(this, root)
 
   const { getGlobalCssPaths, getPwaConfig, getActiveRenderer, getMessagesDir, getRoutesDir } =
@@ -169,6 +178,14 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     // this command's own — worked around here rather than left to break every real consumer's
     // `--renderer react` (and, less commonly, `preact`) production build.
     plugins: [fixNpmSlashSpecifierPlugin()],
+    // `zanix space build` runs `buildSpaceClient` (and its own `discoverPages` page-discovery pass)
+    // from inside `@zanix/cli`'s own process, never a freshly spawned one rooted at `root` — without
+    // this, a page/layout importing a project-local import-map alias (declared only in this
+    // project's own `deno.json(c)`) would resolve against `@zanix/cli`'s OWN configuration instead
+    // and fail with "not a dependency and not in import map". See `importProjectModule`'s own doc
+    // for the full mechanism, and `BuildSpaceClientOptions.importModule`'s own doc in `@zanix/space`
+    // for why this is a real, previously-unpatched gap.
+    importModule: importProjectModule,
   })
 
   // Written HERE, after `buildSpaceClient` — see the comment above `compiledMessages` for why.

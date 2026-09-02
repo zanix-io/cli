@@ -25,4 +25,23 @@ if [ "$status" -ne 0 ]; then
   exit "$status"
 fi
 
+######### DEPENDENCY-GRAPH CHECKS ###############
+
+# Both are read-only checks against this project's own source/lockfile (never fixed here) — a
+# confirmed finding blocks the push same as a failing test above, override with --no-verify.
+
+deno task check-cycles
+cycles_status=$?
+if [ "$cycles_status" -ne 0 ]; then
+  printf '\n\033[1;31merror[pre-push]\033[0m: `deno task check-cycles` failed (exit %s). Not pushing. (override with the --no-verify flag).\n' "$cycles_status"
+  exit "$cycles_status"
+fi
+
+deno task check-duplicates
+duplicates_status=$?
+if [ "$duplicates_status" -ne 0 ]; then
+  printf '\n\033[1;31merror[pre-push]\033[0m: `deno task check-duplicates` failed (exit %s). Not pushing. (override with the --no-verify flag).\n' "$duplicates_status"
+  exit "$duplicates_status"
+fi
+
 exit 0

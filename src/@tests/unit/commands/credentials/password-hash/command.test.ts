@@ -55,14 +55,22 @@ Deno.test('credentials password-hash rejects (via this.throw) an invalid --level
 
 Deno.test(
   'credentials password-hash rejects with no password given and no interactive terminal to ' +
-    'prompt from (the real shape `deno test` itself runs under — stdin is never a TTY here)',
+    'prompt from (stdin.isTerminal() is stubbed to false here — `deno test` only has a non-TTY ' +
+    "stdin when its OWN stdin isn't a real terminal, e.g. piped/CI; run directly from an " +
+    'interactive shell, the real `promptSecret` this exercises would otherwise block waiting ' +
+    'for actual keyboard input instead of hitting this rejection)',
   async () => {
-    await assertRejects(
-      () => registeredPasswordHashAction.call(new Commander(), { level: 'medium' }),
-      Error,
-      "needs a password — either pass it as an argument ('zanix credentials password-hash " +
-        "<password>') or run this in a real interactive terminal",
-    )
+    const isTerminalStub = stub(Deno.stdin, 'isTerminal', () => false)
+    try {
+      await assertRejects(
+        () => registeredPasswordHashAction.call(new Commander(), { level: 'medium' }),
+        Error,
+        "needs a password — either pass it as an argument ('zanix credentials password-hash " +
+          "<password>') or run this in a real interactive terminal",
+      )
+    } finally {
+      isTerminalStub.restore()
+    }
   },
 )
 

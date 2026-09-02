@@ -53,6 +53,12 @@ Regardless of type, `zanix new` always seeds:
 - `.dist/` (empty, the build output folder — see [`build`](./build.md)).
 - `src/@tests/{integration,unit,functional}/example.test.ts`.
 - `src/typings/index.d.ts`, `src/utils/example.ts`.
+- `deno task check-cycles` / `deno task check-duplicates` in the generated
+  `deno.json`, always — unlike `dev`/`start`/`worker` (below, runnable types
+  only), these two are read-only checks against the project's own
+  source/lockfile, meaningful for a `library` just as much as a runnable
+  service. See [`check-cycles`](./check-cycles.md)/
+  [`check-duplicates`](./check-duplicates.md).
 
 Every project type except `library` (i.e. `app`, `space`, `server`, and
 `spacecraft`, which is both `space` and `server`) additionally gets:

@@ -5,11 +5,13 @@ import generateCommand from 'commands/generate/main.ts'
 import spaceCommand from 'commands/space/main.ts'
 import reportIssueCommand from 'commands/report-issue/main.ts'
 import checkCyclesCommand from 'commands/check-cycles/main.ts'
+import checkDuplicatesCommand from 'commands/check-duplicates/main.ts'
 import credentialsCommand from 'commands/credentials/main.ts'
 
 export {
   buildCommand,
   checkCyclesCommand,
+  checkDuplicatesCommand,
   credentialsCommand,
   generateCommand,
   newCommand,

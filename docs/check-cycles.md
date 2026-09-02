@@ -56,9 +56,12 @@ doesn't duplicate the check or run unrelated to it in parallel: its own
 `ci` job invokes `ci.yml` as a reusable workflow, and its `publish` job
 declares `needs: ci` — a confirmed `check-cycles` finding fails `ci.yml`'s
 job, which blocks `publish.yml`'s `deno test`/`deno publish` from ever
-starting. Deliberately not wired into the pre-commit hook — a cycle by
+starting. Also wired into the generated `pre-push` Git hook (`deno task
+check-cycles`, alongside `check-duplicates`'s own matching task) — a
+confirmed finding blocks the push, same as a failing test (override with
+`--no-verify`). Deliberately not wired into the `pre-commit` hook — a cycle by
 definition spans files that won't all be staged together in a typical
-commit, and the `deno info`/AST-pass cost fits a once-per-PR CI cadence far
+commit, and the `deno info`/AST-pass cost fits a once-per-push/PR cadence far
 better than a per-commit local hook. See [`prepare`](./prepare.md) for the
 full `-g` scaffolding this is part of.
 
@@ -85,3 +88,7 @@ zanix check-cycles --path ./packages/notifications
 
 - [`build`](./build.md) — another single-leaf, non-generator top-level
   command with the same bare-`Commander` shape.
+- [`check-duplicates`](./check-duplicates.md) — another single-leaf,
+  non-generator top-level command with the same bare-`Commander` shape,
+  checking a different real bug class: a `@zanix/*` package resolved to more
+  than one version at once in `deno.lock`.

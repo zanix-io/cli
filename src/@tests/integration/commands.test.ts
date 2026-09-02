@@ -4,6 +4,7 @@ import buildCommand from 'commands/build/main.ts'
 import newCommand from 'commands/new/main.ts'
 import reportIssueCommand from 'commands/report-issue/main.ts'
 import checkCyclesCommand from 'commands/check-cycles/main.ts'
+import checkDuplicatesCommand from 'commands/check-duplicates/main.ts'
 import credentialsCommand from 'commands/credentials/main.ts'
 import { DEFAULT_REPO } from 'commands/report-issue/lib/github-issue.ts'
 import { Commander } from 'cli'
@@ -118,6 +119,18 @@ Deno.test('check-cycles command should be correctly defined', () => {
   const command = cwd.getCommands()[0]
   assertExists(command.settings.description)
   assertEquals(command.settings.name, 'check-cycles')
+  assert(command.builder.options.length === 1)
+  assertEquals(command.builder.options[0].name, 'path')
+  assertEquals(command.getOption('path')?.default, '.')
+})
+
+Deno.test('check-duplicates command should be correctly defined', () => {
+  const cwd = new Commander()
+  checkDuplicatesCommand.call(cwd)
+
+  const command = cwd.getCommands()[0]
+  assertExists(command.settings.description)
+  assertEquals(command.settings.name, 'check-duplicates')
   assert(command.builder.options.length === 1)
   assertEquals(command.builder.options[0].name, 'path')
   assertEquals(command.getOption('path')?.default, '.')

@@ -135,6 +135,89 @@ export default defineSpaceApp({ name: \`app-\${marker}\`, routesDir: './routes' 
 )
 
 Deno.test(
+  'importSpaceApp resolves a real *.module.css import reached through a relative import — a ' +
+    "Comet's own CSS Modules import must not crash native import() with Deno's own " +
+    '"Expected a JavaScript or TypeScript module" (CSS stub regression)',
+  async () => {
+    const root = await Deno.makeTempDir({ dir: TMP_ROOT })
+    await Deno.writeTextFile(
+      `${root}/deno.json`,
+      JSON.stringify({
+        zanix: { project: 'space' },
+        imports: { '@zanix/space': 'jsr:@zanix/space@^0.3.2' },
+      }),
+    )
+    await Deno.writeTextFile(`${root}/styles.module.css`, '.button { color: red; }\n')
+    await Deno.writeTextFile(
+      `${root}/comet.ts`,
+      `import styles from './styles.module.css'\nexport const marker = typeof styles\n`,
+    )
+    await Deno.writeTextFile(
+      `${root}/space.app.ts`,
+      `import { defineSpaceApp } from '@zanix/space'
+import { marker } from './comet.ts'
+
+export default defineSpaceApp({ name: \`app-\${marker}\`, routesDir: './routes' })
+`,
+    )
+    let thrown: unknown
+    const fakeCommander: FakeCommander = {
+      throw: (e) => {
+        thrown = e
+      },
+    }
+
+    try {
+      const app = await importSpaceApp(fakeCommander as never, root)
+      assertEquals(thrown, undefined)
+      // `typeof {}` — a real, non-crashing default export, never the raw CSS file's own path
+      // handed to native `import()` unchanged (which throws before this point).
+      assertEquals(app.definition.name, 'app-object')
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'importSpaceApp resolves a real *.json import reached through a relative import with its ACTUAL ' +
+    'content, never an empty stub (JSON stub regression)',
+  async () => {
+    const root = await Deno.makeTempDir({ dir: TMP_ROOT })
+    await Deno.writeTextFile(
+      `${root}/deno.json`,
+      JSON.stringify({
+        zanix: { project: 'space' },
+        imports: { '@zanix/space': 'jsr:@zanix/space@^0.3.2' },
+      }),
+    )
+    await Deno.writeTextFile(`${root}/data.json`, JSON.stringify({ label: 'from-json' }))
+    await Deno.writeTextFile(
+      `${root}/space.app.ts`,
+      `import { defineSpaceApp } from '@zanix/space'
+import data from './data.json'
+
+export default defineSpaceApp({ name: \`app-\${data.label}\`, routesDir: './routes' })
+`,
+    )
+    let thrown: unknown
+    const fakeCommander: FakeCommander = {
+      throw: (e) => {
+        thrown = e
+      },
+    }
+
+    try {
+      const app = await importSpaceApp(fakeCommander as never, root)
+      assertEquals(thrown, undefined)
+      assertEquals(app.definition.name, 'app-from-json')
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
   'importSpaceApp should route an invalid default export through cwd.throw',
   async () => {
     const root = await Deno.makeTempDir({ dir: TMP_ROOT })

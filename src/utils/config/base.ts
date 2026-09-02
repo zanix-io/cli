@@ -140,8 +140,18 @@ export function baseZnxConfig(
   // `worker.ts` (see `getWorkerModTemplate`) only exists for `server`/`space-server` — plain
   // `space` has no `@zanix/core`/`@zanix/asyncmq` dependency to bootstrap a worker with.
   const hasWorkerEntrypoint = type === 'server' || type === 'space-server'
+  // Unconditional, every project type (unlike `dev`/`start`/`worker` below, which need a real
+  // runnable entrypoint) — both read-only checks against the project's own `deno.lock`/import
+  // graph, meaningful for a `library`/`app` just as much as a runnable service. Invokes the
+  // published `@zanix/cli` (`jsr:@zanix/cli`), not a local task self-reference, so these work the
+  // same in a freshly-scaffolded project with no other dependency on this package.
+  const checkTasks: ConfigFile['tasks'] = {
+    'check-cycles': 'deno run -A jsr:@zanix/cli check-cycles',
+    'check-duplicates': 'deno run -A jsr:@zanix/cli check-duplicates',
+  }
   const tasks: ConfigFile['tasks'] = hasRunnableEntrypoint
     ? {
+      ...checkTasks,
       // `deno install` runs first, ONLY for `space`/`space-server` — `zanix space dev`'s own Vite
       // server resolves npm-backed imports (e.g. `@zanix/space`'s client hydration code importing
       // `react-dom` directly) straight from the local npm cache/node_modules, never lazily on
@@ -178,7 +188,7 @@ export function baseZnxConfig(
         }
         : {}),
     }
-    : undefined
+    : checkTasks
 
   if (type === 'space' || type === 'space-server') {
     linterTags.push(...['react', 'jsx'])

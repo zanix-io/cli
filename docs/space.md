@@ -71,9 +71,11 @@ project is simply a no-op, since there's no `.js` output to obfuscate.
 ## How `space.app.ts` (and a page, or a GraphQL client/query file) gets its own dependencies
 
 Both `zanix space dev` and `zanix space build` dynamically import this project's own
-`space.app.ts` — and, under `--validation=render`, a discovered page's own module; and, when a
-`gql/` directory exists, every `**/*.client.ts` GraphQL client and `gql/**/*.gql.ts` query module —
-from CLI-owned code. Every one of these resolves its own bare specifiers against **this project's
+`space.app.ts`; every discovered page/layout's own module, during ordinary page discovery (which
+runs on every invocation, not only under `--validation=render` — that flag additionally imports
+each page again for the render probe); and, when a `gql/` directory exists, every `**/*.client.ts`
+GraphQL client and `gql/**/*.gql.ts` query module — from CLI-owned code. Every one of these resolves
+its own bare specifiers against **this project's
 own nearest `deno.json`/`deno.jsonc`**, including a `"links"` override this project declares (the
 standard way to test an unpublished local checkout of a dependency before it publishes) — this
 holds regardless of whether `@zanix/cli` itself is a normal `jsr:@zanix/cli` install or run from a

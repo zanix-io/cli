@@ -67,7 +67,12 @@ export async function runDevValidation(
   // `buildSpaceClient()` resolves to for `zanix space build`, so both commands discover the exact
   // same pages.
   const routesDir = getRoutesDir()
-  const pages = await discoverPages(routesDir)
+  // `importProjectModule`, not `discoverPages`'s own native-`import()` default — `runDevValidation`
+  // runs inside `@zanix/cli`'s own process, same as `runRenderProbe`'s `loadPage` just below: a bare
+  // specifier a page/layout imports through a project-local import-map alias would otherwise resolve
+  // against `@zanix/cli`'s OWN configuration and fail with "not a dependency and not in import map".
+  // See `importProjectModule`'s own doc for the full mechanism.
+  const pages = await discoverPages(routesDir, importProjectModule)
 
   // Same derivation `buildSpaceClient()` runs for `zanix space build` — see that function's own
   // doc for why `'auto'` is a real, `undefined`-free case here rather than a skipped one.

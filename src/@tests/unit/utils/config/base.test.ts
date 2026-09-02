@@ -38,10 +38,42 @@ Deno.test(
   },
 )
 
-Deno.test('baseZnxConfig: library/app have no runnable entrypoint, so no tasks at all', () => {
-  assertEquals(baseZnxConfig('library').tasks, undefined)
-  assertEquals(baseZnxConfig('app').tasks, undefined)
-})
+Deno.test(
+  'baseZnxConfig: library/app have no runnable entrypoint, so no dev/start/worker tasks — but ' +
+    'still get check-cycles/check-duplicates, meaningful for any project type',
+  () => {
+    assertEquals(baseZnxConfig('library').tasks?.dev, undefined)
+    assertEquals(baseZnxConfig('library').tasks?.start, undefined)
+    assertEquals(baseZnxConfig('app').tasks?.dev, undefined)
+    assertEquals(baseZnxConfig('app').tasks?.start, undefined)
+    assertEquals(
+      baseZnxConfig('library').tasks?.['check-cycles'],
+      'deno run -A jsr:@zanix/cli check-cycles',
+    )
+    assertEquals(
+      baseZnxConfig('library').tasks?.['check-duplicates'],
+      'deno run -A jsr:@zanix/cli check-duplicates',
+    )
+    assertEquals(baseZnxConfig('app').tasks, baseZnxConfig('library').tasks)
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: check-cycles/check-duplicates are unconditional, present for every project type',
+  () => {
+    const types: ZanixProjects[] = ['app', 'library', 'server', 'space', 'space-server']
+    for (const type of types) {
+      assertEquals(
+        baseZnxConfig(type).tasks?.['check-cycles'],
+        'deno run -A jsr:@zanix/cli check-cycles',
+      )
+      assertEquals(
+        baseZnxConfig(type).tasks?.['check-duplicates'],
+        'deno run -A jsr:@zanix/cli check-duplicates',
+      )
+    }
+  },
+)
 
 Deno.test(
   'baseZnxConfig: server/space-server get a worker task pointed at worker.ts, same permissions as start',

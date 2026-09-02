@@ -16,7 +16,10 @@ editor config, and opt-in Docker packaging), `zanix report-issue` (file a
 GitHub issue via the REST API — no `gh` CLI dependency, see
 [`docs/report-issue.md`](./report-issue.md)), `zanix check-cycles` (detect a
 real circular-import-plus-top-level-side-effect combination, see
-[`docs/check-cycles.md`](./check-cycles.md)), and `zanix credentials
+[`docs/check-cycles.md`](./check-cycles.md)), `zanix check-duplicates`
+(detect a `@zanix/*` package resolved to more than one distinct version at
+once in `deno.lock`, see
+[`docs/check-duplicates.md`](./check-duplicates.md)), and `zanix credentials
 <mesh|password-hash>` (a matched RSA keypair set for a multi-identity service
 mesh, or a single password hash, see [`docs/credentials.md`](./credentials.md)).
 This document covers the parts of
@@ -344,7 +347,8 @@ an empty-in-spirit stub adds indirection with no payoff.
 ### 4.4 Public Documentation
 
 `README.md` and `docs/{new,generate,generate-space,build,space,prepare,
-report-issue,check-cycles,credentials,deploy}.md` (under `docs/`, alongside
+report-issue,check-cycles,check-duplicates,credentials,deploy}.md` (under
+`docs/`, alongside
 this file) are the user-facing counterpart to this document — command
 reference, options tables, and verified real-output examples for every command,
 kept accurate against the real `command.ts`/`template.ts` source rather than

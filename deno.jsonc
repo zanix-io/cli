@@ -89,23 +89,20 @@
     "@zanix/asyncmq/jobs": "jsr:@zanix/asyncmq@^0.8.0/jobs",
     "@zanix/app": "jsr:@zanix/app@^0.2.1",
     "@zanix/app/runtime": "jsr:@zanix/app@^0.2.1/runtime",
-    "@zanix/space": "jsr:@zanix/space@^1.0.0",
-    "@zanix/space/vite": "jsr:@zanix/space@^1.0.0/vite",
-    "@zanix/space/dev": "jsr:@zanix/space@^1.0.0/dev",
-    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.0.0/assets-manifest",
-    "@zanix/space/comet": "jsr:@zanix/space@^1.0.0/comet",
-    "@zanix/space/client": "jsr:@zanix/space@^1.0.0/client",
-    "@zanix/space/client/preact": "jsr:@zanix/space@^1.0.0/client/preact",
-    // `@zanix/cli` never imports these two itself (a project's own renderer choice, never cli's
-    // concern) — declared here anyway, for the SAME reason every other `@zanix/space` subpath
-    // above is: `import-project-module.ts`'s own general fix defers ANY bare specifier
-    // `@zanix/cli`'s own configuration already resolves to native resolution, specifically so a
-    // package `@zanix/cli` ALSO imports natively (`@zanix/space` itself, for `getActiveRenderer()`/
-    // `activateApps()`) shares ONE module instance with whatever a project's own `space.app.ts`
-    // imports.
-    "@zanix/space/react": "jsr:@zanix/space@^1.0.0/react",
-    "@zanix/space/preact": "jsr:@zanix/space@^1.0.0/preact",
-    "@zanix/space-ui": "jsr:@zanix/space-ui@^0.2.1",
+    "@zanix/space": "jsr:@zanix/space@^1.1.0",
+    "@zanix/space/vite": "jsr:@zanix/space@^1.1.0/vite",
+    "@zanix/space/dev": "jsr:@zanix/space@^1.1.0/dev",
+    "@zanix/space/testing": "jsr:@zanix/space@^1.1.0/testing",
+    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.1.0/assets-manifest",
+    "@zanix/space/comet": "jsr:@zanix/space@^1.1.0/comet",
+    "@zanix/space/client": "jsr:@zanix/space@^1.1.0/client",
+    "@zanix/space/client/preact": "jsr:@zanix/space@^1.1.0/client/preact",
+    "@zanix/space/react": "jsr:@zanix/space@^1.1.0/react",
+    "@zanix/space/preact": "jsr:@zanix/space@^1.1.0/preact",
+    "@zanix/space-ui": "jsr:@zanix/space-ui@^1.0.0",
+    "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^1.0.0/preact",
+    "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^1.0.0/runtime",
+    "@zanix/space-ui/runtime/preact": "jsr:@zanix/space-ui@^1.0.0/runtime/preact",
     // The one real ICU dependency this package owns — `@zanix/space` itself never depends on this
     // (see `compile-messages.ts`'s own module doc). Same version `@zanix/space-ui` pins for its own
     // (type-only) reference to `MessageFormatElement`, kept in sync deliberately, not by accident.
@@ -117,9 +114,14 @@
     // cost paid by any `zanix` invocation outside `space build`/`space dev` with a real `gql/`
     // directory present.
     "graphql": "npm:graphql@^16",
-    // Same versions `@zanix/space`'s own `deno.json` declares — needed here too, transitively, for
-    // the same reason the `jsx`/`jsxImportSource` compilerOptions above are: `@zanix/space`'s own
-    // `.tsx` source is being type-checked directly, not consumed as an already-published package.
+    // Same reason as `preact`/`preact/hooks` below: `zanix space dev` resolves a scaffolded
+    // project's own dependencies against THIS config, not the project's own `deno.json` (see the
+    // `@zanix/cli cannot honor that link` warning `dev-engine.ts`'s own fallback logs) — a
+    // `--renderer react` project's routes/Comets import `react`/`react-dom` directly, and without
+    // these declared HERE too, `zanix space dev` fails the moment it tries to resolve them.
+    // `command.test.ts`'s in-process `space build` integration tests reuse THIS repo's own
+    // `node_modules` too, so this must be declared here regardless, not only in
+    // `THIRD_PARTY_DEPENDENCY_VERSIONS` (which covers what a freshly generated project gets).
     "react": "npm:react@^19.2.0",
     "react-dom": "npm:react-dom@^19.2.0",
     // `@zanix/space's own Vite build pipeline now wires `@vitejs/plugin-react`'s
@@ -130,8 +132,9 @@
     // `node_modules`, not a scaffolded project's, so this must be declared here too, not only in
     // `THIRD_PARTY_DEPENDENCY_VERSIONS` (which covers what a freshly generated project gets).
     "babel-plugin-react-compiler": "npm:babel-plugin-react-compiler@^1.0.0",
-    // `react`/`react-dom` ship no `.d.ts` of their own — without these, `@zanix/space`'s `.tsx`
-    // internals type-check with `jsx`/`jsxImportSource` set but no JSX/`Component` types to back it.
+    // `react`/`react-dom` ship no `.d.ts` of their own — needed so `command.test.ts`'s in-process
+    // `space build` runs (reusing THIS repo's own `node_modules`) type-check cleanly against real
+    // JSX/`Component` types, same reachability reason as `react`/`react-dom` above.
     "@types/react": "npm:@types/react@^19.2.0",
     "@types/react-dom": "npm:@types/react-dom@^19.2.0",
     // Same reason as `react`/`react-dom` above, for the OTHER renderer: `zanix space dev` resolves
@@ -155,6 +158,21 @@
     // `space-plugin.ts`'s own doc in `@zanix/space` for the full mechanism.
     "@prefresh/core": "npm:@prefresh/core@^1.5.10",
     "@prefresh/utils": "npm:@prefresh/utils@^1.2.1",
+    // Needed for `@zanix/space`'s own `nativeRuntimeModulesPlugin` (`native-runtime-modules.ts`) to
+    // resolve `@zanix/auth` at all, not for anything `cli` itself imports directly. That plugin
+    // fixes a real module-identity split — a route's own `@Guard` bare-importing `@zanix/auth`
+    // (e.g. `ctx.providers.get(ZanixAuthProvider)`, a real, documented pattern) otherwise gets a
+    // SEPARATE, Vite-SSR-evaluated copy of the class than the one `space.app.ts`'s own native
+    // `import '@zanix/auth/core'` registered DI metadata onto, throwing `[BaseInstancesContainer]:
+    // Target is not a constructor` on every request even though `ctx.providers.get('auth')` (the
+    // SAME provider, by string key) resolves fine — by routing the specifier through a real native
+    // `import()` instead, sharing the SAME already-loaded instance. That native `import()` — like
+    // every bare specifier for a running `zanix` process, regardless of which file/package issues
+    // it — resolves against THIS config, never a scaffolded project's own `deno.json` (same
+    // `preact`/`preact/hooks` reasoning above): without this entry, it fails outright with "not a
+    // dependency and not in import map" (confirmed live), turning the identity fix into a hard
+    // resolution failure instead.
+    "@zanix/auth": "jsr:@zanix/auth@^1.0.0",
     "@std/path": "jsr:@std/path@0.224",
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/jsonc": "jsr:@std/jsonc@1.0.2",

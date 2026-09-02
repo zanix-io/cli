@@ -47,6 +47,11 @@ and editor configuration — all from one `zanix` binary.
 - **`zanix check-cycles`** — detect a real intra-package circular import
   combined with a top-level side effect that reads a binding still inside
   that same cycle. Exits non-zero on a confirmed finding, safe to gate CI on.
+- **`zanix check-duplicates`** — detect a `@zanix/*` package resolved to more
+  than one distinct version at once in `deno.lock` — the dual-package-hazard
+  shape that makes `@zanix/server`'s identity-keyed DI container throw
+  `Target is not a constructor` for a class that's really the same class
+  loaded twice. Exits non-zero on a confirmed finding, safe to gate CI on.
 - **`zanix credentials mesh <id1> <id2> ...`** — generate a real, matched set
   of RSA keypairs for N cooperating service identities, printing
   ready-to-paste, correctly-cross-referenced `.env` blocks. Local-dev/
@@ -218,6 +223,9 @@ Full guides for every command live under [`docs/`](./docs):
   REST API, no `gh` CLI required.
 - [`check-cycles`](./docs/check-cycles.md) — detect a real intra-package
   circular import combined with a top-level side effect, safe to gate CI on.
+- [`check-duplicates`](./docs/check-duplicates.md) — detect a `@zanix/*`
+  package resolved to more than one distinct version at once in `deno.lock`,
+  safe to gate CI on.
 - [`credentials`](./docs/credentials.md) — generate a real, matched set of RSA
   keypairs for a multi-identity service-to-service auth mesh, or a
   single-password hash, printing ready-to-paste `.env` values; never writes a

@@ -28,14 +28,18 @@ Sets up, in order:
   - `pre-commit` — runs `deno fmt`/`deno lint --fix` on staged files matching
     `--fmt-files`/ `--lint-files`, then re-stages them. Fails the commit if
     either step fails.
-  - `pre-push` — runs `deno test --allow-all`; if a test contains
-    `.only`/`.skip`, the push is blocked (override with Git's own
-    `--no-verify`).
+  - `pre-push` — runs `deno test --allow-all`, then `deno task check-cycles`
+    and `deno task check-duplicates` (see [`check-cycles`](./check-cycles.md)/
+    [`check-duplicates`](./check-duplicates.md)); if a test contains
+    `.only`/`.skip`, or either check reports a finding, the push is blocked
+    (override with Git's own `--no-verify`).
 - **`.github/workflows/ci.yml`** — runs `deno fmt --check`, `deno lint`, then
-  `zanix check-cycles` (see [`check-cycles`](./check-cycles.md) — the
-  intra-package circular-import hazard check), each as its own step so a
-  failure's cause is unambiguous from the job log alone, on every push/PR to
-  the main branch. Generated for EVERY project type. Also declares
+  `zanix check-cycles` and `zanix check-duplicates` (see
+  [`check-cycles`](./check-cycles.md)/[`check-duplicates`](./check-duplicates.md)
+  — the intra-package circular-import hazard check and the duplicate-`@zanix/*`-
+  dependency check), each as its own step so a failure's cause is unambiguous
+  from the job log alone, on every push/PR to the main branch. Generated for
+  EVERY project type. Also declares
   `workflow_call`, so it doubles as a reusable workflow, not just a
   standalone one.
 - **`.github/workflows/publish.yml`** — generated ADDITIONALLY, only for
@@ -44,7 +48,8 @@ Sets up, in order:
   ./.github/workflows/ci.yml`), and the `publish` job declares `needs: ci`
   — `deno test` plus `deno publish` (run on an actual push, never on an
   open PR) only start once `ci.yml`'s own `deno fmt --check`/`deno lint`/
-  `check-cycles` steps have actually succeeded, not in parallel with them.
+  `check-cycles`/`check-duplicates` steps have actually succeeded, not in
+  parallel with them.
 - **`.gitignore`** — a base ignore file for a Deno project.
 
 Passing `--hooks-engine framework` installs the
