@@ -5,6 +5,7 @@ import {
   createImportBatchContext,
   importProjectModule,
   readNewestDependencyDate,
+  reconstructNpmSpecifierFromResolvedPath,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
 
@@ -483,6 +484,75 @@ Deno.test(
     } finally {
       await Deno.remove(root, { recursive: true })
     }
+  },
+)
+
+Deno.test(
+  'reconstructNpmSpecifierFromResolvedPath: parses a real, currently-resolved Deno npm-cache ' +
+    "path (react's own CJS jsx-runtime shim) into a working npm: specifier, with no config file " +
+    'read at all',
+  async () => {
+    // Real, confirmed bug this closes: the ORIGINAL `node_modules` reconstruction (both in
+    // `resolveReplacement`'s `cliLoader` branch and its project-anchored counterpart) relied
+    // entirely on reading a local config FILE (`cliConfigPath`/`referrerConfigPath`) — but
+    // `cliConfigPath` is `undefined` for any genuine `deno install -g jsr:@zanix/cli` install
+    // (never a local checkout), which made that reconstruction silently no-op on every real-world
+    // case that needed it. Reported live (`zanix-iam`, a real global 2.0.8 install): the exact
+    // same "does not provide an export named 'jsx'" failure, completely unchanged by that first
+    // fix, because reconstruction never actually ran — no unit test caught this, since a `deno
+    // test` run always has a real `file://` `import.meta.url`, so `cliConfigPath` can never
+    // actually BE `undefined` in that context (same limitation `getCliLoader`'s own test above
+    // documents). This function is the real fix: it needs no config file at all, parsing the
+    // version straight out of Deno's own stable npm-cache directory layout.
+    const reactPath = new URL(
+      '../../../../../../node_modules/.deno/react@19.2.8/node_modules/react/jsx-runtime.js',
+      import.meta.url,
+    )
+    const resolved = await Deno.stat(reactPath).then(() => true).catch(() => false)
+    assert(
+      resolved,
+      `expected a real, currently-cached react@19.2.8 at ${reactPath} — if this repo's own ` +
+        'react version bumped, update this fixture path to match',
+    )
+
+    const reconstructed = reconstructNpmSpecifierFromResolvedPath(
+      reactPath.href,
+      'react/jsx-runtime',
+    )
+    assertEquals(reconstructed, 'npm:react@19.2.8/jsx-runtime')
+
+    // Not just a string match — confirm the reconstructed specifier actually resolves and works,
+    // the same real interop check the original bug was about. The literal, not `reconstructed`
+    // itself, so this still exercises a real import even if the assertion above regresses.
+    const mod = await import('npm:react@19.2.8/jsx-runtime') as { jsx: unknown }
+    assertEquals(typeof mod.jsx, 'function')
+  },
+)
+
+Deno.test(
+  'reconstructNpmSpecifierFromResolvedPath: parses a scoped package (Deno\'s own "+" separator ' +
+    'convention in its npm-cache directory names, e.g. @radix-ui+primitive)',
+  () => {
+    const resolved = 'file:///project/node_modules/.deno/@radix-ui+primitive@1.1.7/' +
+      'node_modules/@radix-ui/primitive/dist/index.mjs'
+    assertEquals(
+      reconstructNpmSpecifierFromResolvedPath(resolved, '@radix-ui/primitive'),
+      'npm:@radix-ui/primitive@1.1.7',
+    )
+  },
+)
+
+Deno.test(
+  "reconstructNpmSpecifierFromResolvedPath: returns undefined for a path that isn't Deno's own " +
+    'npm-cache layout at all — never a wrong guess',
+  () => {
+    assertEquals(
+      reconstructNpmSpecifierFromResolvedPath(
+        'file:///some/vendored/local/copy/react/jsx-runtime.js',
+        'react/jsx-runtime',
+      ),
+      undefined,
+    )
   },
 )
 

@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.8",
+  "version": "2.0.9-alpha.1",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's OWN dependencies (e.g. `@zanix/server`, imported
@@ -60,7 +60,7 @@
       ]
     },
     "exclude": [".dist/", "__tmp__"],
-    "plugins": ["jsr:@zanix/utils@^4.1.0/linter/deno-zanix-plugin"],
+    "plugins": ["jsr:@zanix/utils@^4.2.1/linter/deno-zanix-plugin"],
     "report": "pretty"
   },
   "fmt": {
@@ -76,14 +76,14 @@
     "@std/assert": "jsr:@std/assert@0.224",
     "@std/testing": "jsr:@std/testing@1.0.9",
     "@cliffy/command": "jsr:@cliffy/command@1.2.1",
-    "@zanix/utils": "jsr:@zanix/utils@^4.1.0",
-    "@zanix/logger": "jsr:@zanix/utils@^4.1.0/logger",
-    "@zanix/logger/client": "jsr:@zanix/utils@^4.1.0/logger/client",
-    "@zanix/helpers": "jsr:@zanix/utils@^4.1.0/helpers",
-    "@zanix/types": "jsr:@zanix/utils@^4.1.0/types",
-    "@zanix/errors": "jsr:@zanix/utils@^4.1.0/errors",
-    "@zanix/utils/workers": "jsr:@zanix/utils@^4.1.0/workers",
-    "@zanix/utils/regex": "jsr:@zanix/utils@^4.1.0/regex",
+    "@zanix/utils": "jsr:@zanix/utils@^4.2.1",
+    "@zanix/logger": "jsr:@zanix/utils@^4.2.1/logger",
+    "@zanix/logger/client": "jsr:@zanix/utils@^4.2.1/logger/client",
+    "@zanix/helpers": "jsr:@zanix/utils@^4.2.1/helpers",
+    "@zanix/types": "jsr:@zanix/utils@^4.2.1/types",
+    "@zanix/errors": "jsr:@zanix/utils@^4.2.1/errors",
+    "@zanix/utils/workers": "jsr:@zanix/utils@^4.2.1/workers",
+    "@zanix/utils/regex": "jsr:@zanix/utils@^4.2.1/regex",
     "@zanix/server": "jsr:@zanix/server@^4.2.1",
     "@zanix/server/graphql": "jsr:@zanix/server@^4.2.1/graphql",
     // Powers `import-project-module.ts`'s own general fix for resolving a CONSUMING project's own
@@ -106,19 +106,19 @@
     // its own boot sequence never got, having dropped to `activateApps`/`bootstrapServers` directly
     // instead of the project's real `mod.ts`'s `Zanix.start()`. See that call site's own doc for
     // the full mechanism and the real "Missing core connector slot" failure this closes.
-    "@zanix/core": "jsr:@zanix/core@^3.0.0",
-    "@zanix/app": "jsr:@zanix/app@^1.0.0",
-    "@zanix/app/runtime": "jsr:@zanix/app@^1.0.0/runtime",
-    "@zanix/space": "jsr:@zanix/space@^1.1.0",
-    "@zanix/space/vite": "jsr:@zanix/space@^1.1.0/vite",
-    "@zanix/space/dev": "jsr:@zanix/space@^1.1.0/dev",
-    "@zanix/space/testing": "jsr:@zanix/space@^1.1.0/testing",
-    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.1.0/assets-manifest",
-    "@zanix/space/comet": "jsr:@zanix/space@^1.1.0/comet",
-    "@zanix/space/client": "jsr:@zanix/space@^1.1.0/client",
-    "@zanix/space/client/preact": "jsr:@zanix/space@^1.1.0/client/preact",
-    "@zanix/space/react": "jsr:@zanix/space@^1.1.0/react",
-    "@zanix/space/preact": "jsr:@zanix/space@^1.1.0/preact",
+    "@zanix/core": "jsr:@zanix/core@^3.1.1",
+    "@zanix/app": "jsr:@zanix/app@^1.0.2",
+    "@zanix/app/runtime": "jsr:@zanix/app@^1.0.2/runtime",
+    "@zanix/space": "jsr:@zanix/space@^1.3.0",
+    "@zanix/space/vite": "jsr:@zanix/space@^1.3.0/vite",
+    "@zanix/space/dev": "jsr:@zanix/space@^1.3.0/dev",
+    "@zanix/space/testing": "jsr:@zanix/space@^1.3.0/testing",
+    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.3.0/assets-manifest",
+    "@zanix/space/comet": "jsr:@zanix/space@^1.3.0/comet",
+    "@zanix/space/client": "jsr:@zanix/space@^1.3.0/client",
+    "@zanix/space/client/preact": "jsr:@zanix/space@^1.3.0/client/preact",
+    "@zanix/space/react": "jsr:@zanix/space@^1.3.0/react",
+    "@zanix/space/preact": "jsr:@zanix/space@^1.3.0/preact",
     "@zanix/space-ui": "jsr:@zanix/space-ui@^1.0.0",
     "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^1.0.0/preact",
     "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^1.0.0/runtime",
@@ -215,7 +215,7 @@
     // `preact`/`preact/hooks` reasoning above): without this entry, it fails outright with "not a
     // dependency and not in import map" (confirmed live), turning the identity fix into a hard
     // resolution failure instead.
-    "@zanix/auth": "jsr:@zanix/auth@^1.0.0",
+    "@zanix/auth": "jsr:@zanix/auth@^1.1.2",
     // `@zanix/datamaster` and `@zanix/notifications` need the identical entry, for the identical
     // reason as `@zanix/auth` immediately above — `native-runtime-modules.ts` (`@zanix/space`)
     // documents all three as sharing the exact same DI-container identity split (each package
@@ -229,7 +229,7 @@
     // reproducible against real `@zanix/notifications` imports on published `@zanix/space@1.1.0`/
     // `1.2.0`) — a hard crash, not the SAME-but-silent wrong-copy split `@zanix/auth`'s own entry
     // above already prevents).
-    "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.0",
+    "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.1",
     "@zanix/notifications": "jsr:@zanix/notifications@^1.1.0",
     // `@zanix/asyncmq` above (`imports` block, alongside `@zanix/asyncmq/jobs`) already closes this
     // identical gap for that package — declared for the same native-runtime-module identity reason

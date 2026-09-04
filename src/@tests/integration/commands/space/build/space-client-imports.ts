@@ -32,7 +32,7 @@ import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
  * always builds the client-entry bundle, every renderer, unconditionally) needs this declared
  * explicitly, the same way a REAL scaffolded project's own complete `deno.json` already would.
  *
- * Every entry here is a real, published `jsr:@zanix/space@^0.3.0`/`jsr:@zanix/utils@^4.1.0`
+ * Every entry here is a real, published `jsr:@zanix/space@^1.3.0`/`jsr:@zanix/utils@^4.2.1`
  * subpath, derived from `ZANIX_DEPENDENCY_VERSIONS` — NOT a raw local-disk path into a sibling
  * `space`/`utils` checkout, unlike this file's own earlier shape (renamed from
  * `local-space-client-imports.ts`/`LOCAL_SPACE_CLIENT_IMPORTS`, 2026-08-30). A raw local path was

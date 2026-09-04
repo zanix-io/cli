@@ -26,20 +26,20 @@ import { getConfigDir, readConfig, saveConfig } from '@zanix/helpers'
  * directly to JSR, no local override needed for either.
  */
 export const ZANIX_DEPENDENCY_VERSIONS = {
-  '@zanix/server': 'jsr:@zanix/server@^4.1.0',
+  '@zanix/server': 'jsr:@zanix/server@^4.2.1',
   // A separate import-map key, not covered by the bare '@zanix/server' entry above — same
   // convention `@zanix/validator`/`@zanix/app/runtime` already use for a subpath of a different
   // package. `zanix generate handler --type graphql`'s resolver imports `ZanixResolver`/
   // `Resolver`/`Query`/`Mutation`/`Request` from here — `@zanix/server`'s root barrel no longer
   // exports them as of `4.0.0`, the first published version carrying this subpath (verified
-  // against `https://jsr.io/@zanix/server/meta.json`, currently at `4.1.0`).
-  '@zanix/server/graphql': 'jsr:@zanix/server@^4.1.0/graphql',
+  // against `https://jsr.io/@zanix/server/meta.json`, currently at `4.2.1`).
+  '@zanix/server/graphql': 'jsr:@zanix/server@^4.2.1/graphql',
   // `^1.5.0` was the first published `@zanix/datamaster` carrying the unified `SEARCH_ENGINE`
   // selector (replacing separate `ELASTICSEARCH_URL`/`OPENSEARCH_URL`/`MEILISEARCH_URL` presence
   // checks), required by `@zanix/core`'s own logger auto-detect since that package's `^2.0.0` —
   // the `@zanix/core`/`@zanix/datamaster` floors below have each since moved past both of those,
   // see each entry's own comment for the current reason.
-  '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.8.0',
+  '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.1',
   '@zanix/asyncmq': 'jsr:@zanix/asyncmq@^0.8.0',
   // A separate import-map key, not covered by the bare '@zanix/asyncmq' entry above — same
   // convention `@zanix/server/graphql` already uses for a subpath of a different package.
@@ -50,16 +50,16 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   '@zanix/asyncmq/jobs': 'jsr:@zanix/asyncmq@^0.8.0/jobs',
   // `@zanix/utils@3.0.1` was the first published version with `classMetadata` (class-level RTO
   // metadata introspection, no instance/payload needed) — required by `zanix generate openapi`'s
-  // discovery step. The floor below has since moved past that major, to `4.1.0` — real and
+  // discovery step. The floor below has since moved past that major, to `4.2.1` — real and
   // published (verified against `https://jsr.io/@zanix/utils/meta.json`, currently `latest`).
-  '@zanix/validator': 'jsr:@zanix/utils@^4.1.0/validator',
+  '@zanix/validator': 'jsr:@zanix/utils@^4.2.1/validator',
   // Same alias convention as `@zanix/validator` above. Not referenced by
   // `PROJECT_TYPE_DEPENDENCIES` today — no currently-generated output imports
   // `@zanix/types` — kept here regardless: a real, valid alias into
   // `@zanix/utils`'s own `/types` subpath, ready the moment a future field
   // type or generator needs it again. Pinned to the same major floor as `@zanix/validator`
   // above — same underlying package, no reason for this one to sit on a stale major.
-  '@zanix/types': 'jsr:@zanix/utils@^4.1.0/types',
+  '@zanix/types': 'jsr:@zanix/utils@^4.2.1/types',
   // `@zanix/core@2.0.0` moved `ConfigOptions.errorLogThrottle` under
   // `ConfigOptions.errors.logThrottle`, and `setup()`'s logger auto-detect/
   // `ConfigOptions.notifications` now follow `@zanix/datamaster`/`@zanix/notifications`'s own
@@ -69,24 +69,34 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // `cli` itself never emits `errorLogThrottle`/`ELASTICSEARCH_URL`/`OPENSEARCH_URL`/
   // `databaseTemplates` in any generated template — nothing else here needs to change as either
   // floor moves further ahead.
-  '@zanix/core': 'jsr:@zanix/core@^3.0.0',
+  '@zanix/core': 'jsr:@zanix/core@^3.1.1',
   // `defineZanixApp`/`ZanixAppDefinition` (the two exports the generated `app` `mod.ts` uses)
   // carry no breaking change across the range this floor has moved through so far, so bumping
   // this is a plain version bump, not a compat concern — re-verify against `@zanix/app`'s own
   // CHANGELOG before assuming that stays true for a future major.
-  '@zanix/app': 'jsr:@zanix/app@^1.0.0',
+  '@zanix/app': 'jsr:@zanix/app@^1.0.2',
   // A separate import-map key, not covered by the bare '@zanix/app' entry above — same convention
   // '@zanix/validator' already uses for a subpath of a different package. A pure `space` project's
   // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
-  '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.0/runtime',
-  '@zanix/space': 'jsr:@zanix/space@^1.0.0',
+  '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.2/runtime',
+  // Real, confirmed reason to keep this floor in lockstep with `cli`'s OWN `deno.jsonc` entry for
+  // the same package (`imports["@zanix/space"]`), not just "the latest version" for its own sake:
+  // `zanix space dev`/`build` resolves `@zanix/space` bare imports through `cli`'s OWN config
+  // (`import-project-module.ts`'s `resolveReplacement`, the identity-sharing mechanism its own doc
+  // covers in full) — a scaffolded project pinned to an OLDER floor here than what `cli` itself
+  // resolves internally is exactly the shape that let two different `@zanix/space` versions load
+  // as two separate module instances in the same process (confirmed live: `@zanix/space` publishing
+  // a newer version mid-session, with this entry left stale, split `SpaceDevSocket` identity and
+  // threw "already defined" on its own dev-socket route). Bump this ALONGSIDE `cli`'s own
+  // `deno.jsonc` entry, never independently.
+  '@zanix/space': 'jsr:@zanix/space@^1.3.0',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/
   // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`
   // fetches its scaffold icon catalog from; that function needs no change of its own now that this
   // entry exists, by design (see its own doc).
-  '@zanix/space-ui': 'jsr:@zanix/space-ui@^0.2.1',
+  '@zanix/space-ui': 'jsr:@zanix/space-ui@^1.0.0',
   // Same subpath-alias convention as `@zanix/validator`/`@zanix/types` above (both real `@zanix/
   // utils` subpaths, pinned to the same floor as those two rather than the bare package's own
   // caret range) — `app`'s generated `mod.ts` (`getAppModTemplate`) imports the real Zanix
@@ -94,8 +104,8 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // published in `@zanix/utils` since `3.0.0` — the floor below already carries it), so this
   // needs its own declared specifier the same way `@zanix/app/runtime` does for a different
   // package.
-  '@zanix/utils/logger': 'jsr:@zanix/utils@^4.1.0/logger',
-  '@zanix/utils/linter': 'jsr:@zanix/utils@^4.1.0/linter/deno-zanix-plugin',
+  '@zanix/utils/logger': 'jsr:@zanix/utils@^4.2.1/logger',
+  '@zanix/utils/linter': 'jsr:@zanix/utils@^4.2.1/linter/deno-zanix-plugin',
 } as const satisfies Record<string, string>
 
 /**

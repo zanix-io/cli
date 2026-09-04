@@ -353,6 +353,39 @@ function reconstructSchemeSpecifier(configPath: string, specifier: string): stri
   return baseLiteral + subpath
 }
 
+/** Matches Deno's own npm-cache directory layout — `.deno/<name>@<version>/node_modules/<name>/`
+ * — capturing the package name (with a `+` still standing in for a scoped package's own `/`, e.g.
+ * `@radix-ui+primitive`, confirmed against a real `node_modules/.deno/` listing) and its resolved
+ * version. */
+const NPM_CACHE_PATH_RE = /\/node_modules\/\.deno\/((?:@[^/+]+\+)?[^/@]+)@([^/]+)\/node_modules\//
+
+/** A last-resort fallback for {@linkcode reconstructSchemeSpecifier} when there's no local config
+ * FILE to read at all — real, confirmed gap this closes: `cliConfigPath` is `undefined` for any
+ * genuine `deno install -g jsr:@zanix/cli` install (`getCliLoader`'s own doc), so
+ * `reconstructSchemeSpecifier(cliConfigPath, specifier)` silently evaluates to `undefined` on
+ * every real global install, falling through to the raw `file://` `node_modules` path this whole
+ * mechanism exists to avoid — reported live (`zanix-iam`, real 2.0.8 global install): `Import
+ * {jsx} from 'react/jsx-runtime'` still failed with the exact same "does not provide an export"
+ * error, unchanged by that fix, because the reconstruction never actually ran.
+ *
+ * Needs no config file at all: the version is parsed directly out of the ALREADY-RESOLVED
+ * `resolvedPath` itself, via Deno's own stable npm-cache directory convention
+ * ({@linkcode NPM_CACHE_PATH_RE}), and combined with `specifier`'s own known package+subpath split
+ * — the same shape `reconstructSchemeSpecifier` builds from a config's own declared value, just
+ * sourced from the resolved path instead of a file read. Returns `undefined` when `resolvedPath`
+ * doesn't match that layout at all (a vendored/non-npm dependency, or a resolver this convention
+ * doesn't apply to) — never a wrong guess. */
+export function reconstructNpmSpecifierFromResolvedPath(
+  resolvedPath: string,
+  specifier: string,
+): string | undefined {
+  const match = resolvedPath.match(NPM_CACHE_PATH_RE)
+  if (!match) return undefined
+  const version = match[2]
+  const { base, subpath } = splitPackageSpecifier(specifier)
+  return `npm:${base}@${version}${subpath}`
+}
+
 interface SpecifierMatch {
   start: number
   end: number
@@ -500,7 +533,7 @@ export async function importProjectModule(
     try {
       let cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
       // A `jsr:`/`http(s):` result from `resolveSync` ALONE is an UNEXPANDED literal (e.g. still
-      // `jsr:@zanix/space@^1.1.0`, the raw import-map value, not a real resolved version) — real,
+      // `jsr:@zanix/space@^1.3.0`, the raw import-map value, not a real resolved version) — real,
       // confirmed regression this closes: splicing that literal into the temp file below let
       // native `import()` perform its OWN, SEPARATE version-range resolution at runtime, which can
       // land on a DIFFERENT actual version than whatever `cli`'s own static `@zanix/space` import
@@ -512,10 +545,15 @@ export async function importProjectModule(
       // `resolveSync` on the now-graphed literal returns the real, canonical resolved URL — which,
       // sharing the exact same `cliLoader`/lockfile state `cli`'s own internal imports resolve
       // through, converges on the identical module-cache key. Confirmed via a real, isolated repro:
-      // `resolveSync('@zanix/space', ...)` alone returns the literal `jsr:@zanix/space@^1.1.0`;
+      // `resolveSync('@zanix/space', ...)` alone returns the literal `jsr:@zanix/space@^1.3.0`;
       // only after `addEntrypoints` does it return a real version, e.g.
-      // `https://jsr.io/@zanix/space/1.2.0/mod.ts`. A `file://` result needs none of this — it's
-      // already a real, concrete path.
+      // `https://jsr.io/@zanix/space/1.3.0/mod.ts`. A `file://` result needs none of this — it's
+      // already a real, concrete path. This resolved version must always match this file's own
+      // `"@zanix/space"` import-map entry EXACTLY (kept in sync by hand, not derived) — a
+      // real, confirmed race otherwise: `@zanix/space` publishing a newer version mid-session made
+      // this fresh lookup return that newer version while `cli`'s own STATICALLY-locked import
+      // (governed by whatever lockfile the running process itself was installed with) stayed
+      // pinned to the older one, splitting identity anyway despite this whole mechanism.
       if (
         cliResolved.startsWith('jsr:') || cliResolved.startsWith('http:') ||
         cliResolved.startsWith('https:')
@@ -566,10 +604,19 @@ export async function importProjectModule(
         // hands native `import()` the same text a normal static import would have used, with full
         // npm CJS/ESM interop intact — using `cliConfigPath` here, never `referrerConfigPath`: the
         // import-map entry being reconstructed is `cli`'s own, not the project's.
+        //
+        // Real, confirmed regression in this exact reconstruction, found AFTER first shipping it:
+        // `cliConfigPath` is `undefined` for any genuine global install (never a local checkout —
+        // see `getCliLoader`'s own doc), which made `reconstructSchemeSpecifier` silently no-op on
+        // every real-world case that needed it — reported live (`zanix-iam`) with the identical
+        // "does not provide an export named 'jsx'" failure, unchanged by the first fix, because
+        // reconstruction never actually ran. `reconstructNpmSpecifierFromResolvedPath` is the real
+        // fallback for exactly that case: it needs no config file at all, parsing the version
+        // straight out of `cliResolved` itself via Deno's own npm-cache directory convention.
         if (cliResolved.startsWith('file://') && cliResolved.includes('/node_modules/')) {
-          const reconstructed = cliConfigPath
-            ? reconstructSchemeSpecifier(cliConfigPath, specifier)
-            : undefined
+          const reconstructed =
+            (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier)) ??
+              reconstructNpmSpecifierFromResolvedPath(cliResolved, specifier)
           return reconstructed ?? cliResolved
         }
         return cliResolved
@@ -644,10 +691,14 @@ export async function importProjectModule(
       // the same as the constraint-solve-failure case above (confirmed as a real failure: a bare
       // `'react/jsx-runtime'` resolved this way reads as a plain ESM re-export with no `jsx` named
       // export, when the real npm-specifier form resolves and interops correctly) — reconstructed
-      // the same way, for the same reason.
-      const reconstructed = referrerConfigPath
-        ? reconstructSchemeSpecifier(referrerConfigPath, specifier)
-        : undefined
+      // the same way, for the same reason. `referrerConfigPath` is `undefined` only in the
+      // genuinely rare case of no `deno.json(c)` anywhere in this file's own ancestry — falls back
+      // to the same config-free reconstruction the `cliLoader` branch above needs unconditionally
+      // (see {@linkcode reconstructNpmSpecifierFromResolvedPath}'s own doc for why that one can
+      // never rely on a config file at all under a real global install).
+      const reconstructed =
+        (referrerConfigPath && reconstructSchemeSpecifier(referrerConfigPath, specifier)) ??
+          reconstructNpmSpecifierFromResolvedPath(resolved, specifier)
       return reconstructed ?? resolved
     }
 

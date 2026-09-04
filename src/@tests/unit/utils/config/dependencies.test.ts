@@ -99,7 +99,7 @@ Deno.test('PROJECT_TYPE_DEPENDENCIES.library should declare no dependencies', ()
   assertEquals(PROJECT_TYPE_DEPENDENCIES.library, [])
 })
 
-Deno.test('ZANIX_DEPENDENCY_VERSIONS pins @zanix/core to a published ^2.0.0 range', () => {
+Deno.test('ZANIX_DEPENDENCY_VERSIONS pins @zanix/core to a published ^3.0.0+ range', () => {
   // `@zanix/core@2.0.0` renamed `ConfigOptions.errorLogThrottle` to `ConfigOptions.errors
   // .logThrottle` and moved its logger auto-detect/`notifications` config onto
   // `@zanix/datamaster`/`@zanix/notifications`'s own selector-based env-var renames — no
@@ -107,7 +107,7 @@ Deno.test('ZANIX_DEPENDENCY_VERSIONS pins @zanix/core to a published ^2.0.0 rang
   // resolve into a real, currently-published `@zanix/core` release.
   assertEquals(
     ZANIX_DEPENDENCY_VERSIONS['@zanix/core'],
-    'jsr:@zanix/core@^3.0.0',
+    'jsr:@zanix/core@^3.1.1',
   )
 })
 
@@ -117,7 +117,7 @@ Deno.test(
   () => {
     assertEquals(
       ZANIX_DEPENDENCY_VERSIONS['@zanix/datamaster'],
-      'jsr:@zanix/datamaster@^1.8.0',
+      'jsr:@zanix/datamaster@^1.9.1',
     )
   },
 )
