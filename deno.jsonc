@@ -1,17 +1,12 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.9-alpha.1",
+  "version": "2.0.9-alpha.2",
   "license": "MIT",
   "nodeModulesDir": "auto",
-  // Governs resolution of THIS package's OWN dependencies (e.g. `@zanix/server`, imported
-  // directly by `commands/space/dev/action.ts`) — not a served project's own config, which is a
-  // structurally separate resolution graph. Without this, a `@zanix/server` version published
-  // within Deno's default minimum-dependency-age window gets silently excluded from `zanix`'s own
-  // dependency resolution (real, confirmed: `zanix space dev`, run from a real global
-  // `deno install -g jsr:@zanix/cli` install, rejected a real, already-published `@zanix/server`
-  // release with "newer than the specified minimum dependency date"). A served project's own
-  // `"minimumDependencyAge"` (its own `deno.json`) only ever governs ITS OWN dependency graph, and
-  // has no effect on this one.
+  // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
+  // `commands/space/dev/action.ts`) — a structurally separate graph from a served project's own
+  // config, which has no effect here. Without this, Deno's default freshness window silently
+  // excludes an already-published `@zanix/server` version from resolution.
   "minimumDependencyAge": 0,
   "compilerOptions": {
     "strict": true,
@@ -20,7 +15,14 @@
   "publish": {
     "exclude": [".github", "src/@tests", "scripts", "docs/engineering.md"]
   },
-  "exports": { ".": "./mod.ts" },
+  "exports": {
+    ".": "./mod.ts",
+    // The sole installer, cross-platform (`src/installation/setup.ts`). A real, published export
+    // — not just an internal file — so `deno run -A jsr:@zanix/cli@[version]/setup` resolves
+    // without hardcoding JSR's own CDN URL structure. `publish.exclude` below must never cover
+    // `src/installation`, or `deno publish` refuses to ship this declared export.
+    "./setup": "./src/installation/setup.ts"
+  },
   "tasks": {
     "znx": "deno run -A mod.ts",
     "build": "deno task znx build",
@@ -59,7 +61,11 @@
         "no-useless-rename"
       ]
     },
-    "exclude": [".dist/", "__tmp__"],
+    // `src/installation/` (`setup.ts`) is a standalone bootstrap script — it runs BEFORE `zanix`
+    // itself is installed, so it structurally cannot depend on the Zanix `logger` module
+    // `no-znx-console` (part of the plugin below) would otherwise require; plain `console.log` is
+    // the correct choice there, not a violation to fix.
+    "exclude": [".dist/", "__tmp__", "src/installation/"],
     "plugins": ["jsr:@zanix/utils@^4.2.1/linter/deno-zanix-plugin"],
     "report": "pretty"
   },

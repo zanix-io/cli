@@ -2,6 +2,7 @@ import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import { join } from '@std/path'
 import {
   cleanupImportBatch,
+  cliLoaderHasNoRealLocalAnswer,
   createImportBatchContext,
   importProjectModule,
   readNewestDependencyDate,
@@ -658,5 +659,59 @@ Deno.test(
     } finally {
       await Deno.remove(root, { recursive: true })
     }
+  },
+)
+
+Deno.test(
+  'cliLoaderHasNoRealLocalAnswer: true only for a file:// result outside node_modules, and only ' +
+    'when configPath is undefined (a genuine global install, where cliLoader can never have a ' +
+    'real local answer of its own at all)',
+  () => {
+    // Real, confirmed bug this locks in: under a genuine global install (`cliConfigPath ===
+    // undefined`), `cliLoader` is built via config-file auto-discovery from `Deno.cwd()` — the
+    // served PROJECT's own directory — so it silently becomes identical to `referrerLoader`,
+    // resolving a project's own bare LOCAL alias (e.g. "triggers/") to a real project file
+    // instead of failing the way a genuine cli-own answer never would. Reported live
+    // (`aeratech-console`, `zanix space build`): `Import "clients/registry-hub.client.ts" not a
+    // dependency`, thrown from the ORIGINAL `triggers.interactor.ts` — never recursed into
+    // because `resolveReplacement` trusted this as a real `cliLoader` answer.
+    assertEquals(
+      cliLoaderHasNoRealLocalAnswer(undefined, 'file:///project/src/triggers/interactor.ts'),
+      true,
+      'a file:// result with no configPath at all must be treated as "cli has no real answer"',
+    )
+
+    // A real cli-own answer under a genuine global install is always jsr:/https: (a real package
+    // identity), never file:// — this function's own guard should never trigger for those.
+    assertEquals(
+      cliLoaderHasNoRealLocalAnswer(undefined, 'https://jsr.io/@zanix/space/1.3.0/mod.ts'),
+      false,
+    )
+    assertEquals(
+      cliLoaderHasNoRealLocalAnswer(undefined, 'jsr:@zanix/space@^1.1.0'),
+      false,
+    )
+
+    // A file:// result landing in node_modules IS a genuine cli-own npm dependency answer (react,
+    // preact, ...) — never a project's own source file, so this guard must never trigger for it
+    // either, regardless of configPath.
+    assertEquals(
+      cliLoaderHasNoRealLocalAnswer(
+        undefined,
+        'file:///some/cache/node_modules/.deno/react@19.2.8/node_modules/react/index.js',
+      ),
+      false,
+    )
+
+    // A real local checkout (configPath defined) has a genuine cli-own source tree to compare
+    // against — resolvesIntoCliOwnSourceTree's own check is what applies there, not this one; a
+    // defined configPath must always short-circuit this guard to false.
+    assertEquals(
+      cliLoaderHasNoRealLocalAnswer(
+        '/Users/dev/cli/deno.jsonc',
+        'file:///project/src/triggers/interactor.ts',
+      ),
+      false,
+    )
   },
 )

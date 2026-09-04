@@ -80,16 +80,15 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
   '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.2/runtime',
-  // Real, confirmed reason to keep this floor in lockstep with `cli`'s OWN `deno.jsonc` entry for
-  // the same package (`imports["@zanix/space"]`), not just "the latest version" for its own sake:
-  // `zanix space dev`/`build` resolves `@zanix/space` bare imports through `cli`'s OWN config
+  // Keep this floor in lockstep with `cli`'s OWN `deno.jsonc` entry for the same package
+  // (`imports["@zanix/space"]`), not just "the latest version" for its own sake: `zanix space
+  // dev`/`build` resolves `@zanix/space` bare imports through `cli`'s OWN config
   // (`import-project-module.ts`'s `resolveReplacement`, the identity-sharing mechanism its own doc
   // covers in full) — a scaffolded project pinned to an OLDER floor here than what `cli` itself
-  // resolves internally is exactly the shape that let two different `@zanix/space` versions load
-  // as two separate module instances in the same process (confirmed live: `@zanix/space` publishing
-  // a newer version mid-session, with this entry left stale, split `SpaceDevSocket` identity and
-  // threw "already defined" on its own dev-socket route). Bump this ALONGSIDE `cli`'s own
-  // `deno.jsonc` entry, never independently.
+  // resolves internally lets two different `@zanix/space` versions load as two separate module
+  // instances in the same process, splitting `SpaceDevSocket` identity and throwing "already
+  // defined" on its own dev-socket route. Bump this ALONGSIDE `cli`'s own `deno.jsonc` entry,
+  // never independently.
   '@zanix/space': 'jsr:@zanix/space@^1.3.0',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/

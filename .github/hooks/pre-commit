@@ -9,17 +9,6 @@ STAGED_FILES=$(git diff --staged --name-only --diff-filter=ACM)
 STAGED_FMT_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx|js|jsx|md|json)$')
 STAGED_LINT_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx|js|jsx)$')
 
-# Update installation file latest version
-LATEST=$(deno task znx --version | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $2}')
-
-# Verify the version was extracted correctly.
-if [ "$LATEST" ]; then
-  sed -i '' "s|^LATEST=.*|LATEST=\"$LATEST\"|g" src/installation/setup.sh
-  sed -i '' "s|^\$LATEST = .*|\$LATEST = \"$LATEST\"|g" src/installation/setup.ps1
-
-  git add src/installation
-fi
-
 # If there are no staged files for formatting, exit the script.
 if [ -z "$STAGED_FMT_FILES" ] && [ -z "$STAGED_LINT_FILES" ]; then
   echo "\033[0;33minfo[pre-commit]\033[0m: No staged files to format or lint."

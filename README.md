@@ -66,103 +66,34 @@ and editor configuration — all from one `zanix` binary.
 
 ### Install Zanix CLI
 
-To install **Zanix CLI** globally, use [Deno](https://deno.com/) with following
-command:
+Requires [Deno](https://docs.deno.com/runtime/getting_started/installation)
+already installed and on your `PATH`. Then install with the same command on
+macOS, Linux, and Windows:
 
-```bash
-deno install -A -g -n zanix jsr:@zanix/cli@[version]
+```sh
+deno run -A jsr:@zanix/cli@[version]/setup [version]
 ```
 
-### Running a Shell Script from a URL
-
-If you need to execute a `.sh` script from a web URL, you can use the following
-methods:
-
-1. **Using `curl`**:
-
-   ```bash
-   curl -sSL https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh -o .zanix.installer && sh .zanix.installer && rm -f .zanix.installer
-   ```
-
-2. **Using `wget`**:
-
-   ```bash
-   wget -qO- https://jsr.io/@zanix/cli/[version]/src/installation/setup.sh | sh
-   ```
-
-   - `curl -sSL`: Downloads the script and pipes it into `bash` for execution.
-     This is useful for automating script execution directly from the web.
-   - `wget -qO-`: Does the same using `wget`, which is another tool for
-     downloading files.
-
-### Running a PowerShell Script from a URL
-
-If you need to execute a **PowerShell** script (`zanix.ps1`) directly from a
-URL, you can use the following methods:
-
-1. **Download and execute with `Invoke-Expression`:**
-
-   This command downloads and executes the script directly in PowerShell:
-
-   ```powershell
-   Invoke-Expression (Invoke-WebRequest -Uri "https://jsr.io/@zanix/cli/[version]/src/installation/setup.ps1" -UseBasicP)
-   ```
-
-2. **Download the script first, then execute manually:**
-
-   - First, download the script using `Invoke-WebRequest`:
-
-     ```powershell
-     Invoke-WebRequest -Uri "https://jsr.io/@zanix/cli/[version]/src/installation/setup.ps1" -OutFile "zanix.ps1"
-     ```
-
-   - Then, execute the downloaded script:
-
-     ```powershell
-     .\zanix.ps1
-     ```
-
-3. **Run the script with Administrator privileges:**
-
-   To run the script with elevated permissions (Administrator), use this
-   command:
-
-   ```powershell
-   Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File 'zanix.ps1'" -Verb RunAs
-   ```
-
-4. **Change Execution Policy if needed:**
-
-   If you encounter an error due to execution policies, you may need to change
-   the policy to allow the script to run. You can temporarily change the policy
-   with the following command:
-
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
+Replace both `[version]` with the actual version number — the first selects
+the setup script's own version, the second the version to install (normally
+the same value).
 
 ### Security Warning
 
-**Be cautious!** Running scripts downloaded from the web can be risky,
-especially if you don’t trust the source. Always ensure to review the content of
-the script before executing it.
-
-Replace `[version]` with the actual version number when needed.
+**Be cautious!** Running a script from a source you don't trust can be risky.
+Review [the setup script's source](https://jsr.io/@zanix/cli/[version]/src/installation/setup.ts)
+before running it if you'd like to confirm what it does first.
 
 ---
 
 **Important:**
 
-1. **Install Deno**: Ensure Deno is installed on your system. If not, follow the
-   [official installation guide](https://docs.deno.com/runtime/getting_started/installation).
-
-2. **Install VSCode Extension**: If using Visual Studio Code, install the **Deno
+1. **Install VSCode Extension**: If using Visual Studio Code, install the **Deno
    extension** for syntax highlighting, IntelliSense, and linting. Get it from
    the
    [VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno).
 
-3. **Add Deno to PATH**: Ensure Deno is in your system’s `PATH` so the plugin
-   works correctly:
+2. **Add Deno to PATH**, if the installer didn't already:
    - **macOS/Linux**: Add to `.bashrc`, `.zshrc`, or other shell config files:
      ```bash
      export PATH="$PATH:/path/to/deno"

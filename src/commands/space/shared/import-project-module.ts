@@ -267,6 +267,31 @@ function resolvesIntoCliOwnSourceTree(resolvedUrl: string): boolean {
     !resolvedPath.includes('/node_modules/')
 }
 
+/** A second, deeper case of the identical false-positive shape {@linkcode resolvesIntoCliOwnSourceTree}
+ * exists to catch — see the real, confirmed failure this closes at that function's own call site.
+ * When `cliConfigPath` is `undefined` (any genuine global install), `cliLoader` is built via
+ * `@deno/loader`'s own config-file auto-discovery, starting from `Deno.cwd()` — the served
+ * PROJECT's own directory during a real `zanix space dev`/`build` run — so it silently becomes
+ * identical to `referrerLoader`, discovering the project's own config instead of anything
+ * belonging to `cli`. A `file://` result under that exact condition can never be a genuine
+ * `cli`-own-identity answer at all: `cli` has no local source tree of its own to have a real
+ * answer for in the first place there, and a genuine package identity (`@zanix/space` et al.)
+ * always resolves to a `jsr:`/`https:` target under a global install, never `file://` (save for a
+ * deliberate local `links` override, which needs the same recursive treatment a project's own
+ * file gets regardless) — so it must be `cliLoader`'s auto-discovery accidentally matching a
+ * project's own bare LOCAL alias (e.g. `"triggers/": "./src/triggers/"`) instead. Extracted as its
+ * own pure, testable function specifically because this exact branch can never be exercised by a
+ * real `deno test` run (`cliConfigPath` is only ever `undefined` when this module itself loaded
+ * from a remote `jsr:`/`https:` specifier, never a local `file://` checkout — the same limitation
+ * `getCliLoader`'s own test documents) — testing the pure boolean logic directly is the next best
+ * thing to a real end-to-end repro. */
+export function cliLoaderHasNoRealLocalAnswer(
+  configPath: string | undefined,
+  resolvedUrl: string,
+): boolean {
+  return !configPath && resolvedUrl.startsWith('file://') && !resolvedUrl.includes('/node_modules/')
+}
+
 /** A specifier already carrying its own scheme (`jsr:`, `npm:`, `https:`, `node:`, `data:`, ...)
  * is unambiguous on its own — never resolved through `Loader.resolveSync`, never rewritten. */
 const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/
@@ -549,11 +574,11 @@ export async function importProjectModule(
       // only after `addEntrypoints` does it return a real version, e.g.
       // `https://jsr.io/@zanix/space/1.3.0/mod.ts`. A `file://` result needs none of this — it's
       // already a real, concrete path. This resolved version must always match this file's own
-      // `"@zanix/space"` import-map entry EXACTLY (kept in sync by hand, not derived) — a
-      // real, confirmed race otherwise: `@zanix/space` publishing a newer version mid-session made
-      // this fresh lookup return that newer version while `cli`'s own STATICALLY-locked import
-      // (governed by whatever lockfile the running process itself was installed with) stayed
-      // pinned to the older one, splitting identity anyway despite this whole mechanism.
+      // `"@zanix/space"` import-map entry EXACTLY (kept in sync by hand, not derived): if
+      // `@zanix/space` publishes a newer version than what's pinned here, this fresh lookup
+      // returns that newer version while `cli`'s own statically-locked import (governed by
+      // whatever lockfile the running process was installed with) stays pinned to the older one,
+      // splitting identity anyway despite this whole mechanism.
       if (
         cliResolved.startsWith('jsr:') || cliResolved.startsWith('http:') ||
         cliResolved.startsWith('https:')
@@ -572,7 +597,18 @@ export async function importProjectModule(
       // through to the project's own resolution below instead, exactly as if `cli`'s config had
       // no answer at all — see that function's own doc for the real, confirmed failure this
       // closes.
-      if (!resolvesIntoCliOwnSourceTree(cliResolved)) {
+      //
+      // A SECOND, deeper case of the identical false-positive shape — see
+      // {@linkcode cliLoaderHasNoRealLocalAnswer}'s own doc for the full account: real, confirmed
+      // failure this closes (reported live, `zanix-iam`/`aeratech-console`, `zanix space build`),
+      // `Import "clients/registry-hub.client.ts" not a dependency`, thrown from the ORIGINAL
+      // `triggers.interactor.ts` — reached this way after `page.tsx`'s own
+      // `import ... from 'triggers/triggers.interactor.ts'` resolved through this exact branch and
+      // returned unrecursed.
+      if (
+        !cliLoaderHasNoRealLocalAnswer(cliConfigPath, cliResolved) &&
+        !resolvesIntoCliOwnSourceTree(cliResolved)
+      ) {
         // The resolved, fully-qualified URL — never the original bare `specifier` — is what gets
         // spliced into the rewritten temp file below. Real, confirmed bug: `writeGeneratedModule`'s
         // temp file is a LOOSE file living in the PROJECT's own directory, not part of any
