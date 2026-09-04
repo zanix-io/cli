@@ -15,10 +15,6 @@ export type Finding = {
   cycle: Cycle
 }
 
-const HARNESS_PATH = fromFileUrl(
-  new URL('./side-effects/harness.test.ts', import.meta.url),
-)
-
 /**
  * Runs the AST-analysis harness (a real `deno test` subprocess — see `harness.test.ts`'s own doc
  * for why) against every file inside any detected cycle, then cross-references each risky
@@ -72,9 +68,20 @@ export async function findConfirmedFindings(
 async function runHarness(files: string[]): Promise<FileAnalysis[]> {
   const outputPath = await Deno.makeTempFile({ prefix: 'znx-check-cycles-', suffix: '.json' })
 
+  // Computed HERE, not at module top-level — `import.meta.url` is only ever a real `file://` URL
+  // when this module itself was loaded from local disk (running `zanix` from a real checkout).
+  // Once this module loads from a REMOTE specifier instead (`https://jsr.io/...` — exactly what
+  // happens for a globally-installed CLI, `deno install -g jsr:@zanix/cli`), `fromFileUrl` throws
+  // outright — and since this WAS at module top-level, that throw happened on every single CLI
+  // invocation, not just `check-cycles`, breaking even `--version`/`--help`. Moved into this
+  // function so it only ever runs when `check-cycles` genuinely executes.
+  const harnessPath = fromFileUrl(
+    new URL('./side-effects/harness.test.ts', import.meta.url),
+  )
+
   try {
     const command = new Deno.Command(Deno.execPath(), {
-      args: ['test', '-A', '--no-check', HARNESS_PATH],
+      args: ['test', '-A', '--no-check', harnessPath],
       env: {
         ZNX_CHECK_CYCLES_FILES: JSON.stringify(files),
         ZNX_CHECK_CYCLES_OUTPUT: outputPath,

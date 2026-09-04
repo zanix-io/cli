@@ -8,6 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-04
+
+### Fixed
+
+- **`check-cycles`'s own harness path resolved at module top level, breaking every `zanix`
+  invocation once installed globally from JSR** — `analyze.ts` computed
+  `fromFileUrl(import.meta.url)` as a module-level constant; that only works when the module
+  itself loaded from a real `file://` URL (running from a local checkout). Installed via
+  `deno install -g jsr:@zanix/cli`, this module loads from `https://jsr.io/...` instead, and that
+  top-level call threw `TypeError: Must be a file URL` — on `--version`, `--help`, and every real
+  command, not just `check-cycles`, since the module is imported regardless of which subcommand
+  runs. Moved the path resolution into `runHarness`, computed lazily only when `check-cycles`
+  itself actually executes.
+
 ## [2.0.0] - 2026-09-03
 
 ### Added
