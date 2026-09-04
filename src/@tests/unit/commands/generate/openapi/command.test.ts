@@ -5,6 +5,7 @@ import generateOpenapiAction, {
   planOpenapi,
   registerOpenapiCommand,
 } from 'commands/generate/openapi/command.ts'
+import { STDOUT_PAYLOAD_MARKER } from 'commands/generate/openapi/discover.ts'
 import { Commander } from 'cli'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
@@ -30,7 +31,7 @@ function stubDiscoverySubprocess(routes: unknown[]) {
         output: () =>
           Promise.resolve({
             success: true,
-            stdout: encoder.encode(JSON.stringify(routes)),
+            stdout: encoder.encode(STDOUT_PAYLOAD_MARKER + JSON.stringify(routes)),
             stderr: new Uint8Array(),
           }),
       }) as never,
@@ -142,7 +143,7 @@ Deno.test('generateOpenapiAction forwards --include-admin to discoverRoutes', as
         output: () =>
           Promise.resolve({
             success: true,
-            stdout: new TextEncoder().encode('[]'),
+            stdout: new TextEncoder().encode(STDOUT_PAYLOAD_MARKER + '[]'),
             stderr: new Uint8Array(),
           }),
       } as never
@@ -174,7 +175,7 @@ Deno.test(
           output: () =>
             Promise.resolve({
               success: true,
-              stdout: new TextEncoder().encode('[]'),
+              stdout: new TextEncoder().encode(STDOUT_PAYLOAD_MARKER + '[]'),
               stderr: new Uint8Array(),
             }),
         } as never

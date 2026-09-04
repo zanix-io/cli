@@ -3,6 +3,24 @@ import type { DiscoveredRoute } from 'commands/generate/openapi/spec-builder.ts'
 import { resolve } from '@std/path'
 
 /**
+ * Prefixes {@linkcode DISCOVERY_SCRIPT}'s own, final `console.log` — the one and only line
+ * `discoverRoutes` actually wants to parse as JSON. Real-world confirmation this is needed, not
+ * defensive-for-its-own-sake: a resolved `@zanix/datamaster` pulls in `jsr:@db/sqlite`
+ * (`denodrivers/sqlite3`), which downloads its native binary lazily, on first use with no cached
+ * copy yet (a fresh CI runner, always — never a locally-run repro with a warm `DENO_DIR`), and
+ * prints that download's progress straight to **stdout** via `console.log`, not `stderr` the way
+ * every other Deno/dependency diagnostic in this same subprocess does — confirmed by direct repro
+ * against a genuinely cold `DENO_DIR`. That noise lands on the SAME piped stdout `discoverRoutes`
+ * reads below, ahead of the script's own JSON line, so a plain `JSON.parse(stdoutText)` broke with
+ * a raw `Unexpected token 'Downl'...` the moment it ran anywhere without that binary pre-cached.
+ * Splitting on this marker and keeping only what follows it is immune to that (or any other
+ * dependency's own stdout noise) without needing to know in advance what a given dependency might
+ * print — the marker only ever appears once, right before the payload, emitted by this script's
+ * own last statement.
+ */
+export const STDOUT_PAYLOAD_MARKER = '___ZNX_OPENAPI_ROUTES_JSON___'
+
+/**
  * The script `discoverRoutes` writes into the target project and runs there via `deno run` — never
  * imported in-process by `cli` itself. Native ECMAScript decorator metadata (`Symbol.metadata`,
  * which both `@zanix/validator`'s field decorators and `@zanix/server`'s route decorators key their
@@ -130,7 +148,7 @@ const serialized = Object.values(routes).map((route) => ({
   rto: serializeRto(route.rto),
 }))
 
-console.log(JSON.stringify(serialized))
+console.log('${STDOUT_PAYLOAD_MARKER}' + JSON.stringify(serialized))
 `
 
 /** Every sentinel {@linkcode DISCOVERY_SCRIPT} can print to stderr, mapped to the clear, actionable
@@ -214,8 +232,17 @@ export async function discoverRoutes(
       throw new Error(`Route discovery failed:\n${stderrText}`)
     }
 
-    const stdoutText = new TextDecoder().decode(stdout).trim()
-    return stdoutText ? JSON.parse(stdoutText) : []
+    const stdoutText = new TextDecoder().decode(stdout)
+    // `lastIndexOf`, not `indexOf` — the marker is only ever written once, by the script's own
+    // final statement, but taking the LAST occurrence (rather than assuming the first) stays
+    // correct even if some dependency's own stdout noise happened to echo the marker text itself
+    // (it can't, in practice — the marker is a private, single-use constant — but this is free).
+    const markerIndex = stdoutText.lastIndexOf(STDOUT_PAYLOAD_MARKER)
+    if (markerIndex === -1) {
+      throw new Error(`Route discovery produced no output:\n${stdoutText || stderrText}`)
+    }
+    const payload = stdoutText.slice(markerIndex + STDOUT_PAYLOAD_MARKER.length).trim()
+    return payload ? JSON.parse(payload) : []
   } finally {
     await Deno.remove(scriptPath).catch(() => {})
   }

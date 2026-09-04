@@ -1,7 +1,7 @@
 import { getTemporaryFolder } from '@zanix/helpers'
 import { assert, assertEquals, assertRejects } from '@std/assert'
 import { stub } from '@std/testing/mock'
-import { discoverRoutes } from 'commands/generate/openapi/discover.ts'
+import { discoverRoutes, STDOUT_PAYLOAD_MARKER } from 'commands/generate/openapi/discover.ts'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
@@ -34,7 +34,8 @@ Deno.test('discoverRoutes parses the routes the subprocess prints to stdout', as
   const root = await makeProjectRoot()
   const commandStub = stubCommandOutput({
     success: true,
-    stdout: JSON.stringify([{ httpMethod: 'GET', path: '/items', application: 'main' }]),
+    stdout: STDOUT_PAYLOAD_MARKER +
+      JSON.stringify([{ httpMethod: 'GET', path: '/items', application: 'main' }]),
   })
 
   try {
@@ -46,21 +47,50 @@ Deno.test('discoverRoutes parses the routes the subprocess prints to stdout', as
   }
 })
 
-Deno.test('discoverRoutes returns an empty array for blank stdout', async () => {
-  const root = await makeProjectRoot()
-  const commandStub = stubCommandOutput({ success: true, stdout: '' })
+// A resolved `@zanix/datamaster` pulls in `jsr:@db/sqlite`, which — with no native binary cached
+// yet (always true on a fresh CI runner) — prints its own download progress straight to stdout,
+// ahead of the script's real payload. `discoverRoutes` must see straight through that noise to the
+// real JSON, not just tolerate a clean stdout — see `STDOUT_PAYLOAD_MARKER`'s own doc in
+// `discover.ts`.
+Deno.test(
+  "discoverRoutes ignores a dependency's own stdout noise ahead of the marked JSON payload",
+  async () => {
+    const root = await makeProjectRoot()
+    const commandStub = stubCommandOutput({
+      success: true,
+      stdout: 'Downloading https://github.com/denodrivers/sqlite3/releases/.../lib.dylib\n' +
+        STDOUT_PAYLOAD_MARKER +
+        JSON.stringify([{ httpMethod: 'GET', path: '/items', application: 'main' }]),
+    })
 
-  try {
-    assertEquals(await discoverRoutes(root), [])
-  } finally {
-    commandStub.restore()
-    await Deno.remove(root, { recursive: true })
-  }
-})
+    try {
+      const routes = await discoverRoutes(root)
+      assertEquals(routes, [{ httpMethod: 'GET', path: '/items', application: 'main' }])
+    } finally {
+      commandStub.restore()
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'discoverRoutes throws a clear error when a successful run produced no marked output at all',
+  async () => {
+    const root = await makeProjectRoot()
+    const commandStub = stubCommandOutput({ success: true, stdout: '' })
+
+    try {
+      await assertRejects(() => discoverRoutes(root), Error, 'produced no output')
+    } finally {
+      commandStub.restore()
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
 
 Deno.test('discoverRoutes removes its own temp script file after a successful run', async () => {
   const root = await makeProjectRoot()
-  const commandStub = stubCommandOutput({ success: true, stdout: '[]' })
+  const commandStub = stubCommandOutput({ success: true, stdout: STDOUT_PAYLOAD_MARKER + '[]' })
 
   try {
     await discoverRoutes(root)
@@ -185,7 +215,7 @@ Deno.test('discoverRoutes spawns deno run rooted at root, forwarding rootDir', a
         output: () =>
           Promise.resolve({
             success: true,
-            stdout: new TextEncoder().encode('[]'),
+            stdout: new TextEncoder().encode(STDOUT_PAYLOAD_MARKER + '[]'),
             stderr: new Uint8Array(),
           }),
       } as never
@@ -218,7 +248,7 @@ Deno.test('discoverRoutes defaults rootDir to "." when omitted', async () => {
         output: () =>
           Promise.resolve({
             success: true,
-            stdout: new TextEncoder().encode('[]'),
+            stdout: new TextEncoder().encode(STDOUT_PAYLOAD_MARKER + '[]'),
             stderr: new Uint8Array(),
           }),
       } as never
@@ -249,7 +279,7 @@ Deno.test(
           output: () =>
             Promise.resolve({
               success: true,
-              stdout: new TextEncoder().encode('[]'),
+              stdout: new TextEncoder().encode(STDOUT_PAYLOAD_MARKER + '[]'),
               stderr: new Uint8Array(),
             }),
         } as never
