@@ -168,13 +168,28 @@ Deno.test('baseZnxConfig gives server/space/space-server a dev/start task', () =
 
 Deno.test('baseZnxConfig gives library/app no dev/start task — no runnable process', () => {
   // `library` has no entrypoint; `app`'s mod.ts is a manifest export only (no top-level `.serve()`
-  // call), so a `deno run mod.ts` there would silently do nothing.
+  // call), so a `deno run mod.ts` there would silently do nothing. They still get `check-cycles`/
+  // `check-duplicates` — unconditional for every project type (see `baseZnxConfig`'s own doc in
+  // `base.ts`), meaningful for a `library`/`app` just as much as a runnable service.
   for (const type of ['library', 'app'] as const) {
     const config = baseZnxConfig(type)
     assertEquals(
-      config.tasks,
+      config.tasks?.dev,
       undefined,
-      `${type} should not get a dev/start task`,
+      `${type} should not get a dev task`,
+    )
+    assertEquals(
+      config.tasks?.start,
+      undefined,
+      `${type} should not get a start task`,
+    )
+    assertEquals(
+      config.tasks,
+      {
+        'check-cycles': 'deno run -A jsr:@zanix/cli check-cycles',
+        'check-duplicates': 'deno run -A jsr:@zanix/cli check-duplicates',
+      },
+      `${type} should only get the check-cycles/check-duplicates tasks`,
     )
   }
 })
