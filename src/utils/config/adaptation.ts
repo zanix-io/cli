@@ -1,9 +1,10 @@
 import type { ConfigFile } from '@zanix/types'
 
-import { generateZanixHash } from './base.ts'
-
 /** Function to adapt current config to base config */
-export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) => {
+export const configAdaptation = (
+  currentConfig: ConfigFile,
+  config: ConfigFile,
+) => {
   const newConfig = (Object.keys(currentConfig).length > 0) ? { ...currentConfig } : { ...config }
 
   newConfig.compilerOptions = {
@@ -11,11 +12,16 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     ...currentConfig.compilerOptions,
   } as ConfigFile['compilerOptions']
 
+  // `project` always takes the FRESH `config`'s value, never `currentConfig`'s — unlike every
+  // other field merged below, this one deliberately isn't preserved from what was already there.
+  // `config` reflects the project type just requested by the current `zanix new <type>`/`zanix
+  // prepare` invocation, so re-running it in a directory whose config used to declare a DIFFERENT
+  // `zanix.project` (e.g. re-scaffolding a `library` as a `server`) must update it to match, not
+  // silently keep the stale value.
   newConfig.zanix = {
     ...config.zanix,
     ...currentConfig.zanix,
     project: config.zanix?.project,
-    hash: currentConfig.name ? generateZanixHash(currentConfig.name) : config.zanix?.hash,
   }
 
   //  Format rules to be overriden
@@ -36,15 +42,21 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
 
   const currentLinterTags = currentConfig.lint?.rules?.tags || []
   const baseLinterTags = lint.rules?.tags || []
-  const linterTags = Array.from(new Set([...currentLinterTags, ...baseLinterTags]))
+  const linterTags = Array.from(
+    new Set([...currentLinterTags, ...baseLinterTags]),
+  )
 
   const currentIncludes = currentConfig.lint?.rules?.include || []
   const baseIncludes = lint.rules?.include || []
-  const linterInclude = Array.from(new Set([...currentIncludes, ...baseIncludes]))
+  const linterInclude = Array.from(
+    new Set([...currentIncludes, ...baseIncludes]),
+  )
 
   const currentPlugins = currentConfig.lint?.plugins || []
   const basePlugins = lint.plugins || []
-  const linterPlugins = Array.from(new Set([...currentPlugins, ...basePlugins]))
+  const linterPlugins = Array.from(
+    new Set([...currentPlugins, ...basePlugins]),
+  )
 
   newConfig.lint = {
     ...lint,
@@ -80,7 +92,12 @@ export const configAdaptation = (currentConfig: ConfigFile, config: ConfigFile) 
     include: Array.from(new Set([...testInclude, ...baseTestInclude])),
   }
 
-  // TODO: set default tasks like `deno run`
+  // Tasks: an existing task under the same key always wins over the base default — unlike
+  // `imports` (a version pin the CLI should keep authoritative), a task's shell command is
+  // something a developer routinely hand-edits once scaffolded (extra permissions, a different
+  // entry file), so regenerating the config on a later `zanix new`/`zanix prepare` run must never
+  // clobber that customization. Base only fills in whatever key isn't already present.
+  newConfig.tasks = { ...config.tasks, ...currentConfig.tasks }
 
   return newConfig
 }

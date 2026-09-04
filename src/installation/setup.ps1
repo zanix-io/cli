@@ -11,9 +11,9 @@ $logo = @"
 "@
 
 # Variables
-$LATEST = "1.0.7"
-$VERSION = if ($args.Count -gt 0) { $args[0] } else { $VERSION }
-$BIN_NAME = "znx"
+$LATEST = "2.0.0"
+$VERSION = if ($args.Count -gt 0) { $args[0] } else { $LATEST }
+$BIN_NAME = "zanix"
 $SEPARATOR = "==================================================="
 
 # Function to write colored text
@@ -42,13 +42,34 @@ if (-not (Get-Command deno -ErrorAction SilentlyContinue)) {
 
     if ($answer -eq "y" -or $answer -eq "Y") {
         Write-Color "`nInstalling Deno..." "Yellow"
-        # Install Deno using the official PowerShell script
-        irm https://deno.land/install.ps1 | iex
+        # Install Deno using the official PowerShell script. `iex` runs the downloaded script
+        # in-process rather than as an external process, so a failure surfaces as a terminating
+        # exception (caught below), not a `$LASTEXITCODE` — the previous EAP is restored in
+        # `finally` so it doesn't leak into the rest of this script (e.g. the later `Read-Host`
+        # prompts, which must keep their normal, non-terminating error behavior).
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Stop'
+        try {
+            irm https://deno.land/install.ps1 | iex
+        } catch {
+            Write-Color "`nerror[zanix-installer]: Failed to download or run the Deno installer: $($_.Exception.Message)" "Red"
+            exit 1
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
 
         # Add Deno to the PATH (this is for PowerShell)
         $DENO_INSTALL = "$env:USERPROFILE\.deno"
         $env:PATH = "$DENO_INSTALL\bin;" + $env:PATH
-        
+
+        # The Deno installer script can itself fail non-terminatingly (e.g. print an error and
+        # return without throwing), which `try`/`catch` alone would miss — confirm the `deno`
+        # command is actually resolvable now before claiming success.
+        if (-not (Get-Command deno -ErrorAction SilentlyContinue)) {
+            Write-Color "`nerror[zanix-installer]: Deno installation did not complete successfully ('deno' command not found after install)." "Red"
+            exit 1
+        }
+
         Write-Color "`nDeno successfully installed." "Yellow"
     } else {
         Write-Color "`nDeno will not be installed. Installation cannot continue." "Yellow"
@@ -56,8 +77,8 @@ if (-not (Get-Command deno -ErrorAction SilentlyContinue)) {
     }
 }
 
-# Check if Znx is already installed
-if (Get-Command znx -ErrorAction SilentlyContinue) {
+# Check if Zanix is already installed
+if (Get-Command zanix -ErrorAction SilentlyContinue) {
     # Ask the user if they want to replace the current installation
     Write-Color "Zanix is already installed. Do you want to replace the current version? (y/n): " "Yellow"
     $answer = Read-Host
@@ -65,8 +86,8 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
 
     if ($answer -eq "y" -or $answer -eq "Y") {
         Write-Color "`nUpdating..." "Yellow"
-        # Uninstall the current version of Znx
-        deno uninstall -g znx | Out-Null
+        # Uninstall the current version of Zanix
+        deno uninstall -g zanix | Out-Null
     } else {
         Write-Color "`nInstallation will not proceed." "Yellow"
         exit 1
@@ -77,16 +98,28 @@ if (Get-Command znx -ErrorAction SilentlyContinue) {
 }
 
 
-$APP = "https://jsr.io/@zanix/cli/$VERSION/.dist/app.mjs"
+$APP = "jsr:@zanix/cli@$VERSION"
 
-# Reload caching to ensure dependencies update
-deno cache --reload $APP | Out-Null
+# APP installation (deno install resolves the exact pinned version fresh — no separate cache
+# reload needed, unlike a raw mutable URL). `deno` is a native executable, so a failure is
+# reported via `$LASTEXITCODE`, not an exception. Output is captured (not streamed) so the
+# happy path stays quiet, exactly as before — it's only ever printed if the install fails.
+$installOutput = deno install -A -g -n $BIN_NAME $APP 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Color "`nerror[zanix-installer]: Failed to install '$BIN_NAME' (version $VERSION) via 'deno install'." "Red"
+    Write-Host $installOutput
+    exit 1
+}
 
-# APP installation
-deno install -A -g -n $BIN_NAME $APP | Out-Null
-
-# Test and install dependencies on first run
-znx | Out-Null
+# Test and install dependencies on first run. Same capture-then-check approach: quiet on
+# success, but a broken/misconfigured install now fails loudly instead of silently claiming
+# success below.
+$smokeOutput = & $BIN_NAME 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Color "`nerror[zanix-installer]: '$BIN_NAME' was installed but failed to run (smoke test failed)." "Red"
+    Write-Host $smokeOutput
+    exit 1
+}
 
 # Final message
 Write-Host "`n$SEPARATOR"

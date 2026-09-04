@@ -1,17 +1,18 @@
 import prepareGithubAction from './actions/github.ts'
 import prepareEditorAction from './actions/editor.ts'
+import prepareDockerAction from './actions/docker.ts'
 import { Commander } from 'cli'
 
 /** 'prepare' command */
 export default function prepareCommand(this: Commander) {
   const cwd = new Commander()
-  this.command('prepare', cwd)
+  this.mountGroup('prepare', cwd)
     .description(
       'Set up the project by initializing Git, configuring hooks, and setting up workflows.',
     )
     .option(
       '-p --project-type <project-type:string>',
-      "Specifies the type of project ('library', 'app-server', 'app', and 'server')",
+      "Specifies the type of project ('library', 'space-server', 'space', 'server', and 'app')",
     )
     .option(
       '--lint-files <lint-files:string>',
@@ -22,8 +23,8 @@ export default function prepareCommand(this: Commander) {
       'Specifies the file extensions to include for Git hooks that run a Deno fmt. Use file extensions (e.g., js,md,ts,json) to target specific file types.',
     )
     .option(
-      '--use-pre-commit',
-      'Initialize hooks using pre-commit framework',
+      '--hooks-engine <engine:string>',
+      "Which engine manages the Git hooks: 'native' (this project's own shell scripts, default) or 'framework' (the pre-commit Python framework)",
     )
     .arguments('[root:string]')
     .option(
@@ -34,12 +35,31 @@ export default function prepareCommand(this: Commander) {
         action: prepareGithubAction.bind(cwd),
       },
     )
-    .option('-e --editor [editor:string]', 'Set up the editor configuration for the project', {
-      default: null,
-      action: prepareEditorAction.bind(cwd),
-    }).action((options) => {
-      if (options.editor === undefined && options.github === undefined) {
-        cwd.throw(new Error("You must provide at least one option for the 'prepare' command."))
+    .option(
+      '-e --editor [editor:string]',
+      'Set up the editor configuration for the project',
+      {
+        default: null,
+        action: prepareEditorAction.bind(cwd),
+      },
+    )
+    .option(
+      '-d --docker',
+      'Generate a Dockerfile and .dockerignore for containerized deployment',
+      {
+        default: null,
+        action: prepareDockerAction.bind(cwd),
+      },
+    ).action((options) => {
+      if (
+        options.editor === undefined && options.github === undefined &&
+        options.docker === undefined
+      ) {
+        cwd.throw(
+          new Error(
+            "You must provide at least one option for the 'prepare' command.",
+          ),
+        )
       }
     })
 }

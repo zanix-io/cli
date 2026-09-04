@@ -1,26 +1,53 @@
-import type { ZanixTemplates } from '@zanix/types'
+import type { ZanixTemplates } from 'typings/tree.ts'
 import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
 import { saveZanixConfig } from 'utils/config/main.ts'
-import { getZanixPaths } from '@zanix/utils/helpers'
+import { getZanixPaths } from 'commands/new/lib/tree/tree.ts'
+import { formatGeneratedProject, verifyGeneratedProject } from 'utils/verify.ts'
+import { assertSafeProjectName } from 'utils/projects/validate-name.ts'
 import logger from '@zanix/utils/logger'
 
-function newLibraryAction(
+/**
+ * `zanix new library`'s real orchestration: rejects a `..` path-traversal segment in
+ * `libraryName` (`assertSafeProjectName`) and resolves `--template` against `getZanixPaths`
+ * (either failure routes through `this.throw`, before anything is written), writes the
+ * tree, saves `deno.json`'s Zanix config, formats the whole generated project
+ * (`formatGeneratedProject` — unconditional, unlike `--verify`), then — both independently
+ * opt-in, off by default — `--verify`s the generated project and/or `--prepare`s it (`zanix
+ * prepare <name> --project-type=library -g -e`, unless `--no-prepare` was passed).
+ */
+async function newLibraryAction(
   this: Commander,
-  options: { template: ZanixTemplates; prepare?: boolean },
+  options: { template: ZanixTemplates; prepare?: boolean; verify?: boolean },
   libraryName = 'my-zanix-library',
 ) {
   const projectType = 'library'
-  const { template, prepare } = options
-  const structure = getZanixPaths(projectType, libraryName)
+  const { template, prepare, verify } = options
 
-  createFilesAndFolders(structure, template)
+  let structure: ReturnType<typeof getZanixPaths<typeof projectType>>
+  try {
+    assertSafeProjectName(libraryName)
+    structure = getZanixPaths(projectType, libraryName, template)
+  } catch (error) {
+    this.throw(error as Error)
+    return
+  }
 
-  saveZanixConfig(projectType, libraryName)
+  await createFilesAndFolders(structure, template)
+
+  await saveZanixConfig(projectType, libraryName)
+  await formatGeneratedProject(structure.FOLDER)
+
+  if (verify) await verifyGeneratedProject(structure.FOLDER)
 
   if (prepare) {
-    this.runCommand('prepare', [libraryName, `--project-type=${projectType}`, '-g', '-e'])
+    await this.runCommand('prepare', [
+      libraryName,
+      `--project-type=${projectType}`,
+      '-g',
+      '-e',
+    ])
   }
 
   logger.info(
