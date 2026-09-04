@@ -1,6 +1,11 @@
-import { assert, assertEquals } from '@std/assert'
+import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import { join } from '@std/path'
-import { sweepStaleGeneratedModules } from 'commands/space/shared/import-project-module.ts'
+import {
+  cleanupImportBatch,
+  createImportBatchContext,
+  importProjectModule,
+  sweepStaleGeneratedModules,
+} from 'commands/space/shared/import-project-module.ts'
 
 // Deliberately a PLAIN `Deno.makeTempDir()` below, never this repo's own `getTemporaryFolder`
 // convention (`__tmp__` nested under `src/@tests/...`) — every fixture here simulates a REAL
@@ -250,5 +255,64 @@ Deno.test(
         "file:// scheme check — this regresses back to throwing 'Must be a file URL' the moment " +
         "@zanix/cli loads via jsr: (see this test's own doc for the full account).",
     )
+  },
+)
+
+Deno.test(
+  "importProjectModule: a bare specifier that also resolves via cli's own config (outside cli's " +
+    'own source tree) gets rewritten to the RESOLVED absolute URL, never left as the bare literal',
+  async () => {
+    // Real, confirmed bug: `resolveReplacement` used to leave a specifier like `@zanix/helpers`
+    // (real, in `cli`'s own `imports` map, resolving well outside `cli`'s own hand-written source
+    // tree) untouched in the rewritten temp file, "deferring entirely to native resolution" — which
+    // only works when the WHOLE running `deno` process happens to share `cli`'s own config (a local
+    // checkout). Under a real global `deno install -g jsr:@zanix/cli` install, the process-wide
+    // config governing the temp file's own native `import()` has no answer for that bare specifier
+    // at all, throwing `Import "@zanix/helpers" not a dependency` on every real invocation. This
+    // fixture can't reproduce THAT exact constrained process (this test still runs under `cli`'s
+    // own real config, same limitation `getCliLoader`'s own test above documents) — it instead
+    // verifies the actual REWRITE happened: the resolved absolute URL landed in the temp file, not
+    // the original bare text, which is what makes the fix's guarantee (resolvable with no import
+    // map at all) hold regardless of which process ends up running it.
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(join(root, 'deno.json'), '{}\n')
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { isPlainObject } from '@zanix/helpers'\nexport const value = isPlainObject({})\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        const mod = await importProjectModule(entryPath, batchContext)
+        assertEquals(
+          mod.value,
+          true,
+          'the real @zanix/helpers import must actually resolve and run',
+        )
+
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        assert(
+          !rewritten.includes("'@zanix/helpers'") && !rewritten.includes('"@zanix/helpers"'),
+          "the rewritten temp file still contains the bare '@zanix/helpers' specifier — " +
+            'resolveReplacement regressed back to deferring to native resolution instead of ' +
+            "splicing in the resolved absolute URL (see this test's own doc for why that breaks " +
+            'under a real global install).',
+        )
+        assertStringIncludes(
+          rewritten,
+          '@zanix/utils',
+          'the rewritten temp file should still reference @zanix/utils somewhere, via its ' +
+            'resolved absolute URL (@zanix/helpers is a subpath of @zanix/utils on JSR), not have ' +
+            'dropped the import entirely',
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
   },
 )

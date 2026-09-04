@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's OWN dependencies (e.g. `@zanix/server`, imported

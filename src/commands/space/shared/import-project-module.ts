@@ -437,21 +437,21 @@ export async function importProjectModule(
     }
 
     // A bare specifier `@zanix/cli`'s OWN configuration can ALSO resolve — to ANY target, even
-    // one that genuinely differs from what the project's own config would give — is left
-    // completely untouched, deferring entirely to native resolution. This matters for real
-    // reasons, not just as an optimization: some packages (`@zanix/space`, `@zanix/app`,
-    // `@zanix/server`) are not only a project's own dependency — `@zanix/cli` ITSELF imports them
-    // natively for its own orchestration (`getActiveRenderer()`, `activateApps()`,
-    // `bootstrapServers()`, ...) and shares real, module-level protocol state through them with
-    // whatever `space.app.ts` imports (a renderer registry, a route registry, ...). Resolving the
-    // specifier against the PROJECT's own config instead — even to a genuinely valid, different
-    // target — loads a SEPARATE module instance of that package, silently breaking that shared
-    // state. Confirmed as a real, not theoretical, failure: two separately-loaded `SpaceDevSocket`
-    // instances (one reached through `@zanix/cli`'s own native `@zanix/space` import, one through
-    // this function's own project-anchored resolution) each registered the same dev-socket route
-    // into `@zanix/server`'s one shared route registry, and the second registration threw "already
-    // defined". Only a specifier `@zanix/cli` genuinely has no answer for at all — the real bug
-    // this whole module exists to fix — falls through to the project's own resolution below.
+    // one that genuinely differs from what the project's own config would give — resolves against
+    // `cli`'s OWN config instead. This matters for real reasons, not just as an optimization: some
+    // packages (`@zanix/space`, `@zanix/app`, `@zanix/server`) are not only a project's own
+    // dependency — `@zanix/cli` ITSELF imports them natively for its own orchestration
+    // (`getActiveRenderer()`, `activateApps()`, `bootstrapServers()`, ...) and shares real,
+    // module-level protocol state through them with whatever `space.app.ts` imports (a renderer
+    // registry, a route registry, ...). Resolving the specifier against the PROJECT's own config
+    // instead — even to a genuinely valid, different target — loads a SEPARATE module instance of
+    // that package, silently breaking that shared state. Confirmed as a real, not theoretical,
+    // failure: two separately-loaded `SpaceDevSocket` instances (one reached through `@zanix/cli`'s
+    // own native `@zanix/space` import, one through this function's own project-anchored
+    // resolution) each registered the same dev-socket route into `@zanix/server`'s one shared route
+    // registry, and the second registration threw "already defined". Only a specifier `@zanix/cli`
+    // genuinely has no answer for at all — the real bug this whole module exists to fix — falls
+    // through to the project's own resolution below.
     const cliLoader = await getCliLoader()
     try {
       const cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
@@ -466,7 +466,26 @@ export async function importProjectModule(
       // through to the project's own resolution below instead, exactly as if `cli`'s config had
       // no answer at all — see that function's own doc for the real, confirmed failure this
       // closes.
-      if (!resolvesIntoCliOwnSourceTree(cliResolved)) return specifier
+      if (!resolvesIntoCliOwnSourceTree(cliResolved)) {
+        // The resolved, fully-qualified URL — never the original bare `specifier` — is what gets
+        // spliced into the rewritten temp file below. Real, confirmed bug: `writeGeneratedModule`'s
+        // temp file is a LOOSE file living in the PROJECT's own directory, not part of any
+        // package's own module graph — a bare specifier only resolves for it via whatever import
+        // map governs the WHOLE running `deno` process (nearest-config discovery from a local
+        // checkout, or an explicit `--config` at process startup), never `cli`'s own config
+        // specifically. Under `deno install -g` (no matching entry in whatever config the shim
+        // forces process-wide), that process-wide map has no answer for `@zanix/space`/
+        // `@zanix/app`/`@zanix/server` at all — native `import()` of the temp file then throws
+        // `Import "@zanix/space" not a dependency` on every real global install, even though
+        // `cliLoader` above already resolved it successfully one line up. Splicing in `cliResolved`
+        // sidesteps the need for any import map at all — a fully-qualified specifier resolves
+        // identically regardless of which config governs the process — while still preserving the
+        // shared module instance the surrounding comment's `SpaceDevSocket` case depends on: Deno's
+        // module cache keys by resolved URL, not by which import statement reached it, and
+        // `@deno/loader`'s own `resolveSync` mirrors Deno's native resolution algorithm by design,
+        // so the two converge on the identical cache key.
+        return cliResolved
+      }
     } catch {
       if (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier) !== undefined) {
         return specifier

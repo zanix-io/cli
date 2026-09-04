@@ -8,6 +8,34 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-09-04
+
+### Fixed
+
+- **`resolveReplacement` left a bare specifier that also resolves via `@zanix/cli`'s own config
+  (e.g. `@zanix/space`, `@zanix/app`, `@zanix/server`) completely untouched in the rewritten temp
+  file, "deferring entirely to native resolution" — that only works when the WHOLE running `deno`
+  process happens to share `cli`'s own config (a local checkout).** Reproduced live against a real
+  global `deno install -g jsr:@zanix/cli@2.0.3` install (found while validating this release):
+  `zanix space build`/`dev` on any project importing `@zanix/space` in `space.app.ts` failed with
+  `Import "@zanix/space" not a dependency`, thrown from the rewritten temp file itself — a LOOSE
+  file living in the project's own directory, not part of any package's own module graph, so it has
+  no per-package manifest of its own to resolve a bare specifier against; it can only resolve one
+  via whatever import map governs the whole process, which under a real global install has no entry
+  for the packages this deferral was relying on being reachable through.
+
+  Fixed by splicing in the already-computed resolved absolute URL (`cliResolved`) instead of the
+  original bare specifier — a fully-qualified specifier resolves identically no matter which config
+  governs the process, with no import map lookup needed at all. This still preserves the shared
+  module instance the surrounding identity-sharing mechanism depends on (the real, previously fixed
+  `SpaceDevSocket` "already defined" double-instance bug this whole function exists to prevent):
+  Deno's module cache keys by resolved URL, not by which import statement reached it, and
+  `@deno/loader`'s own `resolveSync` mirrors Deno's native resolution algorithm by design, so both
+  paths converge on the identical cache key. New regression test
+  (`src/@tests/unit/commands/space/shared/import-project-module.test.ts`) exercises `resolveReplacement`
+  for real against a live `@zanix/helpers` import and asserts the rewritten temp file no longer
+  contains the bare specifier.
+
 ## [2.0.3] - 2026-09-04
 
 ### Fixed
