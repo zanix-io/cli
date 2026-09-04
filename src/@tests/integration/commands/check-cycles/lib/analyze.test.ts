@@ -5,18 +5,16 @@ import { findConfirmedFindings } from 'commands/check-cycles/lib/analyze.ts'
 import type { Cycle } from 'commands/check-cycles/lib/cycles.ts'
 import type { SpecifierResolutions } from 'commands/check-cycles/lib/graph.ts'
 
-// Locks in the real fix: `runHarness` (`analyze.ts`) used to resolve its own harness script path
-// (`fromFileUrl(import.meta.url)`) at MODULE TOP LEVEL — which only works when the module itself
-// loaded from a real `file://` URL (running `zanix` from a local checkout). Once installed
-// globally from JSR (`deno install -g jsr:@zanix/cli`), this module loads from an `https://
-// jsr.io/...` specifier instead, and that top-level call threw `TypeError: Must be a file URL`
-// on EVERY `zanix` invocation, not just `check-cycles` — confirmed real, reproduced live against
-// a real `deno install -g jsr:@zanix/cli@2.0.0`, where even `zanix --version` crashed. Moved the
-// path resolution into `runHarness` itself so it's computed lazily, only when this command
-// actually runs — this test proves the harness subprocess this function spawns still resolves
-// and runs correctly with that lazy path, not just that the module now merely imports without
-// throwing (a real subprocess invocation, not a mock, since a mock couldn't have caught the
-// original bug either).
+// Verifies that `runHarness` (`analyze.ts`) resolves its own harness script path lazily, inside
+// the function itself, never at module top level: a top-level `fromFileUrl(import.meta.url)` call
+// only works when the module loads from a real `file://` URL (a local checkout) — once installed
+// globally from JSR (`deno install -g jsr:@zanix/cli`), this module loads from an
+// `https://jsr.io/...` specifier instead, and a top-level call throws `TypeError: Must be a file
+// URL` on every `zanix` invocation, not just `check-cycles`, since `commands/mod.ts` eagerly
+// imports every command's own module to register its CLI surface. This test exercises a real
+// subprocess invocation of the harness (never a mock — a mock can't observe whether the lazily
+// computed path actually resolves and runs), proving the harness spawns and runs correctly with
+// it.
 
 const fixtureRoot = resolve(getTemporaryFolder(import.meta.url), 'analyze-harness-fixture')
 const derivedPath = resolve(fixtureRoot, 'derived.ts')

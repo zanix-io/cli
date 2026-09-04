@@ -68,13 +68,14 @@ export async function findConfirmedFindings(
 async function runHarness(files: string[]): Promise<FileAnalysis[]> {
   const outputPath = await Deno.makeTempFile({ prefix: 'znx-check-cycles-', suffix: '.json' })
 
-  // Computed HERE, not at module top-level — `import.meta.url` is only ever a real `file://` URL
-  // when this module itself was loaded from local disk (running `zanix` from a real checkout).
-  // Once this module loads from a REMOTE specifier instead (`https://jsr.io/...` — exactly what
-  // happens for a globally-installed CLI, `deno install -g jsr:@zanix/cli`), `fromFileUrl` throws
-  // outright — and since this WAS at module top-level, that throw happened on every single CLI
-  // invocation, not just `check-cycles`, breaking even `--version`/`--help`. Moved into this
-  // function so it only ever runs when `check-cycles` genuinely executes.
+  // Computed HERE, not at module top level — `import.meta.url` is only ever a real `file://` URL
+  // when this module loads from local disk (running `zanix` from a real checkout). Once this
+  // module loads from a REMOTE specifier instead (`https://jsr.io/...` — exactly what happens for
+  // a globally-installed CLI, `deno install -g jsr:@zanix/cli`), `fromFileUrl` throws outright — a
+  // module-top-level call would throw on every single CLI invocation, not just `check-cycles`,
+  // breaking even `--version`/`--help`, since `commands/mod.ts` eagerly imports every command's
+  // own module to register its CLI surface. Computing it here means it only ever runs when
+  // `check-cycles` genuinely executes.
   const harnessPath = fromFileUrl(
     new URL('./side-effects/harness.test.ts', import.meta.url),
   )

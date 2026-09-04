@@ -27,10 +27,10 @@ export interface SpaceBuildOptions extends SpaceValidationOptions {
  * whose argument it can resolve as a literal at parse time — routing it through this variable
  * keeps every OTHER `zanix` command out of that graph entirely.
  *
- * A RELATIVE specifier (`./action.ts`), not the bare import-map alias
- * `commands/space/build/action.ts` this used to be — same real, confirmed bug as
- * `commands/space/dev/command.ts`'s own identical fix: a bare alias only resolves via this file's
- * nearest `deno.jsonc` "imports" entry when loaded from a real local `file://` checkout; a
+ * A RELATIVE specifier (`./action.ts`), never the bare import-map alias
+ * `commands/space/build/action.ts` — same reasoning as `commands/space/dev/command.ts`'s own
+ * identical specifier: a bare alias only resolves via this file's nearest `deno.jsonc` "imports"
+ * entry when loaded from a real local `file://` checkout; a
  * genuinely DYNAMIC `import()` (a variable argument, not a literal) never gets that same
  * import-map resolution once this module loads from a remote `jsr:` specifier instead —
  * `Import "commands/space/build/action.ts" not a dependency` on every real `zanix space build`

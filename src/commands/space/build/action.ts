@@ -81,14 +81,15 @@ import logger from '@zanix/utils/logger'
  * the point where paying for it is correct.
  *
  * Both of the imports above — and `../shared/graphql-check.ts` below — use a RELATIVE specifier,
- * not the bare import-map alias (`commands/space/shared/...`) they used to: same real, confirmed
- * bug as `command.ts`'s own `SPACE_BUILD_ACTION_SPECIFIER` fix. A bare alias only resolves via this
- * file's nearest `deno.jsonc` "imports" entry when loaded from a real local `file://` checkout —
- * `deno install -g`'s own generated shim config carries no such map, so once this module loads from
- * a remote `jsr:` specifier (any real global install), that same bare specifier throws `Import
- * "commands/..." not a dependency`, even though this call already sits behind the lazy boundary
- * these comments describe. A relative specifier needs no import-map lookup at all — plain ECMAScript
- * resolution against `import.meta.url` handles both `file://` and `https://jsr.io/...` alike.
+ * never the bare import-map alias (`commands/space/shared/...`) `command.ts`'s own
+ * `SPACE_BUILD_ACTION_SPECIFIER` avoids for the identical reason. A bare alias only resolves via
+ * this file's nearest `deno.jsonc` "imports" entry when loaded from a real local `file://`
+ * checkout — `deno install -g`'s own generated shim config carries no such map, so once this module
+ * loads from a remote `jsr:` specifier (any real global install), that same bare specifier throws
+ * `Import "commands/..." not a dependency`, even though this call already sits behind the lazy
+ * boundary these comments describe. A relative specifier needs no import-map lookup at all — plain
+ * ECMAScript resolution against `import.meta.url` handles both `file://` and `https://jsr.io/...`
+ * alike.
  */
 async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   assertProjectType(this, ['space', 'space-server'], 'space build')

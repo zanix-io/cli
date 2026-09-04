@@ -13,10 +13,9 @@ import { Commander } from 'cli'
  * as a literal at parse time — routing it through this variable keeps every OTHER `zanix` command
  * out of that graph entirely.
  *
- * A RELATIVE specifier (`./lib/mod.ts`), not the bare import-map alias `commands/build/lib/mod.ts`
- * this used to be — confirmed real bug, reproduced live against a global `deno install -g
- * jsr:@zanix/cli` install: a bare alias resolved via `command.ts`'s own nearest `deno.jsonc`
- * "imports" entry when this module loads from a real local `file://` checkout, but a genuinely
+ * A RELATIVE specifier (`./lib/mod.ts`), never the bare import-map alias `commands/build/lib/mod.ts`:
+ * a bare alias resolves via `command.ts`'s own nearest `deno.jsonc` "imports" entry when this
+ * module loads from a real local `file://` checkout, but a genuinely
  * DYNAMIC `import()` (a variable argument, not a literal Deno's static analyzer could trace) never
  * gets that same import-map resolution once this module itself loads from a remote `jsr:`
  * specifier instead — `Import "commands/build/lib/mod.ts" not a dependency` on every real `zanix

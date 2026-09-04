@@ -4,46 +4,44 @@ import { fromFileUrl, relative } from '@std/path'
 import { parse as parseJsonc } from '@std/jsonc'
 
 /**
- * Locks in the real fix across all three lazy-command-module specifiers
- * (`BUILD_LIB_MODULE_SPECIFIER`/`SPACE_DEV_ACTION_SPECIFIER`/`SPACE_BUILD_ACTION_SPECIFIER`) —
- * each used to be a BARE, project-import-map-aliased specifier (e.g.
- * `'commands/space/dev/action.ts'`), kept in a variable specifically so Deno's own static
- * dependency-graph analysis (which only follows a dynamic `import()` whose argument it can
- * resolve as a literal at parse time) never eagerly pulls in that command's own heavy transitive
- * dependencies for every OTHER `zanix` invocation — see each `command.ts`'s own doc for the full
- * reasoning.
+ * Verifies that all three lazy-command-module specifiers
+ * (`BUILD_LIB_MODULE_SPECIFIER`/`SPACE_DEV_ACTION_SPECIFIER`/`SPACE_BUILD_ACTION_SPECIFIER`) stay
+ * RELATIVE (`./action.ts`, `./lib/mod.ts`), never a bare, project-import-map-aliased one (e.g.
+ * `'commands/space/dev/action.ts'`). Each lives in a variable, not an inline literal, specifically
+ * so Deno's own static dependency-graph analysis (which only follows a dynamic `import()` whose
+ * argument it can resolve as a literal at parse time) never eagerly pulls that command's own heavy
+ * transitive dependencies into every OTHER `zanix` invocation — see each `command.ts`'s own doc
+ * for the full reasoning.
  *
- * That bare-alias resolution only works when the importing module itself loaded from a real local
- * `file://` checkout (Deno resolves it via the nearest `deno.jsonc` "imports" entry). Once
- * installed globally from JSR (`deno install -g jsr:@zanix/cli`), the module loads from a remote
- * `https://jsr.io/...` specifier instead — and a genuinely DYNAMIC `import()` of a bare alias
- * never gets the same import-map resolution there, throwing `Import "..." not a dependency` on
- * literally every real invocation of the affected command. Confirmed real, reproduced live against
- * a real global JSR install — not hypothetical.
+ * A bare alias only resolves via the nearest `deno.jsonc` "imports" entry when the importing
+ * module itself loads from a real local `file://` checkout. Once installed globally from JSR
+ * (`deno install -g jsr:@zanix/cli`), the module loads from a remote `https://jsr.io/...`
+ * specifier instead, and a genuinely DYNAMIC `import()` of a bare alias never gets that same
+ * import-map resolution — it throws `Import "..." not a dependency` on every real invocation of
+ * the affected command. A relative specifier needs no import-map lookup at all: plain ECMAScript
+ * module resolution against `import.meta.url` works identically whether that URL is `file://` or
+ * `https://jsr.io/...`, while still defeating static analysis the same way a bare one does (routed
+ * through a variable, never an inline literal).
  *
- * The fix: a RELATIVE specifier (`./action.ts`, `./lib/mod.ts`) instead — plain ECMAScript module
- * resolution against `import.meta.url` needs no import-map lookup at all, so it works identically
- * whether that URL is `file://` or `https://jsr.io/...`, while still defeating static analysis the
- * same way a bare one did (routed through a variable, never an inline literal). This test parses
- * each file's own raw source text (never imports them — importing `command.ts`/`main.ts` would
- * itself trigger the very command registration this whole pattern exists to avoid paying for) and
- * fails loud if any of the three ever regresses back to a bare, non-relative specifier.
+ * This test parses each file's own raw source text (never imports them — importing
+ * `command.ts`/`main.ts` would itself trigger the very command registration this pattern exists to
+ * avoid paying for) and fails loud if any of the three regresses back to a bare, non-relative
+ * specifier.
  *
- * The same bug also showed up one level DEEPER — inside `action.ts` itself, not just the
- * `command.ts` boundary that reaches it: `space/build/action.ts`'s own `compile-messages.ts`
- * (TWO separate imports of it — `compileMessagesTree`/`assertNoCompileFailures` AND, further down,
- * `writeCompiledCatalogs`) and `graphql-check.ts` imports, and `space/dev/action.ts`'s own
- * `graphql-check.ts` import, were each a bare literal `import('commands/space/shared/...')` — no
- * named constant to enumerate case-by-case like `CASES` above, since these were plain inline
- * literals. The sweep below generalizes instead of adding a fourth/fifth/sixth/seventh named case:
- * it reads `deno.jsonc`'s own real "imports" map, keeps only the LOCAL aliases (values starting
- * with `./` — a bare specifier resolving to a jsr:/npm: package is fine either way, only a
- * project-local relative-path alias depends on the nearest `deno.jsonc` being in scope), then scans
- * every real (non-test) source file under `src/commands` for a dynamic `import(...)` whose literal
- * argument starts with one of those aliases — comments stripped first, so a JSDoc line merely
- * naming a module this way (as several already do) never false-positives. There is no legitimate
- * reason for that shape to exist in this codebase, so this also catches any FUTURE instance of the
- * same mistake, not just the four found this way.
+ * The same shape recurs one level DEEPER, inside `action.ts` itself, not just the `command.ts`
+ * boundary that reaches it: `space/build/action.ts`'s own `compile-messages.ts` imports
+ * (`compileMessagesTree`/`assertNoCompileFailures`, and separately `writeCompiledCatalogs`) and
+ * `graphql-check.ts` import, plus `space/dev/action.ts`'s own `graphql-check.ts` import, are each a
+ * bare literal `import('commands/space/shared/...')` with no named constant to enumerate
+ * case-by-case like `CASES` above. The sweep below generalizes instead of adding a
+ * fourth/fifth/sixth/seventh named case: it reads `deno.jsonc`'s own real "imports" map, keeps only
+ * the LOCAL aliases (values starting with `./` — a bare specifier resolving to a jsr:/npm: package
+ * is fine either way, only a project-local relative-path alias depends on the nearest `deno.jsonc`
+ * being in scope), then scans every real (non-test) source file under `src/commands` for a dynamic
+ * `import(...)` whose literal argument starts with one of those aliases — comments stripped first,
+ * so a JSDoc line merely naming a module this way (as several already do) never false-positives.
+ * There is no legitimate reason for that shape to exist in this codebase, so this also catches any
+ * future instance of the same mistake.
  */
 
 const CASES = [
