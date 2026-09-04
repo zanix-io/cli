@@ -89,6 +89,7 @@
     "npm:postcss-modules@^9.0.1": "9.0.1_postcss@8.5.28",
     "npm:postcss@^8.5.26": "8.5.28",
     "npm:preact@^10.29.0": "10.29.8",
+    "npm:qrcode-generator@^1.4.4": "1.5.2",
     "npm:react-dom@^19.2.0": "19.2.8_react@19.2.8",
     "npm:react@19.2.8": "19.2.8",
     "npm:react@^19.2.0": "19.2.8",
@@ -2517,6 +2518,9 @@
     },
     "punycode@2.3.1": {
       "integrity": "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="
+    },
+    "qrcode-generator@1.5.2": {
+      "integrity": "sha512-pItrW0Z9HnDBnFmgiNrY1uxRdri32Uh9EjNYLPVC2zZ3ZRIIEqBoDgm4DkvDwNNDHTK7FNkmr8zAa77BYc9xNw=="
     },
     "react-dom@19.2.8_react@19.2.8": {
       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",

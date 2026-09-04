@@ -10,7 +10,9 @@
  * deno run -A jsr:@zanix/cli@[version]/setup [version]
  * ```
  * Pinned to the same `[version]` being installed, since a bare `jsr:@zanix/cli/setup` would only
- * resolve against a version that actually declares this export.
+ * resolve against a version that actually declares this export. Installing a version published
+ * within the last 24 hours fails before this script ever runs, with Deno's own "minimum
+ * dependency age" error — add `--minimum-dependency-age 0` right after `-A` in that case.
  */
 
 import { parse as parseJsonc } from '@std/jsonc'
@@ -136,6 +138,7 @@ let filteredConfigPath: string | undefined
       const publishedConfig = parseJsonc(await configResponse.text()) as {
         imports?: Record<string, string>
         minimumDependencyAge?: number
+        nodeModulesDir?: string
       }
       const imports: Record<string, string> = {}
       for (const [key, value] of Object.entries(publishedConfig.imports ?? {})) {
@@ -145,7 +148,22 @@ let filteredConfigPath: string | undefined
       await Deno.writeTextFile(
         filteredConfigPath,
         JSON.stringify(
-          { minimumDependencyAge: publishedConfig.minimumDependencyAge ?? 0, imports },
+          {
+            minimumDependencyAge: publishedConfig.minimumDependencyAge ?? 0,
+            // Deno resolves a running process's own npm dependencies (including one deep inside a
+            // SERVED project's own graph, not just this package's direct dependencies) against
+            // WHATEVER `nodeModulesDir` the process's own governing config declares — never the
+            // served project's, even when that project sets its own `nodeModulesDir: "auto"` and
+            // has a real local `node_modules` tree. Omitting it here left every real global install
+            // resolving deep npm dependencies against Deno's flat global cache instead, where a
+            // legacy "private stub subpath" package (a folder holding only a `package.json` whose
+            // `main` escapes its own directory via `../`) fails to resolve at all — confirmed live:
+            // `@radix-ui/react-dialog`'s own `react-remove-scroll-bar/constants` dependency, reached
+            // through `zanix space build`'s SSR render of an unrelated served project, threw `Cannot
+            // find module ... verify main entry` until this value was restored.
+            nodeModulesDir: publishedConfig.nodeModulesDir,
+            imports,
+          },
           null,
           2,
         ) + '\n',

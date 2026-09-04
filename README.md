@@ -78,6 +78,11 @@ Replace both `[version]` with the actual version number — the first selects
 the setup script's own version, the second the version to install (normally
 the same value).
 
+Installing a version published within the last 24 hours fails with a
+"minimum dependency age" error — Deno's own default freshness window,
+applied before the setup script itself ever runs. Add
+`--minimum-dependency-age 0` right after `-A` to install it anyway.
+
 ### Security Warning
 
 **Be cautious!** Running a script from a source you don't trust can be risky.
