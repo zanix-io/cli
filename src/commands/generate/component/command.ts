@@ -1,4 +1,4 @@
-import type { ZanixFolderGenericTree } from '@zanix/types'
+import type { ZanixFolderGenericTree } from 'typings/tree.ts'
 import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'
@@ -54,12 +54,13 @@ export function planComponent(
  * scaffolding default, the same role `comets/` plays for Comet shells, not a framework-enforced path.
  *
  * Not wired into `zanix new space`'s own `SPACE_RECIPE_BASE`
- * (`commands/new/lib/tree/projects/space.ts`) — same reasoning `middleware` documents for `server`
- * (see `docs/generate.md`'s own Middleware section): `ZanixSpaceSrcTree` (`@zanix/utils`'s own
- * published type, aliased here as `@zanix/types`) only declares `routes`/`comets` subfolders today,
- * so there is no typed tree leaf yet for a Recipe entry to target. Adding one requires a
- * `@zanix/utils` release first — out of this repo's own scope. `zanix generate component` still
- * works the same way on any already-scaffolded `space`/`space-server` project.
+ * (`commands/new/lib/tree/projects/space.ts`): `ZanixSpaceSrcTree` (`typings/tree.ts` — `cli`'s own
+ * scaffold-tree type, moved here from `@zanix/utils/types` since `cli` was always its only real
+ * consumer; see that module's own doc) only declares `routes`/`comets` subfolders today, so there is
+ * no typed tree leaf yet for a Recipe entry to target. Unlike before this move, adding one no longer
+ * needs a `@zanix/utils` release — `cli` owns the type now — but doing so is still a separate,
+ * deliberate scaffold-content decision from this one, not made here. `zanix generate component`
+ * still works the same way on any already-scaffolded `space`/`space-server` project.
  */
 async function generateComponentAction(
   this: Commander,

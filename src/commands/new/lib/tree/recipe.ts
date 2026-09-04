@@ -1,4 +1,4 @@
-import type { ZanixTemplatesRecord } from '@zanix/types'
+import type { ZanixTemplatesRecord } from 'typings/tree.ts'
 
 /**
  * The shared file shape every `plan<Name>` function returns (`{PATH, NAME, content}`) — the same

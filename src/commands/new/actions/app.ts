@@ -1,4 +1,4 @@
-import type { ZanixTemplates } from '@zanix/types'
+import type { ZanixTemplates } from 'typings/tree.ts'
 import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'

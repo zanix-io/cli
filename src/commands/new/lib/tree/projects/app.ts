@@ -1,4 +1,4 @@
-import type { ZanixFolderTree } from '@zanix/types'
+import type { ZanixFolderTree } from 'typings/tree.ts'
 
 import {
   assembleScaffold,

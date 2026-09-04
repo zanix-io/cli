@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-09-01
+## [2.0.0] - 2026-09-03
 
 ### Added
 
@@ -93,14 +93,25 @@ and this project adheres to
 
 ### Changed
 
+- **The scaffold-tree-modeling types (`ZanixFolderTree`, `ZanixBaseFolder`,
+  `ZanixSrcTree`/`ZanixSrcTreeMap`, `ZanixServerSrcTree`, `ZanixSpaceSrcTree`, `ZanixLibrarySrcTree`,
+  `ZanixFolderGenericTree`, `ZanixTemplatesRecord`, `ZanixLocalContentProps`, `ZanixTemplates`,
+  `ZanixProjectsFull`) moved from `@zanix/utils/types` into this package's own
+  `src/typings/tree.ts`** — `cli` was always their only real consumer across the whole ecosystem
+  (confirmed by a full grep of every other `@zanix/*` package), the same "moved to `cli`, its only
+  real consumer" pattern already applied to the git-hook/editor-config helpers and the esbuild
+  `CompilerOptions`/`compileAndObfuscate` pair. Internal only — no change to any `zanix` command's
+  behavior or output. `ZanixProjects` itself stayed in `@zanix/utils`: it's genuinely shared
+  vocabulary, part of the `Znx.config.project` runtime global `@zanix/server` and consumer apps
+  read.
 - `zanix generate interactor` now also runs in a plain `space` project (not just `server`/
   `space-server`), landing in its own per-domain folder (`src/<name>/<name>.interactor.ts`).
 - Declared version floors bumped for several `@zanix/*` dependencies a freshly generated/updated
-  project gets (`@zanix/core`, `@zanix/datamaster`, and `@zanix/validator`/`@zanix/types` via their
-  `@zanix/utils` subpath alias) to track upstream renames/new capabilities this CLI now depends on
-  (class-level `classMetadata` introspection for `openapi`, a unified `SEARCH_ENGINE`
-  selector/config-option renames) — there's no dual-read compat shim on the upstream side, so an
-  older floor no longer resolves to a working release.
+  project gets (`@zanix/core`, `@zanix/datamaster`, `@zanix/app`/`@zanix/app/runtime`, and
+  `@zanix/validator`/`@zanix/types` via their `@zanix/utils` subpath alias) to track upstream
+  renames/new capabilities this CLI now depends on (class-level `classMetadata` introspection for
+  `openapi`, a unified `SEARCH_ENGINE` selector/config-option renames) — there's no dual-read
+  compat shim on the upstream side, so an older floor no longer resolves to a working release.
 - `zanix new space`/`space-server` now scaffold an explicit renderer entry point
   (`@zanix/space/react` or `/preact`) in `space.app.ts`, and generated SSR handler shells import
   `renderToResponse` from the same subpath — `@zanix/space` no longer ships a renderer
@@ -147,6 +158,70 @@ and this project adheres to
 
 ### Fixed
 
+- **`zanix new`/`zanix generate`/`zanix prepare` scaffold `src/typings/index.d.ts` as ambient
+  global types (`declare global { ... }`) for every project type, but never wired
+  `compilerOptions.types` at it in the generated `deno.json`** (`utils/config/base.ts`) — without
+  that, `deno check`/`deno test` only picked up a type declared there when some
+  statically-reachable file happened to import that module, never true for a pure ambient-global
+  file; a type used only from runtime-discovered code (e.g. an auto-discovered handler) silently
+  went unchecked instead of failing loudly. Now unconditional across all five project types, the
+  same way `strict`/`noImplicitAny` already are. Depends on `@zanix/utils` publishing `types` on
+  `ConfigFile['compilerOptions']` first (added there in lockstep — see that package's own
+  changelog).
+- **`zanix space dev` on a `space-server` project never ran `@zanix/core`'s own registration
+  sequence** (`dev/action.ts`) — a real `mod.ts` calls `Zanix.start({ apps })`, which registers
+  `@zanix/datamaster`/`@zanix/auth`/`@zanix/notifications`/`@zanix/asyncmq`'s own core
+  connector/provider slots (`defineCoreMetadata()`) and auto-discovers this project's own
+  `src/server/` handlers/interactors/connectors/providers/`.defs.ts` files
+  (`defineLocalMetadata()`) BEFORE activating anything. `zanix space dev` never imports `mod.ts` at
+  all (a second, unaware production boot racing this one), and drops to
+  `activateApps`/`bootstrapServers` directly instead of `Zanix.start()` for dev-only control
+  `start()`'s own wrapper doesn't expose — in doing so, it never picked up either registration step:
+  a route/Interactor resolving a core connector (`this.database`, ...) threw `Missing core
+  connector slot`, and a project-local `src/server/` handler/provider/interactor behaved as if its
+  file were never imported at all, purely because `zanix space dev` itself never ran (confirmed as
+  a real production failure — a Space page's own login flow reaching a Provider/Repository its
+  REST API already registers). Now calls `Zanix.compose()` (the public, side-effect-scoped subset
+  of `start()` built for exactly this) for the core-metadata half, and does its own project-aware
+  `src/server/` scan through `importProjectModule` for the file-discovery half — `compose()`'s own
+  internal scan does a plain, un-rewritten native `import()` that would resolve a discovered file's
+  bare specifiers against `cli`'s OWN config instead of the project's (the same class of bug
+  `importProjectModule` exists to fix), and previously would have turned "some connector lookups
+  fail" into "`zanix space dev` refuses to boot at all" for any project using `@zanix/validator`
+  (confirmed absent from `cli`'s own `deno.jsonc`, near-universal for RTOs). `importProjectModule`
+  now accepts an optional shared `ImportBatchContext` (`createImportBatchContext`/
+  `cleanupImportBatch`) so a batch of independently-scanned files that relatively import each
+  other — the normal `@zanix/server` module shape — dedupe correctly instead of each becoming a
+  second, independent module evaluation of the same source (regression-guarded by a new test,
+  `command-live-boot-space-server.test.ts`, verified against both orderings and a real negative
+  control). Only for `space-server` — a pure `space` project never resolves `@zanix/core` at all,
+  matching `PROJECT_TYPE_DEPENDENCIES['space']`'s own reasoning for never declaring it.
+- **`zanix space dev` crashed with `Import "@zanix/notifications" not a dependency and not in
+  import map` (same for `@zanix/datamaster`) the moment a route/guard file reached through its SSR
+  pipeline bare-imported either package** (`deno.jsonc`) — `@zanix/space`'s own
+  `nativeRuntimeModulesPlugin` routes both through `RealImportEvaluator.runExternalModule`, a plain
+  native `import()` resolved against `cli`'s OWN governing config (the process `zanix space dev`
+  itself started), never the scaffolded project's — the same mechanism already relied on
+  `@zanix/auth` being declared in `deno.jsonc` for the identical reason, but `@zanix/notifications`
+  and `@zanix/datamaster` were never added. Both now have a matching entry, mirroring `@zanix/auth`'s
+  own. Confirmed reproducible against published `@zanix/space@1.1.0`/`1.2.0`; regression-guarded by a
+  new test (`native-runtime-module-imports.test.ts`) that does a real dynamic `import()` of every
+  `@zanix/*` package on `@zanix/space`'s own `NATIVE_RUNTIME_MODULES` list against this repo's
+  config.
+- **`zanix space dev`/`zanix space build` could silently resolve a project's own bare specifier
+  against `cli`'s OWN internal source tree instead of the project's, whenever the specifier's
+  PREFIX matched one of `cli`'s own `typings/`/`shared/`/`utils/` folder aliases** — the exact
+  aliases `zanix new` scaffolds into every real project (`import-project-module.ts`) —
+  `resolveReplacement`'s own "leave it untouched if `cli`'s config can also resolve it" check
+  (there for a genuine reason: `@zanix/space`/`@zanix/server`/`@zanix/auth`/... need real
+  shared-identity resolution against `cli`'s own config) had no way to tell that case apart from a
+  project's `utils/constants.ts` merely sharing a name with `cli`'s OWN, unrelated
+  `src/utils/constants.ts`. Silent as long as both files happened to export the same names;
+  surfaced as a confusing `does not provide an export named '...'` error, pointing at `cli`'s own
+  file path, the moment they diverged (confirmed against a real project). Now falls through to the
+  project's own resolution whenever `cli`'s own answer lands inside `cli`'s own source tree
+  (`resolvesIntoCliOwnSourceTree`) — regression-guarded by a new test reproducing the exact
+  collision against a real, existing `cli`-side file (`utils/commands.ts`).
 - Running any `zanix` command no longer materializes `build`'s/`space`'s entire heavy npm
   dependency tree (`esbuild`, `vite`, `react`/`preact`, `sharp`, `mongoose`, `amqplib`, ...) as a
   side effect of CLI command registration — both are now lazy-loaded only once that specific

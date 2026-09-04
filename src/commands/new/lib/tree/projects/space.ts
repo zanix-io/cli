@@ -1,4 +1,4 @@
-import type { ZanixSpaceSrcTree } from '@zanix/types'
+import type { ZanixSpaceSrcTree } from 'typings/tree.ts'
 
 import { ZanixTree } from 'commands/new/lib/tree/base-tree.ts'
 import {

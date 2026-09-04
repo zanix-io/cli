@@ -549,7 +549,7 @@ interactor (or another `server`-shaped generator) is generated into it. Not
 seeded by `zanix new space`/`spacecraft` yet: unlike `interactors/` in a
 backend project, this is a per-domain folder named after each interactor, so
 there is no single fixed tree leaf for a Recipe entry to target — the same
-"no typed leaf published yet" gap `component` already documents for `space`.
+"no typed leaf to target" gap `component` already documents for `space`.
 
 ## Job
 

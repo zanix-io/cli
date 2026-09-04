@@ -74,12 +74,12 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // carry no breaking change across the range this floor has moved through so far, so bumping
   // this is a plain version bump, not a compat concern — re-verify against `@zanix/app`'s own
   // CHANGELOG before assuming that stays true for a future major.
-  '@zanix/app': 'jsr:@zanix/app@^0.2.1',
+  '@zanix/app': 'jsr:@zanix/app@^1.0.0',
   // A separate import-map key, not covered by the bare '@zanix/app' entry above — same convention
   // '@zanix/validator' already uses for a subpath of a different package. A pure `space` project's
   // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
-  '@zanix/app/runtime': 'jsr:@zanix/app@^0.2.1/runtime',
+  '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.0/runtime',
   '@zanix/space': 'jsr:@zanix/space@^1.0.0',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/

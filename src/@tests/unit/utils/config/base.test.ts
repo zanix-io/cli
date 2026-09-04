@@ -76,6 +76,19 @@ Deno.test(
 )
 
 Deno.test(
+  'baseZnxConfig: compilerOptions.types points at the scaffolded src/typings/index.d.ts, for every ' +
+    'project type — without it, a global type declared there (declare global { ... }) is only ' +
+    'picked up by deno check/deno test when some statically-reachable file happens to import that ' +
+    'module, never true for a pure ambient-declaration file',
+  () => {
+    const types: ZanixProjects[] = ['app', 'library', 'server', 'space', 'space-server']
+    for (const type of types) {
+      assertEquals(baseZnxConfig(type).compilerOptions?.types, ['./src/typings/index.d.ts'])
+    }
+  },
+)
+
+Deno.test(
   'baseZnxConfig: server/space-server get a worker task pointed at worker.ts, same permissions as start',
   () => {
     assertEquals(

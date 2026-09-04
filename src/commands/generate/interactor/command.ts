@@ -1,4 +1,4 @@
-import type { ZanixFolderGenericTree } from '@zanix/types'
+import type { ZanixFolderGenericTree } from 'typings/tree.ts'
 import type { Commander } from 'cli'
 
 import { createFilesAndFolders } from 'utils/projects/creation.ts'

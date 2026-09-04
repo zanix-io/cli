@@ -1,4 +1,4 @@
-import type { ZanixFolderGenericTree } from '@zanix/types'
+import type { ZanixFolderGenericTree } from 'typings/tree.ts'
 
 import { fileExists, folderExists } from '@zanix/helpers'
 import { dirname } from '@std/path'

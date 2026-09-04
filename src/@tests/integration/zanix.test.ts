@@ -208,6 +208,7 @@ Deno.test('saveZanixConfig should update an existing config file', async () => {
   assertEquals(file.compilerOptions, {
     'strict': false,
     'noImplicitAny': true,
+    'types': ['./src/typings/index.d.ts'],
   })
   assertEquals(file.zanix, {
     'project': 'library',

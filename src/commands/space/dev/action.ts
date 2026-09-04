@@ -1,7 +1,13 @@
 import type { Commander } from 'cli'
 import type { SpaceDevOptions } from 'commands/space/dev/command.ts'
 
-import { bootstrapServers, webServerManager } from '@zanix/server'
+import {
+  bootstrapServers,
+  DEFAULT_APPLICATION,
+  ProgramModule,
+  webServerManager,
+  ZANIX_SERVER_MODULES,
+} from '@zanix/server'
 import {
   broadcastClientCssChanged,
   broadcastClientModuleChanged,
@@ -21,9 +27,15 @@ import {
 } from '@zanix/space/dev'
 import { getRoutesDir } from '@zanix/space'
 import { dirname, resolve } from '@std/path'
-import { assertProjectType } from 'commands/generate/shared/project.ts'
+import { assertProjectType, getCurrentProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
-import { sweepStaleGeneratedModules } from 'commands/space/shared/import-project-module.ts'
+import {
+  cleanupImportBatch,
+  createImportBatchContext,
+  importProjectModule,
+  sweepStaleGeneratedModules,
+} from 'commands/space/shared/import-project-module.ts'
+import { collectFiles } from '@zanix/helpers'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
 import { reportValidation } from 'commands/space/shared/report-validation.ts'
 import { runDevValidation } from 'commands/space/dev/validation.ts'
@@ -266,11 +278,94 @@ async function spaceDevAction(
   // tick `activateApps` invokes it.
   setDevImportModule(engine.ssrLoadModule)
 
-  // Closes the already-created dev engine (Vite dev server + file watcher) if either step below
+  // Closes the already-created dev engine (Vite dev server + file watcher) if any step below
   // fails — without this, a failure here (e.g. a user `setup()` throwing, or the port already in
   // use) would leak the engine: nothing else ever calls `engine.close()` before this point, since
-  // the `unload` listener that normally does is only registered once both steps below succeed.
+  // the `unload` listener that normally does is only registered once every step below succeeds.
   try {
+    // A `space-server` project's real `mod.ts` calls `Zanix.start({ apps })` (`@zanix/core`),
+    // which — BEFORE `activateApps` — always runs `defineCoreMetadata()` (registers
+    // `@zanix/datamaster`/`@zanix/auth`/`@zanix/notifications`/`@zanix/asyncmq`'s own core
+    // connector/provider slots) and auto-discovers this project's own `src/server/`
+    // handlers/interactors/connectors/providers/`.defs.ts` files (`defineLocalMetadata`). This
+    // command never imports `mod.ts` at all (see `importSpaceApp`'s own doc for why — a second,
+    // unaware production boot racing this one), and drops to `activateApps`/`bootstrapServers`
+    // directly instead of `Zanix.start()` for the fine-grained control its own dev-only
+    // `preHandler`/`onCreate`/shared-port/`finalize: false` wiring below needs, which `start()`'s
+    // own higher-level wrapper doesn't expose. In doing so, it never picked up either registration
+    // step — a real, confirmed gap: a route/Interactor resolving a core connector (`this.database`,
+    // ...) or a project-local provider/handler under `src/server/` throws `Missing core connector
+    // slot`/behaves as if the file were never imported at all, purely because `zanix space dev`
+    // itself never ran, even though the identical project boots correctly via its own `mod.ts`.
+    // Only for `space-server`: a pure `space` project has no `src/server/` tree and no reason to
+    // resolve `@zanix/core` (and transitively `@zanix/datamaster`/`@zanix/auth`/
+    // `@zanix/notifications`/`@zanix/asyncmq`) at all — matching
+    // `PROJECT_TYPE_DEPENDENCIES['space']`'s own reasoning for never declaring it a dependency.
+    //
+    // `Zanix.compose(rootDir)` — the PUBLIC, side-effect-scoped subset of `start()` built for
+    // exactly the two registration steps above, with NO server started and `apps` composition
+    // deliberately excluded (see `compose`'s own doc, `@zanix/core`) — is deliberately NOT called
+    // with this project's own real `root` directly: its own `defineLocalMetadata(rootDir)` half
+    // does a PLAIN, un-rewritten native `import()` of every discovered `src/server/` file, which
+    // would resolve THEIR bare specifiers against `cli`'s OWN config, never the project's — the
+    // identical class of bug `importProjectModule` exists to fix, unrewritten here since
+    // `compose()`'s own internal scan never goes through it (a real `mod.ts` calling `compose()`/
+    // `start()` never hits this: that process's OWN governing config already IS the project's, no
+    // rewriting needed). Worse than a silent wrong resolution: `defineLocalMetadata`'s own
+    // `Promise.all` rejects the WHOLE call the instant any ONE discovered file fails to resolve a
+    // bare specifier `cli` doesn't happen to declare (`@zanix/validator`, near-universal for RTOs,
+    // confirmed absent from `cli`'s own `deno.jsonc`) — turning "some connector lookups fail" into
+    // "`zanix space dev` refuses to boot at all" for most real `space-server` projects.
+    //
+    // Worked around by pointing `compose()`'s own scan at a genuinely empty, real directory (a
+    // harmless no-op for `defineLocalMetadata` — `defineCoreMetadata()` still runs for real,
+    // unaffected: its own four imports are fully-qualified `jsr:` specifiers, always resolving
+    // correctly regardless of which config governs this process) and doing the REAL `src/server/`
+    // scan ourselves, right below, through `importProjectModule` instead — same registration
+    // effect, project-aware resolution. `ImportBatchContext` (a SHARED dedup cache across every
+    // discovered file, not one fresh cache per file) is required, not optional, here — see that
+    // type's own doc for the real identity split calling `importProjectModule` once per file
+    // INDEPENDENTLY would silently reintroduce for any two files that relatively import each other
+    // (the normal shape a handler resolving `this.interactors.get(SomeInteractor)` needs).
+    if (getCurrentProjectType(root) === 'space-server') {
+      const { default: Zanix } = await import('@zanix/core')
+      const emptyScanDir = await Deno.makeTempDir({ prefix: 'zanix-space-dev-empty-scan-' })
+      try {
+        await Zanix.compose(emptyScanDir)
+      } finally {
+        // Recursive: `compose()`'s own scan is a black box from here — if it ever writes anything
+        // into this throwaway directory, a non-recursive remove would throw and (being swallowed
+        // below) leak the directory on every boot instead of actually cleaning it up.
+        await Deno.remove(emptyScanDir, { recursive: true }).catch(() => {})
+      }
+
+      // Mirrors `defineLocalMetadata`'s own `DEFAULT_APPLICATION` scoping (`@zanix/core`,
+      // `utils/metadata.ts`) — a real `mod.ts`'s own `Zanix.start({ apps })` registers
+      // `src/server/`'s handlers under `DEFAULT_APPLICATION` ('main'), never the Space app's own
+      // named Application; matching that here is what keeps a generated REST route reachable the
+      // same way it would be under a real production boot.
+      await ProgramModule.defineApplication(DEFAULT_APPLICATION, async () => {
+        const files: string[] = []
+        collectFiles(root, ZANIX_SERVER_MODULES, (path) => files.push(path))
+        const batch = createImportBatchContext()
+        try {
+          // `Promise.allSettled`, not `Promise.all` — `ImportBatchContext`'s own contract requires
+          // `cleanupImportBatch` to run only after EVERY call sharing `batch` has settled (see that
+          // type's own doc). `Promise.all` rejects the instant the FIRST entry rejects, which would
+          // run cleanup in the `finally` below while sibling calls are still mid-flight — deleting
+          // a temp file another call is about to `await import()` from, or racing its own
+          // in-progress write to one.
+          const results = await Promise.allSettled(
+            files.map((path) => importProjectModule(path, batch)),
+          )
+          const failed = results.find((result) => result.status === 'rejected')
+          if (failed) throw (failed as PromiseRejectedResult).reason
+        } finally {
+          await cleanupImportBatch(batch)
+        }
+      })
+    }
+
     const { activateApps } = await import('@zanix/app/runtime')
     await activateApps([spaceApp])
 

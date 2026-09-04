@@ -74,8 +74,8 @@
     "@zanix/errors": "jsr:@zanix/utils@^4.1.0/errors",
     "@zanix/utils/workers": "jsr:@zanix/utils@^4.1.0/workers",
     "@zanix/utils/regex": "jsr:@zanix/utils@^4.1.0/regex",
-    "@zanix/server": "jsr:@zanix/server@^4.1.0",
-    "@zanix/server/graphql": "jsr:@zanix/server@^4.1.0/graphql",
+    "@zanix/server": "jsr:@zanix/server@^4.2.1",
+    "@zanix/server/graphql": "jsr:@zanix/server@^4.2.1/graphql",
     // Powers `import-project-module.ts`'s own general fix for resolving a CONSUMING project's own
     // bare specifiers against ITS nearest `deno.json(c)`, never `cli`'s — see that module's own
     // doc. Already a real, working transitive dependency (pulled in via `@deno/vite-plugin`);
@@ -85,10 +85,20 @@
     // specifiers precisely — the same one Vite/Rollup use internally for this exact job. See that
     // module's own doc for why a hand-rolled regex/comment scanner isn't good enough here.
     "es-module-lexer": "npm:es-module-lexer@^1.5.4",
+    // Same native-runtime-module identity reason `@zanix/auth`'s own entry documents further below
+    // (`imports` block) — `native-runtime-modules.ts` (`@zanix/space`) lists `@zanix/asyncmq`
+    // alongside `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` as sharing the identical
+    // DI-container identity split; this entry is what already closes that gap for this package.
     "@zanix/asyncmq": "jsr:@zanix/asyncmq@^0.8.0",
     "@zanix/asyncmq/jobs": "jsr:@zanix/asyncmq@^0.8.0/jobs",
-    "@zanix/app": "jsr:@zanix/app@^0.2.1",
-    "@zanix/app/runtime": "jsr:@zanix/app@^0.2.1/runtime",
+    // `zanix space dev` (`dev/action.ts`) needs `Zanix.compose()` for a `space-server` project —
+    // the real registration step (`defineCoreMetadata()` + auto-discovered `src/server/` handlers)
+    // its own boot sequence never got, having dropped to `activateApps`/`bootstrapServers` directly
+    // instead of the project's real `mod.ts`'s `Zanix.start()`. See that call site's own doc for
+    // the full mechanism and the real "Missing core connector slot" failure this closes.
+    "@zanix/core": "jsr:@zanix/core@^3.0.0",
+    "@zanix/app": "jsr:@zanix/app@^1.0.0",
+    "@zanix/app/runtime": "jsr:@zanix/app@^1.0.0/runtime",
     "@zanix/space": "jsr:@zanix/space@^1.1.0",
     "@zanix/space/vite": "jsr:@zanix/space@^1.1.0/vite",
     "@zanix/space/dev": "jsr:@zanix/space@^1.1.0/dev",
@@ -173,6 +183,25 @@
     // dependency and not in import map" (confirmed live), turning the identity fix into a hard
     // resolution failure instead.
     "@zanix/auth": "jsr:@zanix/auth@^1.0.0",
+    // `@zanix/datamaster` and `@zanix/notifications` need the identical entry, for the identical
+    // reason as `@zanix/auth` immediately above — `native-runtime-modules.ts` (`@zanix/space`)
+    // documents all three as sharing the exact same DI-container identity split (each package
+    // registers its own `@Provider`-decorated class via a `./core` side-effect import, down to the
+    // same doc comment verbatim — see that file's own "same confirmed mechanism" section). Without
+    // these two specifically, `RealImportEvaluator.runExternalModule`'s plain native `import()`
+    // (`ssr-module-evaluator.ts`, `@zanix/space`) has no entry to resolve either bare specifier
+    // against at all — unlike `@zanix/auth` above, neither was ever declared here, so a route/guard
+    // file reached through `zanix space dev`'s SSR pipeline that bare-imports either package fails
+    // outright with "not a dependency and not in import map" the moment it does (reported
+    // reproducible against real `@zanix/notifications` imports on published `@zanix/space@1.1.0`/
+    // `1.2.0`) — a hard crash, not the SAME-but-silent wrong-copy split `@zanix/auth`'s own entry
+    // above already prevents).
+    "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.0",
+    "@zanix/notifications": "jsr:@zanix/notifications@^1.1.0",
+    // `@zanix/asyncmq` above (`imports` block, alongside `@zanix/asyncmq/jobs`) already closes this
+    // identical gap for that package — declared for the same native-runtime-module identity reason
+    // as `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` here, just not originally
+    // commented as such.
     "@std/path": "jsr:@std/path@0.224",
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/jsonc": "jsr:@std/jsonc@1.0.2",

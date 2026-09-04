@@ -1,4 +1,4 @@
-import type { ZanixFolderTree, ZanixProjectsFull } from '@zanix/types'
+import type { ZanixFolderTree, ZanixProjectsFull } from 'typings/tree.ts'
 
 import { getZnxFolderTree } from 'commands/new/lib/tree/projects/main.ts'
 import type { ThemeName } from 'commands/new/lib/tree/themes.ts'

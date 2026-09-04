@@ -6,7 +6,7 @@ import { Commander } from 'cli'
 /**
  * A `baseNewCommand` entry, `rendererAware: true` for `space`/`spacecraft` only — the ONLY two
  * project types `@zanix/space` (and therefore a renderer choice) applies to. `--renderer` is
- * deliberately its own option, never a `--template` value: `ZanixTemplates` (`@zanix/types`) is a
+ * deliberately its own option, never a `--template` value: `ZanixTemplates` (`typings/tree.ts`) is a
  * single, cross-project-type union (`app`/`server`/`library`/`space`/`spacecraft` all share it) —
  * overloading it with a `space`-specific axis would leak that concept into project types that have
  * no renderer at all.

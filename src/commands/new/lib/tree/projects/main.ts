@@ -1,4 +1,4 @@
-import type { ZanixBaseFolder, ZanixFolderTree, ZanixProjectsFull } from '@zanix/types'
+import type { ZanixBaseFolder, ZanixFolderTree, ZanixProjectsFull } from 'typings/tree.ts'
 
 import { ZanixTree } from 'commands/new/lib/tree/base-tree.ts'
 import { assertKnownPreset } from 'commands/new/lib/tree/presets.ts'

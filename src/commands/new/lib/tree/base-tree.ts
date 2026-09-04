@@ -1,10 +1,10 @@
+import type { ZanixLibraries } from '@zanix/types'
 import type {
   ZanixBaseFolder,
-  ZanixLibraries,
   ZanixLocalContentProps,
   ZanixTemplates,
   ZanixTemplatesRecord,
-} from '@zanix/types'
+} from 'typings/tree.ts'
 
 import { getZanixTemplateContent } from 'commands/new/lib/tree/templates.ts'
 import { join } from '@std/path'

@@ -63,7 +63,7 @@ once-per-push/PR cadence fits it far better than a per-commit local hook.
 ## Example finding
 
 ```
-$ zanix check-duplicates --path ./apps/aeratech-console
+$ zanix check-duplicates --path ./apps/console
 Confirmed '@zanix/*' dependency drift:
 @zanix/auth: resolves to 2 distinct versions at once — '0.8.1' (via jsr:@zanix/auth@~0.8.1) and '1.0.0' (via jsr:@zanix/auth@^1.0.0)
 ```
@@ -75,7 +75,7 @@ Confirmed '@zanix/*' dependency drift:
 zanix check-duplicates
 
 # Check a specific project root, e.g. in a CI job across a monorepo
-zanix check-duplicates --path ./apps/aeratech-console
+zanix check-duplicates --path ./apps/console
 ```
 
 ## See also

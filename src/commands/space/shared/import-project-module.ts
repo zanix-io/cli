@@ -56,6 +56,19 @@ await esModuleLexerInit
  *    loaded `SpaceDevSocket` instances each registered the same dev-socket route into
  *    `@zanix/server`'s one shared registry, and the second threw "already defined"). Deferring to
  *    native resolution whenever `@zanix/cli` already has an answer sidesteps this entirely.
+ *
+ *    **EXCEPT** when `@zanix/cli`'s own answer lands INSIDE `@zanix/cli`'s own hand-written source
+ *    tree ({@linkcode resolvesIntoCliOwnSourceTree}) — a real, confirmed false positive of this
+ *    exact check, never the genuine identity-sharing case above: `@zanix/cli`'s own `deno.jsonc`
+ *    also declares plain internal folder aliases (`typings/`, `shared/`, `utils/` →
+ *    `./src/{typings,shared,utils}/`), purely so `@zanix/cli`'s OWN source can use short
+ *    bare-specifier-style imports internally — and `zanix new` scaffolds the IDENTICAL alias names
+ *    into every consuming project's own `deno.json`. A project file's own `import 'utils/x.ts'`
+ *    therefore ALSO "resolves successfully" against `@zanix/cli`'s config, but to `@zanix/cli`'s
+ *    OWN `src/utils/x.ts`, never the project's — silently, until the two files' exports diverge
+ *    (confirmed as a real failure: a real project's own interactor importing `utils/constants.ts`
+ *    resolved against `@zanix/cli`'s own same-named file instead of its own). Falls through to step
+ *    2 below in this case, exactly as if `@zanix/cli`'s config had no answer at all.
  * 2. Only a specifier `@zanix/cli` genuinely has no answer for at all — the real bug this module
  *    exists to fix — is resolved against the PROJECT's own configuration instead. A result that
  *    carries its own scheme (`jsr:`, `npm:`, `https:`, `node:`) is left exactly as `@deno/loader`
@@ -163,6 +176,34 @@ function getCliLoader(): Promise<Loader> {
     cliConfigPathComputed = true
   }
   return getLoaderFor(cliConfigPath)
+}
+
+/** `true` when `resolvedUrl` — something `@zanix/cli`'s OWN loader resolved a bare specifier TO —
+ * lands inside `@zanix/cli`'s OWN hand-written source tree (`dirname(cliConfigPath)`, excluding
+ * `node_modules` under it) rather than a real external dependency (a JSR/npm package, wherever
+ * Deno actually materializes one — its own global cache, or a local `node_modules` — never inside
+ * `cli`'s own checked-out/published source itself).
+ *
+ * {@linkcode resolveReplacement} uses this to catch a real, confirmed false positive in its own
+ * "`cli`'s config can also resolve this, leave it untouched" check (see that function's own doc):
+ * `cli`'s `deno.jsonc` declares its own internal folder aliases (`typings/`, `shared/`, `utils/` →
+ * `./src/{typings,shared,utils}/`, purely so `cli`'s OWN source can use short bare-specifier-style
+ * imports internally) — and `zanix new` scaffolds the IDENTICAL alias names into every consuming
+ * project's own `deno.json`. A project file importing `utils/constants.ts` therefore ALSO resolves
+ * successfully against `cli`'s own config — but to `cli`'s OWN `src/utils/constants.ts`, never the
+ * project's — the exact opposite of a genuine identity-sharing concern (`@zanix/space`,
+ * `@zanix/server`, ...), which always resolves outside `cli`'s own source tree entirely. Confirmed
+ * as a real, live failure, not a theoretical one: a real consuming project's own
+ * `auth.interactor.ts` (`import { LOGIN_ACTIONS, TOKEN_EXPIRATION } from 'utils/constants.ts'`)
+ * silently resolved against `cli`'s own `src/utils/constants.ts` instead of its own — invisible
+ * only as long as BOTH files happened to export the same names; surfaced loudly, with a stack
+ * trace pointing at `cli`'s own file path, the moment they diverged. */
+function resolvesIntoCliOwnSourceTree(resolvedUrl: string): boolean {
+  if (!cliConfigPath || !resolvedUrl.startsWith('file://')) return false
+  const cliRoot = dirname(cliConfigPath)
+  const resolvedPath = fromFileUrl(resolvedUrl)
+  return (resolvedPath === cliRoot || resolvedPath.startsWith(`${cliRoot}/`)) &&
+    !resolvedPath.includes('/node_modules/')
 }
 
 /** A specifier already carrying its own scheme (`jsr:`, `npm:`, `https:`, `node:`, `data:`, ...)
@@ -285,6 +326,48 @@ function findSpecifierMatches(code: string): SpecifierMatch[] {
 }
 
 /**
+ * A shared dedup context for a BATCH of independent {@linkcode importProjectModule} top-level
+ * calls that may reach EACH OTHER through their own relative imports — e.g. a `defineLocalMetadata`
+ * -style directory scan (`@zanix/server`'s own module-file convention: `.handler.ts`/
+ * `.interactor.ts`/`.provider.ts`/`.connector.ts`/`.defs.ts`, each discovered and imported
+ * independently, yet frequently importing one another by relative path within the same folder —
+ * the normal shape a handler resolving `this.interactors.get(SomeInteractor)` needs `SomeInteractor`
+ * imported into scope somehow). Without a SHARED context, calling {@linkcode importProjectModule}
+ * once per discovered file gives each call its OWN private `cache`/`tempFiles` — a file reached
+ * BOTH directly (the scan's own top-level entry) AND indirectly (via another entry's relative
+ * import) would be rewritten and natively `import()`-ed TWICE, as two DIFFERENT class objects for
+ * the exact same source — silently splitting DI container identity for anything with no custom
+ * `slot` (see `@zanix/server`'s own `registerCustomProviderSlotAlias` doc for that mechanism, and
+ * why it doesn't save this case on its own). A plain native `import()` of the same real file path
+ * never has this problem — Deno's own ES module cache dedupes by URL automatically — but every
+ * {@linkcode importProjectModule} call writes its OWN fresh temp file per rewrite, a NEW url each
+ * time, unless the SAME `cache` decides "already rewritten, reuse that url" across every call
+ * sharing it.
+ *
+ * Create one via {@linkcode createImportBatchContext}, pass it to every
+ * {@linkcode importProjectModule} call in the batch, then call {@linkcode cleanupImportBatch}
+ * exactly once, after every call in the batch has settled — never per call, and never omitted
+ * (nothing else ever revisits an orphaned temp file from a batch that skipped this).
+ */
+export interface ImportBatchContext {
+  cache: Map<string, Promise<string>>
+  inProgress: Set<string>
+  tempFiles: string[]
+}
+
+/** A fresh, empty {@linkcode ImportBatchContext} — see that type's own doc. */
+export function createImportBatchContext(): ImportBatchContext {
+  return { cache: new Map(), inProgress: new Set(), tempFiles: [] }
+}
+
+/** Removes every temp file a batch's {@linkcode importProjectModule} calls wrote — call exactly
+ * once, after every call sharing `context` has settled. Best-effort, same as the single-call
+ * cleanup this mirrors: a single file's own removal failing is silently swallowed. */
+export async function cleanupImportBatch(context: ImportBatchContext): Promise<void> {
+  await Promise.all(context.tempFiles.map((path) => Deno.remove(path).catch(() => {})))
+}
+
+/**
  * Imports `filePath` — an absolute path to a file belonging to a consuming project — resolving
  * its own bare specifiers (and those of every file it relatively imports) against that project's
  * own nearest `deno.json(c)`. See this module's own doc for the full mechanism.
@@ -294,13 +377,21 @@ function findSpecifierMatches(code: string): SpecifierMatch[] {
  * mid-graph (a workspace sibling, or a project's own local-path override pointing outside its own
  * directory tree, e.g. `@zanix/space` mapped to a linked `../space/mod.ts` checkout) — that
  * sibling's own bare specifiers must resolve against ITS OWN `deno.json(c)`, not the entry's.
+ *
+ * @param batchContext - Omit for a single, self-contained call (the default — builds its own
+ * fresh context and cleans up its own temp files before returning, exactly as before this
+ * parameter existed). Pass a shared {@linkcode ImportBatchContext} when calling this once per file
+ * across a BATCH of independent entries that may reach each other — see that type's own doc for
+ * why, and its own doc for the cleanup contract this shifts onto the caller in that case.
  */
-export async function importProjectModule(filePath: string): Promise<Record<string, unknown>> {
+export async function importProjectModule(
+  filePath: string,
+  batchContext?: ImportBatchContext,
+): Promise<Record<string, unknown>> {
   const entryUrl = toFileUrl(resolvePath(filePath)).href
 
-  const cache = new Map<string, Promise<string>>()
-  const inProgress = new Set<string>()
-  const tempFiles: string[] = []
+  const ownsContext = !batchContext
+  const { cache, inProgress, tempFiles } = batchContext ?? createImportBatchContext()
 
   /** Whether a `file://` recursion candidate is genuinely part of a project's own governed
    * source (or a linked/workspace sibling with its own config) rather than vendored third-party
@@ -346,8 +437,19 @@ export async function importProjectModule(filePath: string): Promise<Record<stri
     // this whole module exists to fix — falls through to the project's own resolution below.
     const cliLoader = await getCliLoader()
     try {
-      cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
-      return specifier
+      const cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+      // EXCEPT when that resolution lands inside `cli`'s OWN hand-written source tree
+      // ({@linkcode resolvesIntoCliOwnSourceTree}) — a real, confirmed false positive of the
+      // check above, never the genuine identity-sharing case it exists for: `cli`'s own internal
+      // folder aliases (`typings/`, `shared/`, `utils/` → `./src/{typings,shared,utils}/`,
+      // declared purely for `cli`'s OWN source to use short bare-specifier imports internally)
+      // share their EXACT names with the aliases `zanix new` scaffolds into every consuming
+      // project — so a project file's own `import 'utils/constants.ts'` resolves "successfully"
+      // here too, but against `cli`'s OWN `src/utils/constants.ts`, never the project's. Falls
+      // through to the project's own resolution below instead, exactly as if `cli`'s config had
+      // no answer at all — see that function's own doc for the real, confirmed failure this
+      // closes.
+      if (!resolvesIntoCliOwnSourceTree(cliResolved)) return specifier
     } catch {
       if (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier) !== undefined) {
         return specifier
@@ -540,7 +642,10 @@ export async function importProjectModule(filePath: string): Promise<Record<stri
     const finalUrl = await process(entryUrl)
     return await import(finalUrl) as Record<string, unknown>
   } finally {
-    await Promise.all(tempFiles.map((path) => Deno.remove(path).catch(() => {})))
+    // Only when THIS call owns its own context (no `batchContext` passed) — a shared batch's
+    // temp files stay alive until every call sharing it has settled; see `ImportBatchContext`'s
+    // own doc for why cleanup shifts onto the caller in that case.
+    if (ownsContext) await Promise.all(tempFiles.map((path) => Deno.remove(path).catch(() => {})))
   }
 }
 
