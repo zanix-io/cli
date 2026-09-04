@@ -8,6 +8,36 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-09-04
+
+### Fixed
+
+- **`zanix space dev`'s first real page render, for either renderer, crashed with `Import
+  "react/jsx-dev-runtime" not a dependency` (or the `preact` equivalent).** Declaring a renderer's
+  bare package name (`"react": "npm:react@^19.2.0"`) doesn't make its subpaths resolvable through
+  Deno's own native import-map resolution — confirmed via a real, isolated repro: `@deno/loader`'s
+  own `resolveSync` auto-expands an aliased bare package's subpaths, but Deno's native resolver
+  (used by `RealImportEvaluator.runExternalModule` in `@zanix/space`, natively importing a
+  Vite-transformed SSR module from a temp file — Vite's own React/Preact SSR dev transform always
+  injects a literal `import {jsxDEV} from 'react/jsx-dev-runtime'`) does not. Every subpath actually
+  reached needs its own explicit entry, same as every other subpath this file already declares
+  (`preact/hooks`, `@zanix/space/dev`, ...) for the identical reason — `react/jsx-runtime` and
+  `react/jsx-dev-runtime` (and the `preact` equivalents) simply weren't among them yet. New
+  regression test (`src/@tests/unit/deno-jsonc-renderer-jsx-runtime-subpaths.test.ts`) locks in all
+  four entries.
+
+- **The official installer (`src/installation/setup.sh`) had two of its own real gaps, found while
+  verifying this release against a genuine global install** (committed separately, folded into this
+  release): its own `deno install` line never passed `--minimum-dependency-age`, so installing a
+  version published within Deno's default 24h window (routine right after a release) rejected
+  outright; and even once installed, `deno install -g`'s own generated shim lockfile only ever
+  captured the static import graph, leaving any dependency only reachable through a
+  dynamically-imported `action.ts` (this repo's own lazy-dispatch pattern) still gated by the
+  default 24h window regardless of this package's own `minimumDependencyAge`. Both fixed: the
+  install step now passes `--minimum-dependency-age 0` (matching this repo's own internal `deno
+  task cli:install`), and a new post-install step merges the published `deno.lock` into the shim's
+  own generated one (add-only, never overwriting what `deno install` itself already resolved).
+
 ## [2.0.5] - 2026-09-04
 
 ### Fixed

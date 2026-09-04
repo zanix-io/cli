@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's OWN dependencies (e.g. `@zanix/server`, imported
@@ -144,6 +144,21 @@
     // `THIRD_PARTY_DEPENDENCY_VERSIONS` (which covers what a freshly generated project gets).
     "react": "npm:react@^19.2.0",
     "react-dom": "npm:react-dom@^19.2.0",
+    // `react`'s own subpath doesn't auto-expand just because the bare package name above is
+    // aliased — confirmed via a real, isolated repro: `deno run --config <this file>` (the exact
+    // shape `zanix space dev`'s own `RealImportEvaluator.runExternalModule`
+    // (`ssr-module-evaluator.ts`, `@zanix/space`) uses for a real, Vite-transformed SSR module,
+    // written to and natively imported from a plain OS temp dir) fails `Import
+    // "react/jsx-dev-runtime" not a dependency` even with `"react"` declared above — Deno's own
+    // import-map resolution doesn't auto-expand a bare (non-`/`-suffixed) alias entry's subpaths
+    // the way `@deno/loader`'s own `resolveSync` does, so every subpath actually reached needs
+    // its own explicit entry here, same as every other subpath already declared throughout this
+    // file (`preact/hooks`, `@prefresh/core`, `@zanix/space/dev`, ...). Vite's own React SSR dev
+    // transform ALWAYS injects a literal `import {jsxDEV} from 'react/jsx-dev-runtime'` (dev) /
+    // `'react/jsx-runtime'` (prod) into every SSR-rendered React module, so a `--renderer react`
+    // project fails this way on literally the FIRST real page render under `zanix space dev`.
+    "react/jsx-runtime": "npm:react@^19.2.0/jsx-runtime",
+    "react/jsx-dev-runtime": "npm:react@^19.2.0/jsx-dev-runtime",
     // `@zanix/space's own Vite build pipeline now wires `@vitejs/plugin-react`'s
     // `reactCompiler` option for real (React Compiler adoption) — that plugin resolves this
     // package by name from the consuming project at build time; it is never bundled inside
@@ -168,6 +183,14 @@
     // `dependencies.ts`) already pins for what a freshly generated project gets.
     "preact": "npm:preact@^10.29.0",
     "preact/hooks": "npm:preact@^10.29.0/hooks",
+    // Same real bug as `react/jsx-runtime`/`react/jsx-dev-runtime` above, for the OTHER renderer:
+    // Vite's own Preact SSR dev transform injects a literal `import {jsxDEV} from
+    // 'preact/jsx-dev-runtime'` into every SSR-rendered Preact module, natively imported by
+    // `RealImportEvaluator.runExternalModule` (`@zanix/space`) against THIS config — without an
+    // explicit entry, a `--renderer preact` project fails the identical way on its first real page
+    // render.
+    "preact/jsx-runtime": "npm:preact@^10.29.0/jsx-runtime",
+    "preact/jsx-dev-runtime": "npm:preact@^10.29.0/jsx-dev-runtime",
     // Same reason as `preact`/`preact/hooks` above: `space-plugin.ts`'s own `optimizeDeps.include`
     // (preact branch) names both, and `zanix space dev` needs a real, top-level
     // `node_modules/@prefresh/*` entry to resolve them — without this declared HERE too, Vite's own
