@@ -50,6 +50,7 @@
     "jsr:@std/testing@1.0.9": "1.0.9",
     "jsr:@std/text@^1.0.19": "1.0.19",
     "jsr:@zanix/admin@^2.3.0": "2.3.1",
+    "jsr:@zanix/admin@^2.3.1": "2.3.1",
     "jsr:@zanix/app@1": "1.0.2",
     "jsr:@zanix/asyncmq@0.8": "0.8.0",
     "jsr:@zanix/auth@1": "1.1.2",
@@ -342,7 +343,7 @@
       "integrity": "9bf8bcc3865181d47877fc66bb4dd1b8b2fd962a97d0a5523b3da5882ca75b13",
       "dependencies": [
         "jsr:@std/path@0.224",
-        "jsr:@zanix/admin",
+        "jsr:@zanix/admin@^2.3.0",
         "jsr:@zanix/app",
         "jsr:@zanix/asyncmq",
         "jsr:@zanix/datamaster@^1.9.0",

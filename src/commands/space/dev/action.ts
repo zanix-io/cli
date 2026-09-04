@@ -386,8 +386,14 @@ async function spaceDevAction(
     // real error thrown while importing one of the project's own decorated files) still surfaces as
     // a thrown `Error` here, same as any other real boot failure this function doesn't swallow.
     if (options.graphqlCheck !== false) {
+      // A RELATIVE specifier, not the bare import-map alias (`commands/space/shared/...`) this
+      // used to be — same real, confirmed bug as `command.ts`'s own `SPACE_DEV_ACTION_SPECIFIER`
+      // fix: a bare alias only resolves via this file's nearest `deno.jsonc` "imports" entry when
+      // loaded from a real local `file://` checkout, not once this module loads from a remote
+      // `jsr:` specifier (`deno install -g`'s own generated shim config carries no import map at
+      // all) — see `../build/action.ts`'s own identical note for the full account.
       const { runGraphqlCheck, reportGraphqlCheckFailures, reportGraphqlCheckWarnings } =
-        await import('commands/space/shared/graphql-check.ts')
+        await import('../shared/graphql-check.ts')
       // Same "only the first root" choice `zanix space build` makes — see that command's own
       // comment for why.
       const primaryRoutesDir = [getRoutesDir()].flat()[0]

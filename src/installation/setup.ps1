@@ -11,7 +11,7 @@ $logo = @"
 "@
 
 # Variables
-$LATEST = "2.0.0"
+$LATEST = "2.0.2"
 $VERSION = if ($args.Count -gt 0) { $args[0] } else { $LATEST }
 $BIN_NAME = "zanix"
 $SEPARATOR = "==================================================="

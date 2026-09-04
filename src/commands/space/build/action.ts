@@ -72,13 +72,23 @@ import logger from '@zanix/utils/logger'
  * React, Tailwind, `sharp`, vanilla-extract, ...) has no business loading before it's actually
  * needed even within a single `zanix space build` run (`getGlobalCssPaths`/`getPwaConfig` need
  * `@zanix/space` resolved first, before `@zanix/space/vite`'s own heavier graph is worth paying
- * for). `writeCompiledMessagesTree` (`commands/space/shared/compile-messages.ts`) is imported the
+ * for). `writeCompiledMessagesTree` (`../shared/compile-messages.ts`) is imported the
  * same lazy way, for the same reason — it pulls in `@formatjs/icu-messageformat-parser`, which no
  * `zanix` invocation outside `space build` (with a `messagesDir` actually configured) should ever
  * load. `importSpaceApp`'s own bare `@zanix/app` import (this file's own top-level import above)
  * is a REAL, unavoidably-static edge for `action.ts`'s own module graph — but since this whole file
  * only resolves once `zanix space build` actually runs (see `command.ts`'s own doc), that's exactly
  * the point where paying for it is correct.
+ *
+ * Both of the imports above — and `../shared/graphql-check.ts` below — use a RELATIVE specifier,
+ * not the bare import-map alias (`commands/space/shared/...`) they used to: same real, confirmed
+ * bug as `command.ts`'s own `SPACE_BUILD_ACTION_SPECIFIER` fix. A bare alias only resolves via this
+ * file's nearest `deno.jsonc` "imports" entry when loaded from a real local `file://` checkout —
+ * `deno install -g`'s own generated shim config carries no such map, so once this module loads from
+ * a remote `jsr:` specifier (any real global install), that same bare specifier throws `Import
+ * "commands/..." not a dependency`, even though this call already sits behind the lazy boundary
+ * these comments describe. A relative specifier needs no import-map lookup at all — plain ECMAScript
+ * resolution against `import.meta.url` handles both `file://` and `https://jsr.io/...` alike.
  */
 async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   assertProjectType(this, ['space', 'space-server'], 'space build')
@@ -119,7 +129,7 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   let compiledMessages: CompileTreeResult | undefined
   if (messagesDir && options.messages !== false) {
     const { compileMessagesTree, assertNoCompileFailures } = await import(
-      'commands/space/shared/compile-messages.ts'
+      '../shared/compile-messages.ts'
     )
     compiledMessages = await compileMessagesTree(messagesDir)
     assertNoCompileFailures(compiledMessages)
@@ -132,7 +142,7 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   // Space root from `getRoutesDir()`'s own parent rather than a hardcoded `src/space`.
   if (options.graphqlCheck !== false) {
     const { runGraphqlCheck, assertNoGraphqlCheckFailures, reportGraphqlCheckWarnings } =
-      await import('commands/space/shared/graphql-check.ts')
+      await import('../shared/graphql-check.ts')
     // `getRoutesDir()` is `string | string[]` (host composition, mirroring `messagesDir`'s own
     // shape) — `gql/`/`clients/` are a single Space app's own convention, so only the FIRST root is
     // ever used to derive where they live, the same "pick the primary root" default this command
@@ -192,7 +202,7 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   // `messagesDir` is re-read (not re-derived) as the exact pairing `compiledMessages` was compiled
   // from; `writeCompiledCatalogs` trusts that pairing, it doesn't re-verify it.
   if (compiledMessages !== undefined && messagesDir) {
-    const { writeCompiledCatalogs } = await import('commands/space/shared/compile-messages.ts')
+    const { writeCompiledCatalogs } = await import('../shared/compile-messages.ts')
     await writeCompiledCatalogs(compiledMessages, messagesDir, result.outDir)
   }
 

@@ -8,6 +8,46 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-09-04
+
+### Fixed
+
+- **Five separate dynamic `import()` calls under `src/commands` used a bare, `deno.jsonc`
+  local-alias specifier (e.g. `commands/space/dev/action.ts`) instead of a relative one — every one
+  of them broke once `@zanix/cli` runs from a real global `deno install -g jsr:@zanix/cli`
+  install**, not just from a local checkout: `deno install -g`'s own generated shim carries no
+  import map at all, so a bare specifier throws `Import "commands/..." not a dependency` at
+  runtime, whether the specifier reached `import()` through a variable (three of the five — see
+  below) or as a plain inline string literal (the other two). Every affected call already sat
+  behind a deliberate LAZY-import boundary in the first place (see each file's own doc: keeping
+  Deno's static dependency-graph analysis from eagerly resolving that command's own heavy
+  transitive deps — Vite/React/Tailwind/`sharp`/`esbuild`/etc. — for every OTHER `zanix`
+  invocation), so this broke `zanix build`, `zanix space dev`, and `zanix space build` outright
+  once installed from JSR, on every real invocation of each.
+
+  Fixed by switching every one to a RELATIVE specifier instead — plain ECMAScript module
+  resolution against `import.meta.url` needs no import-map lookup at all, so it works identically
+  whether that URL is `file://` (a local checkout) or `https://jsr.io/...` (any real global
+  install), while still defeating Deno's static analysis the same way a bare one did (still not an
+  inline literal the analyzer can trace, for the three that were already routed through a named
+  constant).
+
+  - `src/commands/build/main.ts`: `BUILD_LIB_MODULE_SPECIFIER` → `./lib/mod.ts`
+  - `src/commands/space/dev/command.ts`: `SPACE_DEV_ACTION_SPECIFIER` → `./action.ts`
+  - `src/commands/space/build/command.ts`: `SPACE_BUILD_ACTION_SPECIFIER` → `./action.ts`
+  - `src/commands/space/build/action.ts`: its own `compile-messages.ts` import (two separate call
+    sites) and `graphql-check.ts` import → `../shared/compile-messages.ts` /
+    `../shared/graphql-check.ts`
+  - `src/commands/space/dev/action.ts`: its own `graphql-check.ts` import → `../shared/graphql-check.ts`
+  - `src/commands/space/shared/graphql-check.ts`: its own nested `discover-graphql-schemas.ts`
+    import → `./discover-graphql-schemas.ts`
+
+  A new regression test (`src/@tests/unit/commands/lazy-command-specifiers-relative.test.ts`)
+  covers both shapes: the three named constants directly, and a generalized sweep reading
+  `deno.jsonc`'s own real local-alias map and scanning every dynamic `import()` under
+  `src/commands` for one — so a future instance of the same mistake, anywhere in the tree, fails
+  loud instead of shipping unnoticed.
+
 ## [2.0.1] - 2026-09-04
 
 ### Fixed

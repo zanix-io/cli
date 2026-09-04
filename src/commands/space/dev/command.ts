@@ -20,8 +20,21 @@ export type SpaceDevOptions = { port?: number; graphqlCheck?: boolean } & SpaceV
  * ever actually run. Deno's own static dependency-graph analysis only follows a dynamic `import()`
  * whose argument it can resolve as a literal at parse time — routing it through this variable
  * keeps every OTHER `zanix` command out of that graph entirely.
+ *
+ * A RELATIVE specifier (`./action.ts`), not the bare import-map alias
+ * `commands/space/dev/action.ts` this used to be — confirmed real bug, reproduced live against a
+ * global `deno install -g jsr:@zanix/cli` install: a bare alias resolved via this file's own
+ * nearest `deno.jsonc` "imports" entry when this module loads from a real local `file://`
+ * checkout, but a genuinely DYNAMIC `import()` (a variable argument, not a literal Deno's static
+ * analyzer could trace) never gets that same import-map resolution once this module itself loads
+ * from a remote `jsr:` specifier instead — `Import "commands/space/dev/action.ts" not a
+ * dependency` on every real `zanix space dev` invocation once installed from JSR. A relative
+ * specifier needs no import-map lookup at all — it resolves directly against `import.meta.url`
+ * (`file://` or `https://jsr.io/...`, either way) via plain ECMAScript module resolution, and
+ * still defeats static analysis the identical way a bare one did (routed through a variable, never
+ * an inline literal).
  */
-const SPACE_DEV_ACTION_SPECIFIER = 'commands/space/dev/action.ts'
+const SPACE_DEV_ACTION_SPECIFIER = './action.ts'
 
 /**
  * Narrow, hand-declared shape of `action.ts`'s own default export — deliberately NOT

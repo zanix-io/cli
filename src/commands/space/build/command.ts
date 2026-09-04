@@ -26,8 +26,19 @@ export interface SpaceBuildOptions extends SpaceValidationOptions {
  * actually run. Deno's own static dependency-graph analysis only follows a dynamic `import()`
  * whose argument it can resolve as a literal at parse time — routing it through this variable
  * keeps every OTHER `zanix` command out of that graph entirely.
+ *
+ * A RELATIVE specifier (`./action.ts`), not the bare import-map alias
+ * `commands/space/build/action.ts` this used to be — same real, confirmed bug as
+ * `commands/space/dev/command.ts`'s own identical fix: a bare alias only resolves via this file's
+ * nearest `deno.jsonc` "imports" entry when loaded from a real local `file://` checkout; a
+ * genuinely DYNAMIC `import()` (a variable argument, not a literal) never gets that same
+ * import-map resolution once this module loads from a remote `jsr:` specifier instead —
+ * `Import "commands/space/build/action.ts" not a dependency` on every real `zanix space build`
+ * once installed from JSR. A relative specifier needs no import-map lookup — plain ECMAScript
+ * resolution against `import.meta.url` handles both `file://` and `https://jsr.io/...` alike, and
+ * still defeats static analysis the same way (routed through a variable, never an inline literal).
  */
-const SPACE_BUILD_ACTION_SPECIFIER = 'commands/space/build/action.ts'
+const SPACE_BUILD_ACTION_SPECIFIER = './action.ts'
 
 /**
  * Narrow, hand-declared shape of `action.ts`'s own default export — deliberately NOT

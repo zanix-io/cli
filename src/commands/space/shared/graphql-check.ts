@@ -314,7 +314,7 @@ export async function checkGraphqlSchemas(
   }
 
   const { discoverGraphqlSchemas } = await import(
-    'commands/space/shared/discover-graphql-schemas.ts'
+    './discover-graphql-schemas.ts'
   )
 
   // Called once for the WHOLE check, never once per client — booting a real project is real work.

@@ -20,7 +20,7 @@ logo="
 "
 
 # Variables
-LATEST="2.0.0"
+LATEST="2.0.2"
 VERSION="${1:-$LATEST}"
 BIN_NAME="zanix"
 SEPARATOR="==================================================="
