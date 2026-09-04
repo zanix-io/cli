@@ -28,10 +28,22 @@ fi
 # Run linting only on staged files that need it.
 if [ -n "$STAGED_LINT_FILES" ]; then
   echo "\033[0;33minfo[pre-commit]\033[0m: Running linting on staged files..."
-  deno lint --fix $STAGED_LINT_FILES -- --allow-read --allow-write
-  if [ $? -ne 0 ]; then
-    echo "\033[1;31merror[pre-commit]\033[0m: Linting failed!"
-    exit 1
+  LINT_OUTPUT=$(deno lint --fix $STAGED_LINT_FILES -- --allow-read --allow-write 2>&1)
+  LINT_EXIT=$?
+  if [ $LINT_EXIT -ne 0 ]; then
+    # `deno lint` errors outright, rather than no-op'ing, when EVERY file it's given matches
+    # deno.jsonc's own lint.exclude (e.g. a standalone bootstrap script under src/installation/
+    # that can't depend on the zanix logger plugin) — the same exclude silently skips them in a
+    # normal repo-wide `deno lint` run, so this is a real pass, not a lint failure to block on.
+    if echo "$LINT_OUTPUT" | grep -q "No target files found"; then
+      echo "\033[0;33minfo[pre-commit]\033[0m: Every staged file is excluded from linting — skipping."
+    else
+      echo "$LINT_OUTPUT"
+      echo "\033[1;31merror[pre-commit]\033[0m: Linting failed!"
+      exit 1
+    fi
+  else
+    echo "$LINT_OUTPUT"
   fi
 fi
 
