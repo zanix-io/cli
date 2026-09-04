@@ -498,7 +498,31 @@ export async function importProjectModule(
     // through to the project's own resolution below.
     const cliLoader = await getCliLoader()
     try {
-      const cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+      let cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+      // A `jsr:`/`http(s):` result from `resolveSync` ALONE is an UNEXPANDED literal (e.g. still
+      // `jsr:@zanix/space@^1.1.0`, the raw import-map value, not a real resolved version) — real,
+      // confirmed regression this closes: splicing that literal into the temp file below let
+      // native `import()` perform its OWN, SEPARATE version-range resolution at runtime, which can
+      // land on a DIFFERENT actual version than whatever `cli`'s own static `@zanix/space` import
+      // resolved to — reintroducing the exact "two separate SpaceDevSocket instances" bug this
+      // whole deferral exists to prevent, just one level deeper than the false-positive case
+      // {@linkcode resolvesIntoCliOwnSourceTree} already guards against. `@zanix/space`'s own
+      // `resolveDenoAt` (`deno-optimize-deps-alias.ts`) documents solving the identical problem the
+      // identical way: `addEntrypoints` forces the real dependency-constraint solve, then a second
+      // `resolveSync` on the now-graphed literal returns the real, canonical resolved URL — which,
+      // sharing the exact same `cliLoader`/lockfile state `cli`'s own internal imports resolve
+      // through, converges on the identical module-cache key. Confirmed via a real, isolated repro:
+      // `resolveSync('@zanix/space', ...)` alone returns the literal `jsr:@zanix/space@^1.1.0`;
+      // only after `addEntrypoints` does it return a real version, e.g.
+      // `https://jsr.io/@zanix/space/1.2.0/mod.ts`. A `file://` result needs none of this — it's
+      // already a real, concrete path.
+      if (
+        cliResolved.startsWith('jsr:') || cliResolved.startsWith('http:') ||
+        cliResolved.startsWith('https:')
+      ) {
+        await cliLoader.addEntrypoints([cliResolved])
+        cliResolved = cliLoader.resolveSync(cliResolved, referrerUrl, ResolutionMode.Import)
+      }
       // EXCEPT when that resolution lands inside `cli`'s OWN hand-written source tree
       // ({@linkcode resolvesIntoCliOwnSourceTree}) — a real, confirmed false positive of the
       // check above, never the genuine identity-sharing case it exists for: `cli`'s own internal

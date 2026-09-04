@@ -319,6 +319,61 @@ Deno.test(
 )
 
 Deno.test(
+  'importProjectModule: a bare specifier resolving to an UNEXPANDED jsr:/http(s): literal (a bare ' +
+    'range, not a real version) gets forced through a real dependency-constraint solve before ' +
+    'being spliced into the rewritten temp file — never the raw, unexpanded literal',
+  async () => {
+    // Real, confirmed regression this locks in: `cliLoader.resolveSync(specifier, ...)` ALONE can
+    // return an unexpanded literal like `jsr:@zanix/space@^1.1.0` — the raw import-map VALUE, not
+    // a real resolved version — for a jsr:/http(s): target. Splicing that literal directly into
+    // the rewritten temp file let native `import()` perform its OWN, separate version-range
+    // resolution at runtime, which can land on a DIFFERENT actual version than whatever `cli`'s
+    // own static import of the same package resolved to — silently loading a SECOND module
+    // instance of a package meant to be a process-wide singleton (`@zanix/space`'s own
+    // `SpaceDevSocket`, which registers a route as a top-level side effect, is the real, confirmed
+    // case: two instances means two registrations of the same route, throwing "already defined").
+    // `@zanix/helpers` (used above) happens to ALSO resolve to an unexpanded literal
+    // (`jsr:@zanix/utils@^4.1.0/helpers`) but doesn't exercise this distinction on its own — a
+    // single, isolated import never conflicts with anything else, so the bug only manifests with a
+    // SECOND competing resolution path, which a unit test can't easily construct. This test
+    // instead asserts the STRUCTURAL guarantee that prevents it: the rewritten temp file's own
+    // specifier is a real, fully-versioned URL, never a bare semver range.
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(join(root, 'deno.json'), '{}\n')
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { isPlainObject } from '@zanix/helpers'\nexport const value = isPlainObject({})\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        await importProjectModule(entryPath, batchContext)
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+
+        const specifierMatch = rewritten.match(/from\s+(['"])(.+?)\1/)
+        assert(specifierMatch, 'expected a real import specifier in the rewritten temp file')
+        const resolvedSpecifier = specifierMatch[2]
+
+        assert(
+          !/@[\^~]\d/.test(resolvedSpecifier),
+          `the rewritten specifier '${resolvedSpecifier}' still carries a bare semver RANGE ` +
+            "(e.g. '^1.1.0'), not a fully-resolved exact version — resolveReplacement regressed " +
+            'back to splicing an unexpanded jsr:/http(s): literal instead of forcing a real ' +
+            "dependency-constraint solve first (see this test's own doc for the full account).",
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
   'readNewestDependencyDate: a numeric "minimumDependencyAge" (minutes) becomes a cutoff ' +
     'that many minutes before now',
   async () => {

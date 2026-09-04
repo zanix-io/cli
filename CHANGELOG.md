@@ -8,6 +8,30 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-09-04
+
+### Fixed
+
+- **A real regression from 2.0.4's own fix, reintroducing the exact bug that fix was meant to
+  prevent.** `resolveReplacement` spliced `cliLoader.resolveSync(specifier, ...)`'s return value
+  directly into the rewritten temp file — but for a `jsr:`/`http(s):` target, that value alone can
+  be an UNEXPANDED literal (the raw import-map value, e.g. `jsr:@zanix/space@^1.1.0`), not a real
+  resolved version. Splicing that literal in let native `import()` perform its OWN, separate
+  version-range resolution at runtime — which can land on a DIFFERENT actual version than whatever
+  `@zanix/cli`'s own static import of the same package already resolved to, silently loading a
+  SECOND module instance of a package meant to be a process-wide singleton. Reproduced live: `zanix
+  space dev` crashed with `Route path "socket=>/__zanix_space_dev__" is already defined in
+  "SpaceDevSocket"` — two separately-loaded `SpaceDevSocket` instances (`@zanix/space`) each
+  registering the same dev-socket route as a top-level side effect, exactly the failure mode
+  `resolveReplacement`'s whole deferral mechanism exists to prevent.
+
+  Fixed by forcing a real dependency-constraint solve before using the resolved value — mirroring
+  `@zanix/space`'s own `resolveDenoAt` (`deno-optimize-deps-alias.ts`), which documents solving the
+  identical problem the identical way: `cliLoader.addEntrypoints([cliResolved])` followed by a
+  second `resolveSync` on the now-graphed literal, returning the real, canonical resolved URL. New
+  regression test (`src/@tests/unit/commands/space/shared/import-project-module.test.ts`) asserts
+  the rewritten temp file's own specifier is a fully-versioned URL, never a bare semver range.
+
 ## [2.0.6] - 2026-09-04
 
 ### Fixed
