@@ -148,6 +148,37 @@ export function findDenoConfigPath(startDir: string): string | undefined {
   return nearest
 }
 
+/** Converts a `deno.json(c)`'s own `"minimumDependencyAge"` field into the `newestDependencyDate`
+ * cutoff {@linkcode Workspace} accepts. Real, confirmed gap this closes: `@deno/loader`'s own
+ * config-file discovery (`configPath`) reads a project's `imports`/`compilerOptions`/etc.
+ * automatically, but never translates this ONE field on its own — confirmed empirically, not
+ * assumed: a real project's own `"minimumDependencyAge": 0` had zero effect on a `Workspace`
+ * constructed from its `configPath` alone, still rejecting a same-day-published dependency with
+ * Deno's own default 24h window. Every `Workspace` this module constructs needs this computed and
+ * passed explicitly instead. Supports the two shapes this ecosystem's own configs actually use — a
+ * plain number (minutes, matching `deno install --min-dep-age`'s own numeric form) and an absolute
+ * RFC3339 cutoff date/timestamp string; an ISO-8601 duration string (`'P2D'`) isn't handled yet and
+ * falls back to no override (Deno's own default) rather than throwing. Returns `undefined` — no
+ * override, Deno's own default applies — when `configPath` is `undefined` (config-file discovery,
+ * not a specific file this function could read) or the file has no recognized
+ * `minimumDependencyAge`. */
+export function readNewestDependencyDate(configPath: string | undefined): Date | undefined {
+  if (!configPath) return undefined
+  let config: { minimumDependencyAge?: number | string }
+  try {
+    config = parseJsonc(Deno.readTextFileSync(configPath)) as typeof config
+  } catch {
+    return undefined
+  }
+  const value = config.minimumDependencyAge
+  if (typeof value === 'number') return new Date(Date.now() - value * 60_000)
+  if (typeof value === 'string') {
+    const asDate = new Date(value)
+    if (!Number.isNaN(asDate.getTime())) return asDate
+  }
+  return undefined
+}
+
 /** One `Loader` per discovered config path — never a single process-wide singleton, and never one
  * per file or call. `@deno/loader` never caches a module INSTANCE itself (it only ever computes
  * resolution/content on demand), so sharing an instance across every file governed by the same
@@ -158,7 +189,20 @@ function getLoaderFor(configPath: string | undefined): Promise<Loader> {
   const key = configPath ?? ''
   let loaderPromise = loadersByConfigPath.get(key)
   if (!loaderPromise) {
-    loaderPromise = new Workspace({ platform: 'node', configPath }).createLoader()
+    loaderPromise = new Workspace({
+      platform: 'node',
+      configPath,
+      // `WorkspaceOptions.newestDependencyDate` is TYPED as `Date`, but the underlying WASM
+      // binding's actual (de)serializer rejects a real `Date` instance outright at runtime —
+      // `Failed deserializing workspace options.: Error: invalid type: JsValue(Date), expected an
+      // RFC 3339 formatted date and time string`, confirmed live — it only accepts the ISO string
+      // form. The cast below is bridging a genuine type/runtime mismatch in `@deno/loader@0.5.0`
+      // itself, not a mistake in `readNewestDependencyDate`'s own `Date`-returning signature (kept
+      // as `Date` since that's the semantically correct return type for every OTHER caller).
+      newestDependencyDate: readNewestDependencyDate(configPath)?.toISOString() as
+        | Date
+        | undefined,
+    }).createLoader()
     loadersByConfigPath.set(key, loaderPromise)
   }
   return loaderPromise

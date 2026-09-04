@@ -4,6 +4,7 @@ import {
   cleanupImportBatch,
   createImportBatchContext,
   importProjectModule,
+  readNewestDependencyDate,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
 
@@ -311,6 +312,111 @@ Deno.test(
       } finally {
         await cleanupImportBatch(batchContext)
       }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'readNewestDependencyDate: a numeric "minimumDependencyAge" (minutes) becomes a cutoff ' +
+    'that many minutes before now',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      const configPath = join(root, 'deno.json')
+      await Deno.writeTextFile(configPath, '{"minimumDependencyAge": 120}\n')
+
+      const before = Date.now()
+      const result = readNewestDependencyDate(configPath)
+      const after = Date.now()
+
+      assert(result, 'a numeric minimumDependencyAge must produce a real cutoff Date')
+      // Bounded rather than an exact equality check, since real wall time elapses between reading
+      // `before`/`after` and the function's own `Date.now()` call.
+      assert(
+        result.getTime() >= before - 120 * 60_000 - 1000 &&
+          result.getTime() <= after - 120 * 60_000 + 1000,
+        `expected a cutoff ~120 minutes before now, got ${result.toISOString()}`,
+      )
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'readNewestDependencyDate: "minimumDependencyAge": 0 (the real, confirmed-in-production shape ' +
+    'aeratech-console\'s own deno.json uses) resolves to effectively "right now" — every ' +
+    'already-published dependency version passes',
+  async () => {
+    // Real, confirmed bug this locks in: `@deno/loader`'s own config-file discovery never
+    // translates this field on its own — a project's own "minimumDependencyAge": 0 had zero
+    // effect on a Workspace constructed from its configPath alone, before this function existed,
+    // still rejecting a same-day-published dependency with Deno's own default 24h window.
+    const root = await Deno.makeTempDir()
+    try {
+      const configPath = join(root, 'deno.json')
+      await Deno.writeTextFile(configPath, '{"minimumDependencyAge": 0}\n')
+
+      const before = Date.now()
+      const result = readNewestDependencyDate(configPath)
+      const after = Date.now()
+
+      assert(
+        result,
+        '"minimumDependencyAge": 0 must still produce a real cutoff Date, not undefined',
+      )
+      assert(
+        result.getTime() >= before && result.getTime() <= after,
+        `expected a cutoff at ~now, got ${result.toISOString()}`,
+      )
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'readNewestDependencyDate: an absolute RFC3339 string is parsed directly as the cutoff',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      const configPath = join(root, 'deno.json')
+      await Deno.writeTextFile(
+        configPath,
+        '{"minimumDependencyAge": "2025-09-16T12:00:00+00:00"}\n',
+      )
+
+      const result = readNewestDependencyDate(configPath)
+
+      assertEquals(result?.toISOString(), '2025-09-16T12:00:00.000Z')
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  "readNewestDependencyDate: returns undefined (Deno's own default applies) when configPath is " +
+    'undefined, the file has no minimumDependencyAge, or the value is an unrecognized shape',
+  async () => {
+    assertEquals(readNewestDependencyDate(undefined), undefined)
+
+    const root = await Deno.makeTempDir()
+    try {
+      const noField = join(root, 'no-field.json')
+      await Deno.writeTextFile(noField, '{}\n')
+      assertEquals(readNewestDependencyDate(noField), undefined)
+
+      const badShape = join(root, 'bad-shape.json')
+      // An ISO-8601 duration string ('P2D') — a real, documented `--min-dep-age` shape this
+      // function doesn't handle yet (see its own doc) — must fall back to undefined, not throw.
+      await Deno.writeTextFile(badShape, '{"minimumDependencyAge": "P2D"}\n')
+      assertEquals(readNewestDependencyDate(badShape), undefined)
+
+      const missingFile = join(root, 'does-not-exist.json')
+      assertEquals(readNewestDependencyDate(missingFile), undefined)
     } finally {
       await Deno.remove(root, { recursive: true })
     }

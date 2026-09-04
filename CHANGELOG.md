@@ -8,6 +8,33 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-09-04
+
+### Fixed
+
+- **A project's own `"minimumDependencyAge"` (its `deno.json`) had zero effect on `zanix space
+  dev`/`build`'s own dependency resolution — every `Workspace` this package constructs (both for
+  its own config and for a served project's) never translated that field into `@deno/loader`'s
+  `newestDependencyDate` option, so Deno's default 24h freshness window always applied regardless
+  of what either config declared.** Reproduced live: a real global install still rejected a
+  same-day `@zanix/auth` release with `Could not find version of '@zanix/auth' that matches
+  specified version constraint '^1.1.2' ... newer than the specified minimum dependency date`, even
+  with `"minimumDependencyAge": 0` set in the served project's own `deno.json` — this package's own
+  identical `2.0.4` fix (`deno.jsonc`) only ever addressed a DIFFERENT part of this same problem
+  (`deno install -g`'s shim never baking the setting in at all); this is the part that was still
+  broken even when the RIGHT config was actually reachable.
+
+  Fixed with a new `readNewestDependencyDate(configPath)` helper, now passed to every `Workspace`
+  construction: reads the discovered config's own `minimumDependencyAge` (a number in minutes, or
+  an absolute RFC3339 cutoff string) and converts it into the cutoff `@deno/loader` needs. Also
+  works around a real type/runtime mismatch found in `@deno/loader@0.5.0` itself along the way:
+  `WorkspaceOptions.newestDependencyDate` is typed as `Date`, but its actual WASM binding rejects a
+  real `Date` instance at runtime (`Failed deserializing workspace options.: ... expected an RFC
+  3339 formatted date and time string`) — only the ISO string form works. New regression tests
+  (`src/@tests/unit/commands/space/shared/import-project-module.test.ts`) cover the numeric-minutes
+  shape, the real `0` shape this ecosystem's own consumers use, the absolute-date-string shape, and
+  every case that should fall back to Deno's own default.
+
 ## [2.0.4] - 2026-09-04
 
 ### Fixed
