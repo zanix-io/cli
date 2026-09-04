@@ -374,6 +374,119 @@ Deno.test(
 )
 
 Deno.test(
+  "importProjectModule: a cli-shared bare specifier that resolves into node_modules (react's own " +
+    'CJS jsx-runtime shim) gets reconstructed as a scheme specifier, never left as a raw ' +
+    'file:// node_modules path',
+  async () => {
+    // Real, confirmed bug: the `cliResolved` branch above splices a `file://` path straight into
+    // node_modules for a specifier resolving OUTSIDE cli's own source tree — but react's own CJS
+    // entry (`node_modules/react/jsx-runtime.js`) is a runtime `if (process.env.NODE_ENV ===
+    // 'production') { ... } else { ... }` conditional `require`, which Deno's static CJS→ESM
+    // named-export analysis can't see through: a raw `file://` import of it exposes NO named
+    // exports at all, so `import { jsx } from 'react/jsx-runtime'` fails outright even though the
+    // file resolved successfully — reported live via `discoverPages`'s static-analysis pass.
+    // Reconstructing the scheme-based specifier form (`npm:react@^19.2.0/jsx-runtime`) instead
+    // hands native `import()` the same text a normal static import would use, with full npm
+    // CJS/ESM interop intact — mirroring the identical fix the project-anchored `node_modules`
+    // branch further down in `resolveReplacement` already has, for the exact same reason.
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(join(root, 'deno.json'), '{}\n')
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { jsx } from 'react/jsx-runtime'\nexport const value = typeof jsx === 'function'\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        const mod = await importProjectModule(entryPath, batchContext)
+        assertEquals(
+          mod.value,
+          true,
+          "the real react/jsx-runtime import must actually resolve and expose 'jsx' — a raw " +
+            'file:// node_modules import would fail this outright',
+        )
+
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        assert(
+          !rewritten.includes('/node_modules/'),
+          'the rewritten temp file still contains a raw file:// node_modules path — ' +
+            'resolveReplacement regressed back to splicing that in directly instead of ' +
+            "reconstructing the scheme specifier form (see this test's own doc for the full " +
+            'account).',
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  "importProjectModule: a project's OWN bare specifier (not shared with cli's config) resolving " +
+    'to an UNEXPANDED jsr:/http(s) literal gets forced through a real dependency-constraint solve ' +
+    'too, never left as the raw, unexpanded literal',
+  async () => {
+    // Real, confirmed gap this closes — the SAME class of bug as the cli-branch fix above, found
+    // during the same audit but in a DIFFERENT branch: `referrerLoader.resolveSync(specifier, ...)`
+    // ALONE can return an unexpanded literal (confirmed via a real, isolated repro:
+    // `referrerLoader.resolveSync('@zanix/auth', ...)`, against a real project's own config,
+    // returns the literal `jsr:@zanix/auth@^1.1.2`, not a resolved version). Splicing that literal
+    // in directly hands the ACTUAL version-range resolution to native `import()` at RUNTIME —
+    // governed by whatever config/lockfile the PROCESS itself was started with, never
+    // `referrerLoader`'s own `newestDependencyDate`, so a project's own `"minimumDependencyAge"`
+    // setting had NO effect on the specifier this branch actually spliced in — real, confirmed
+    // failure reported live against `@zanix/auth`/`@zanix/datamaster`, even with
+    // `"minimumDependencyAge": 0` set in the project's own `deno.json`.
+    //
+    // `@std/csv` is used here specifically because it is NOT declared anywhere in `cli`'s own
+    // `deno.jsonc` — this must exercise the project-anchored `referrerLoader` branch, never the
+    // earlier `cliLoader` shortcut (which has its own, already-covered test above).
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        '{"imports": {"@std/csv": "jsr:@std/csv@^1.0.0"}, "minimumDependencyAge": 0}\n',
+      )
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { stringify } from '@std/csv'\nexport const value = typeof stringify\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        const mod = await importProjectModule(entryPath, batchContext)
+        assertEquals(mod.value, 'function', 'the real @std/csv import must actually resolve')
+
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        const specifierMatch = rewritten.match(/from\s+(['"])(.+?)\1/)
+        assert(specifierMatch, 'expected a real import specifier in the rewritten temp file')
+        const resolvedSpecifier = specifierMatch[2]
+
+        assert(
+          !/@[\^~]\d/.test(resolvedSpecifier),
+          `the rewritten specifier '${resolvedSpecifier}' still carries a bare semver RANGE ` +
+            "(e.g. '^1.0.0'), not a fully-resolved exact version — resolveReplacement's " +
+            'project-anchored branch regressed back to splicing an unexpanded jsr:/http(s): ' +
+            'literal instead of forcing a real dependency-constraint solve first (see this ' +
+            "test's own doc for the full account).",
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
   'readNewestDependencyDate: a numeric "minimumDependencyAge" (minutes) becomes a cutoff ' +
     'that many minutes before now',
   async () => {
@@ -402,7 +515,7 @@ Deno.test(
 
 Deno.test(
   'readNewestDependencyDate: "minimumDependencyAge": 0 (the real, confirmed-in-production shape ' +
-    'aeratech-console\'s own deno.json uses) resolves to effectively "right now" — every ' +
+    'external-console\'s own deno.json uses) resolves to effectively "right now" — every ' +
     'already-published dependency version passes',
   async () => {
     // Real, confirmed bug this locks in: `@deno/loader`'s own config-file discovery never

@@ -552,18 +552,69 @@ export async function importProjectModule(
         // module cache keys by resolved URL, not by which import statement reached it, and
         // `@deno/loader`'s own `resolveSync` mirrors Deno's native resolution algorithm by design,
         // so the two converge on the identical cache key.
+        //
+        // EXCEPT a raw `file://` path straight into `node_modules` — the same CJS/ESM-interop gap
+        // the project-anchored `node_modules` branch further down already guards against (see its
+        // own doc), missed here originally since this branch didn't exist yet when that one was
+        // written. Real, confirmed failure (reported live against `react/jsx-runtime`, reached via
+        // `discoverPages`'s static-analysis pass): react's own CJS entry is a runtime
+        // `if (process.env.NODE_ENV === 'production') { ... } else { ... }` conditional `require`,
+        // which Deno's static CJS→ESM named-export analysis can't see through — a raw `file://`
+        // import of it exposes NO named exports at all, so `import { jsx } from
+        // 'react/jsx-runtime'` fails outright even though the file resolved successfully.
+        // Reconstructing the scheme-based specifier form instead (`npm:react@^19.2.0/jsx-runtime`)
+        // hands native `import()` the same text a normal static import would have used, with full
+        // npm CJS/ESM interop intact — using `cliConfigPath` here, never `referrerConfigPath`: the
+        // import-map entry being reconstructed is `cli`'s own, not the project's.
+        if (cliResolved.startsWith('file://') && cliResolved.includes('/node_modules/')) {
+          const reconstructed = cliConfigPath
+            ? reconstructSchemeSpecifier(cliConfigPath, specifier)
+            : undefined
+          return reconstructed ?? cliResolved
+        }
         return cliResolved
       }
     } catch {
-      if (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier) !== undefined) {
-        return specifier
-      }
+      // Real, confirmed bug this closes: this branch computed `reconstructSchemeSpecifier`'s
+      // result only to check it wasn't `undefined`, then discarded it and returned the ORIGINAL
+      // bare `specifier` instead — reintroducing the exact "no import map for a loose temp file"
+      // failure 2.0.4's own fix (the `!resolvesIntoCliOwnSourceTree` branch above) exists to
+      // prevent, just in this error-fallback path instead of the main one. Now returns the
+      // reconstructed scheme literal itself — the same real, canonical text a normal static
+      // import would have resolved through, resolvable with no import map at all, exactly like
+      // the identical pattern the project-anchored fallback below already uses correctly.
+      const reconstructed = cliConfigPath
+        ? reconstructSchemeSpecifier(cliConfigPath, specifier)
+        : undefined
+      if (reconstructed !== undefined) return reconstructed
       // `@zanix/cli`'s own config has nothing for this specifier at all — falls through.
     }
 
     let resolved: string
     try {
       resolved = referrerLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+      // Same real, confirmed gap as `cliLoader`'s own identical fix above, applied here for a
+      // DIFFERENT reason: a `jsr:`/`http(s):` result from `resolveSync` ALONE is an unexpanded
+      // literal (the raw import-map value, not a real resolved version) — confirmed via a real,
+      // isolated repro: `referrerLoader.resolveSync('@zanix/auth', ...)` (against a real project's
+      // own config) returns the literal `jsr:@zanix/auth@^1.1.2`, not a resolved version. Splicing
+      // that literal in directly hands the ACTUAL version-range resolution to native `import()` at
+      // RUNTIME — governed by whatever config/lockfile the PROCESS itself was started with, never
+      // `referrerLoader`'s own `newestDependencyDate` ({@linkcode readNewestDependencyDate}) — so a
+      // project's own `"minimumDependencyAge"` setting, despite correctly configuring
+      // `referrerLoader` itself, had NO effect on the specifier this branch actually spliced in:
+      // real, confirmed failure, `Could not find version of '@zanix/auth' that matches specified
+      // version constraint '^1.1.2' ... newer than the specified minimum dependency date`, even
+      // with `"minimumDependencyAge": 0` set in the project's own `deno.json`. Forcing the real
+      // dependency-constraint solve HERE, through `referrerLoader` (which DOES already carry the
+      // project's own correct age-gate cutoff), produces a fully-resolved absolute URL that needs
+      // no further native resolution at all — closing the gap completely, not working around it.
+      if (
+        resolved.startsWith('jsr:') || resolved.startsWith('http:') || resolved.startsWith('https:')
+      ) {
+        await referrerLoader.addEntrypoints([resolved])
+        resolved = referrerLoader.resolveSync(resolved, referrerUrl, ResolutionMode.Import)
+      }
     } catch (error) {
       // The one real gap `resolveSync` has on its own: an `npm:`-mapped bare specifier needs a
       // real dependency-constraint solve (`Loader.addEntrypoints`) to resolve at all — never run

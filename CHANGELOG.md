@@ -8,6 +8,45 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-09-04
+
+### Fixed
+
+Three gaps found in one deliberate side-by-side audit of `resolveReplacement`'s two resolution
+branches (`cli`'s own config vs. a project's own config), after 2.0.7's fix revealed the pattern —
+checking for every OTHER place the same class of mistake could repeat, not just the one reported.
+
+- **The `cliLoader` catch-fallback branch computed `reconstructSchemeSpecifier`'s result only to
+  discard it and return the original bare `specifier` instead** — reintroducing the exact "no
+  import map for a loose temp file" failure 2.0.4's own fix exists to prevent, just in this
+  error-fallback path instead of the main one. Now returns the reconstructed literal it already
+  computed, matching the project-anchored fallback's own (already-correct) pattern.
+
+- **A `cliLoader`-resolved specifier landing in `node_modules` was spliced in as a raw `file://`
+  path**, missing the exact same CJS/ESM-interop guard the project-anchored `node_modules` branch
+  already has (the branch didn't exist when that guard was written). Real, confirmed failure
+  (reported live, `zanix-iam`): react's own CJS entry is a runtime `if (process.env.NODE_ENV ===
+  'production') { ... } else { ... }` conditional `require`, which Deno's static CJS→ESM
+  named-export analysis can't see through — a raw `file://` import of it exposes no named exports
+  at all, so `import { jsx } from 'react/jsx-runtime'` failed outright even though the file resolved
+  successfully. Now reconstructs the scheme specifier the same way the other branch does.
+
+- **A project's OWN bare specifier resolving to an unexpanded `jsr:`/`http(s):` literal (the raw
+  import-map value, not a real resolved version) was spliced in directly, handing the actual
+  version-range resolution to native `import()` at runtime — governed by whatever config/lockfile
+  the PROCESS itself was started with, never the project's own `newestDependencyDate`
+  ({@linkcode readNewestDependencyDate}, 2.0.5).** This is the real, complete fix for the min-dep-age
+  failures a project's own fresh dependencies (`@zanix/auth`, `@zanix/datamaster`, ...) kept hitting
+  even with `"minimumDependencyAge": 0` set correctly — 2.0.5 only fixed `@deno/loader`'s own
+  `Workspace` construction; this closes the other half, where the literal it resolved to still
+  needed a SEPARATE, unconfigured native resolution to become a real version. Forces the same real
+  dependency-constraint solve (`addEntrypoints`, then re-resolve) 2.0.7 already applies on the `cli`
+  side, so the final spliced specifier is always a fully-resolved absolute URL needing no further
+  native resolution at all.
+
+New regression tests for all three, plus a re-run of the full `unit`/`integration` suites (786 and
+121 tests respectively, 0 failures) — not just the files touched.
+
 ## [2.0.7] - 2026-09-04
 
 ### Fixed
