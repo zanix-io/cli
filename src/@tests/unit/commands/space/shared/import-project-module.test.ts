@@ -217,3 +217,38 @@ Deno.test(
     await sweepStaleGeneratedModules('/this/path/genuinely/does/not/exist/anywhere')
   },
 )
+
+Deno.test(
+  "getCliLoader's own fromFileUrl(import.meta.url) call is guarded by a file:// scheme check, " +
+    'never called unconditionally',
+  async () => {
+    // Real, confirmed bug: `getCliLoader()` used to call `fromFileUrl(import.meta.url)`
+    // unconditionally — throwing `Must be a file URL` the instant `@zanix/cli` itself loads via
+    // `jsr:` (this module's own `import.meta.url` is `https://jsr.io/...` there, not `file://`),
+    // which is exactly what a real global install (`deno install -g jsr:@zanix/cli`) does. No unit
+    // test can exercise the actual runtime branch this fixes — `import.meta.url` is fixed per
+    // module instance, so a `deno test` run here can never observe it as anything but `file://` —
+    // so this parses the raw source text instead (same technique
+    // `lazy-command-specifiers-relative.test.ts` uses for the sibling bug class) and fails loud if
+    // `fromFileUrl(import.meta.url)` (inside `getCliLoader`) is ever called without a preceding
+    // scheme guard.
+    const source = await Deno.readTextFile(
+      new URL('../../../../../commands/space/shared/import-project-module.ts', import.meta.url),
+    )
+    const fnMatch = source.match(
+      /function getCliLoader\(\)[\s\S]*?\n\}/,
+    )
+    assert(
+      fnMatch,
+      "getCliLoader's own declaration could not be found — did it move or get renamed?",
+    )
+
+    const body = fnMatch[0]
+    assert(
+      /import\.meta\.url\.startsWith\(\s*(['"])file:\/\/\1\s*\)/.test(body),
+      'getCliLoader() no longer guards its fromFileUrl(import.meta.url) call with a ' +
+        "file:// scheme check — this regresses back to throwing 'Must be a file URL' the moment " +
+        "@zanix/cli loads via jsr: (see this test's own doc for the full account).",
+    )
+  },
+)

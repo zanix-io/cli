@@ -1,8 +1,18 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "license": "MIT",
   "nodeModulesDir": "auto",
+  // Governs resolution of THIS package's OWN dependencies (e.g. `@zanix/server`, imported
+  // directly by `commands/space/dev/action.ts`) — not a served project's own config, which is a
+  // structurally separate resolution graph. Without this, a `@zanix/server` version published
+  // within Deno's default minimum-dependency-age window gets silently excluded from `zanix`'s own
+  // dependency resolution (real, confirmed: `zanix space dev`, run from a real global
+  // `deno install -g jsr:@zanix/cli` install, rejected a real, already-published `@zanix/server`
+  // release with "newer than the specified minimum dependency date"). A served project's own
+  // `"minimumDependencyAge"` (its own `deno.json`) only ever governs ITS OWN dependency graph, and
+  // has no effect on this one.
+  "minimumDependencyAge": 0,
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": true

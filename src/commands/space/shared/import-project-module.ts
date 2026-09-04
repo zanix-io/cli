@@ -166,13 +166,30 @@ function getLoaderFor(configPath: string | undefined): Promise<Loader> {
 
 /** `@zanix/cli`'s OWN nearest config — computed once, from THIS module's own location, and
  * reused as the comparison point {@linkcode resolveReplacement} checks a recursion candidate
- * against (see that function's own doc for why). */
+ * against (see that function's own doc for why).
+ *
+ * Stays `undefined` when `import.meta.url` isn't a real `file://` URL — i.e. once `@zanix/cli`
+ * itself is loaded via `jsr:` (any real global install, `deno install -g jsr:@zanix/cli` included):
+ * there is no local checkout for it to have a config path FOR at all in that case, so
+ * `fromFileUrl` would throw `Must be a file URL` on every single invocation, real projects
+ * included — confirmed live against a real global install, not hypothetical. Leaving it
+ * `undefined` is not a workaround so much as the structurally correct answer: `resolvesIntoCliOwnSourceTree`
+ * already treats a falsy `cliConfigPath` as "no distinct cli source tree to collide with" (see its
+ * own doc), and `getLoaderFor(undefined)` doesn't mean "no config" either — per `@deno/loader`'s
+ * own `WorkspaceOptions.configPath` doc, omitting it means "do config file discovery", which from
+ * inside a real `zanix space build`/`dev` run auto-discovers the SAME config the calling project's
+ * own `referrerLoader` already uses (both run with the project as `Deno.cwd()`). So `cliResolved`
+ * below ends up identical to the project's own resolution, `resolvesIntoCliOwnSourceTree` correctly
+ * stays `false`, and this always defers to native resolution unchanged — exactly the outcome the
+ * alias-collision check exists to produce when there is no real collision left to guard against. */
 let cliConfigPathComputed = false
 let cliConfigPath: string | undefined
 
 function getCliLoader(): Promise<Loader> {
   if (!cliConfigPathComputed) {
-    cliConfigPath = findDenoConfigPath(dirname(fromFileUrl(import.meta.url)))
+    cliConfigPath = import.meta.url.startsWith('file://')
+      ? findDenoConfigPath(dirname(fromFileUrl(import.meta.url)))
+      : undefined
     cliConfigPathComputed = true
   }
   return getLoaderFor(cliConfigPath)

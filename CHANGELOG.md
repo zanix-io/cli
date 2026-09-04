@@ -8,6 +8,42 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-09-04
+
+### Fixed
+
+- **`getCliLoader()` called `fromFileUrl(import.meta.url)` unconditionally — the same
+  `import.meta.url`-assumes-`file://` bug class as 2.0.1/2.0.2, one level deeper.** It computes
+  `@zanix/cli`'s own nearest config path, used by `resolvesIntoCliOwnSourceTree()` to detect a real
+  alias collision between the CLI's own internal `typings/`/`shared/`/`utils/` aliases and the
+  identically-named aliases `zanix new` scaffolds into a consuming project. Once `@zanix/cli` itself
+  loads via `jsr:` (any real global install), `import.meta.url` is `https://jsr.io/...`, and
+  `fromFileUrl` throws `Must be a file URL` on every invocation of the affected code path. Fixed by
+  guarding the call behind an `import.meta.url.startsWith('file://')` check — when false,
+  `cliConfigPath` stays `undefined`, which is the structurally correct answer (there's no local CLI
+  source tree to collide with), not just a crash-safe fallback: `resolvesIntoCliOwnSourceTree()`
+  already treats a falsy `cliConfigPath` as "no collision," and `getLoaderFor(undefined)` triggers
+  `@deno/loader`'s own config-file auto-discovery, which resolves to the same config the served
+  project's own resolution already uses. New regression test
+  (`src/@tests/unit/commands/space/shared/import-project-module.test.ts`) parses the function's own
+  source text and fails loud if the scheme guard is ever removed — the actual runtime branch can't
+  be exercised directly, since `import.meta.url` is fixed per module instance within one `deno test`
+  run.
+
+- **This package's own dependency resolution (its static `@zanix/server` import, among others) had
+  no `minimumDependencyAge` override, so a freshly published `@zanix/server` release could be
+  silently excluded by Deno's default freshness gate** — reproduced live: a real global
+  `deno install -g jsr:@zanix/cli` install of `zanix space dev` rejected an already-published
+  `@zanix/server` version with `Could not find version of '@zanix/server' that matches specified
+  version constraint '^4.2.1' ... newer than the specified minimum dependency date`, even though the
+  SERVED project's own `deno.json` already set `"minimumDependencyAge": 0` — that setting only ever
+  governs a project's own dependency graph, never this package's separate one. Re-installing the CLI
+  itself with `--min-dep-age 0` doesn't substitute for this either: that flag only affects
+  `deno install`'s own one-time resolution at install time, not the resolution `zanix` performs on
+  every later invocation. Fixed by setting `"minimumDependencyAge": 0` directly in this package's own
+  `deno.jsonc`. New regression test (`src/@tests/unit/deno-jsonc-minimum-dependency-age.test.ts`)
+  parses `deno.jsonc` and fails loud if that setting is ever removed.
+
 ## [2.0.2] - 2026-09-04
 
 ### Fixed
