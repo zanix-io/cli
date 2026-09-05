@@ -1,9 +1,13 @@
 import type { Commander } from 'cli'
 
 import { resolve } from '@std/path'
-import { isZanixAppDefinition, type ZanixAppDefinition } from '@zanix/app'
+import type { ZanixAppDefinition } from '@zanix/app'
+import type * as ZanixAppModule from '@zanix/app'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
-import { importProjectModule } from 'commands/space/shared/import-project-module.ts'
+import {
+  importProjectDependency,
+  importProjectModule,
+} from 'commands/space/shared/import-project-module.ts'
 
 /**
  * Imports `${root}/space.app.ts`'s default export as a `ZanixAppDefinition` — never
@@ -46,6 +50,17 @@ export async function importSpaceApp(
     // double), so this function never silently returns `undefined` as a `ZanixAppDefinition`.
     throw error
   }
+
+  // Resolved against THIS project's own config, exactly like `imported` above — never `@zanix/cli`'s
+  // own native `@zanix/app`, which would check this `Symbol()` brand against a DIFFERENT `@zanix/app`
+  // instance than whichever one `@zanix/space`'s own `defineSpaceApp` used to build `imported` (a
+  // bare `Symbol()`, never `Symbol.for()`, only `===`-equal to itself within the SAME module
+  // instance) — silently returning `false` here instead of a loud version-mismatch failure. See
+  // `importProjectDependency`'s own doc for the full mechanism this avoids.
+  const { isZanixAppDefinition } = await importProjectDependency(
+    root,
+    '@zanix/app',
+  ) as typeof ZanixAppModule
 
   if (!isZanixAppDefinition(imported)) {
     const error = new Error(

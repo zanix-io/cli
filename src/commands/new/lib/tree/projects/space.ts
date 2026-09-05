@@ -253,10 +253,10 @@ await bootstrapRemoteApp(spaceApp, getBootstrapSpaceAppConfig())
 }
 
 // Every leaf below calls its own generator's extracted `plan<Name>(...)`, with a placeholder
-// 'Example'/'ExampleCounter' name — the same "generator is the one true source" migration §5 of
-// `cli`'s own `docs/engineering.md` already did for `server.ts`'s own handler/rto/connector/interactor/job
-// examples, closed for `space.ts` too: no separately hand-maintained string constant to drift out
-// of sync with what `zanix generate page`/`zanix generate comet` actually produce.
+// 'Example'/'ExampleCounter' name — the same "generator is the one true source" convention
+// `server.ts`'s own handler/rto/connector/interactor/job examples already follow: no separately
+// hand-maintained string constant to drift out of sync with what `zanix generate page`/
+// `zanix generate comet` actually produce.
 // `SPACE_RECIPE_BASE` + `assembleScaffold` (`recipe.ts`) is the same "Scaffold Recipe" `server.ts`
 // uses for its own leaves — one declarative entry per leaf instead of a hand-written block.
 //

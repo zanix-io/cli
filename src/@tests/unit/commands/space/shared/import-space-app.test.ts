@@ -1,6 +1,7 @@
 import { assert, assertEquals } from '@std/assert'
 import { getTemporaryFolder } from '@zanix/helpers'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
+import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
 
 // deno-lint-ignore no-explicit-any
 type FakeCommander = { throw: (e: any) => void }
@@ -44,7 +45,7 @@ Deno.test(
       JSON.stringify({
         zanix: { project: 'space' },
         imports: {
-          '@zanix/space': 'jsr:@zanix/space@^0.3.2',
+          '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
           // A local alias @zanix/cli's own deno.jsonc has never heard of — the real bug this
           // whole fix closes: a plain `import()` from inside `cli`'s own process would fail this
           // outright with "not a dependency and not in import map".
@@ -93,7 +94,7 @@ Deno.test(
       JSON.stringify({
         zanix: { project: 'space' },
         imports: {
-          '@zanix/space': 'jsr:@zanix/space@^0.3.2',
+          '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
           // Same alias NAME cli's own deno.jsonc declares (`"utils/": "./src/utils/"`) — pointing
           // at THIS project's own utils folder, never cli's.
           'utils/': './src/utils/',
@@ -171,7 +172,7 @@ Deno.test(
         // explicit `imports` entry alongside it would instead pin a real semver range, which
         // `links` does not override (a real, separate mechanism from a raw relative-path `imports`
         // override).
-        imports: { '@zanix/space': 'jsr:@zanix/space@^0.3.2' },
+        imports: { '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'] },
       }),
     )
     await Deno.writeTextFile(
@@ -210,7 +211,7 @@ Deno.test(
       `${root}/deno.json`,
       JSON.stringify({
         zanix: { project: 'space' },
-        imports: { '@zanix/space': 'jsr:@zanix/space@^0.3.2' },
+        imports: { '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'] },
       }),
     )
     await Deno.writeTextFile(`${root}/styles.module.css`, '.button { color: red; }\n')
@@ -254,7 +255,7 @@ Deno.test(
       `${root}/deno.json`,
       JSON.stringify({
         zanix: { project: 'space' },
-        imports: { '@zanix/space': 'jsr:@zanix/space@^0.3.2' },
+        imports: { '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'] },
       }),
     )
     await Deno.writeTextFile(`${root}/data.json`, JSON.stringify({ label: 'from-json' }))

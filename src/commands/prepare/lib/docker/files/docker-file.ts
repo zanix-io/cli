@@ -9,8 +9,8 @@ import {
 } from 'commands/prepare/lib/docker/files/app-entrypoint.ts'
 import logger from '@zanix/logger'
 
-// Verified against the real, currently-published `denoland/deno` Docker Hub/GHCR tags at the time
-// this was written — the debian-based default variant, not `alpine`: `sharp` (a real npm dep of
+// Verified against the real, currently-published `denoland/deno` Docker Hub/GHCR tags — the
+// debian-based default variant, not `alpine`: `sharp` (a real npm dep of
 // `@zanix/space`) ships a native prebuilt binary that depends on glibc, and alpine/musl support
 // isn't guaranteed across every platform it publishes for. Bump this one constant when a newer
 // Deno major/minor is worth tracking — never duplicated anywhere else.

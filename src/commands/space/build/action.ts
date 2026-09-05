@@ -2,9 +2,12 @@ import type { Commander } from 'cli'
 import type { SpaceBuildOptions } from 'commands/space/build/command.ts'
 import type { CompileTreeResult } from 'commands/space/shared/compile-messages.ts'
 
+import type * as ZanixSpaceModule from '@zanix/space'
+import type * as ZanixSpaceViteModule from '@zanix/space/vite'
 import { assertProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
 import {
+  importProjectDependency,
   importProjectModule,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
@@ -64,15 +67,16 @@ import logger from '@zanix/utils/logger'
  * what the check covers (including the real subprocess it spawns to discover a locally compiled
  * schema, for a project that has one) and the real limitations that remain.
  *
- * `@zanix/space`/`@zanix/space/vite` are imported dynamically, INSIDE this function, never as a
- * static top-level import — this whole module (`action.ts`) is itself only ever reached via
- * `command.ts`'s own non-literal `await import(...)`, so a static import here costs nothing extra
- * once that boundary already exists — kept dynamic anyway, for the same real reason:
- * `@zanix/space/vite`'s entire dependency graph (Vite,
- * React, Tailwind, `sharp`, vanilla-extract, ...) has no business loading before it's actually
- * needed even within a single `zanix space build` run (`getGlobalCssPaths`/`getPwaConfig` need
- * `@zanix/space` resolved first, before `@zanix/space/vite`'s own heavier graph is worth paying
- * for). `writeCompiledMessagesTree` (`../shared/compile-messages.ts`) is imported the
+ * `@zanix/space`/`@zanix/space/vite` are resolved through {@linkcode importProjectDependency},
+ * INSIDE this function, never as a static top-level import — two independent reasons, not one:
+ * `@zanix/space/vite`'s entire dependency graph (Vite, React, Tailwind, `sharp`, vanilla-extract,
+ * ...) has no business loading before it's actually needed even within a single `zanix space
+ * build` run (`getGlobalCssPaths`/`getPwaConfig` need `@zanix/space` resolved first, before
+ * `@zanix/space/vite`'s own heavier graph is worth paying for) — and, more importantly, both must
+ * resolve against THIS project's own `deno.json(c)`, never `@zanix/cli`'s own config, so that the
+ * module instance they read back (`getActiveRenderer()`, `getRoutesDir()`, ...) is the SAME one
+ * `space.app.ts` populated above — see `importProjectDependency`'s own doc for the real, reported
+ * bug this avoids. `writeCompiledMessagesTree` (`../shared/compile-messages.ts`) is imported the
  * same lazy way, for the same reason — it pulls in `@formatjs/icu-messageformat-parser`, which no
  * `zanix` invocation outside `space build` (with a `messagesDir` actually configured) should ever
  * load. `importSpaceApp`'s own bare `@zanix/app` import (this file's own top-level import above)
@@ -102,8 +106,16 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   await sweepStaleGeneratedModules(root)
   await importSpaceApp(this, root)
 
+  // Resolved against THIS project's own config, never `@zanix/cli`'s own native `@zanix/space` —
+  // see `importProjectDependency`'s own doc for why: `getGlobalCssPaths`/`getPwaConfig`/
+  // `getActiveRenderer`/`getMessagesDir`/`getRoutesDir` are all getters over module-level state
+  // `defineSpaceApp` (inside `space.app.ts`, just imported above) set eagerly — a separately
+  // resolved `@zanix/space` instance here would read back nothing (or the wrong renderer)
+  // instead of what the project actually declared. Reused below for the validation-flag helpers
+  // too — one resolution, one shared `@zanix/space` instance for this whole command.
+  const zanixSpace = await importProjectDependency(root, '@zanix/space') as typeof ZanixSpaceModule
   const { getGlobalCssPaths, getPwaConfig, getActiveRenderer, getMessagesDir, getRoutesDir } =
-    await import('@zanix/space')
+    zanixSpace
 
   // Both projections of the project's one renderer choice must agree before anything is built —
   // see `assertRendererConsistency`'s own doc for why the mismatch is otherwise baffling rather
@@ -154,7 +166,12 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     assertNoGraphqlCheckFailures(graphqlResult)
   }
 
-  const { buildSpaceClient } = await import('@zanix/space/vite')
+  // Same project-anchored reasoning as the `@zanix/space` resolution above — `buildSpaceClient`
+  // is the same package, a different subpath, so it converges on the identical resolved version.
+  const { buildSpaceClient } = await importProjectDependency(
+    root,
+    '@zanix/space/vite',
+  ) as typeof ZanixSpaceViteModule
 
   // Reads back what importing `space.app.ts` just set — `defineSpaceApp` calls
   // `setGlobalCssPaths(globalCss)`/`setPwaConfig(pwa)` eagerly, at import time — no need to
@@ -171,7 +188,7 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     getValidationConfig,
     formatDiagnostic,
     hasBlockingDiagnostics,
-  } = await import('@zanix/space')
+  } = zanixSpace
 
   const flags = resolveValidationFlags(toValidationFlags(options))
   const validation = flags.enabled
@@ -195,7 +212,7 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     // project's own `deno.json(c)`) would resolve against `@zanix/cli`'s OWN configuration instead
     // and fail with "not a dependency and not in import map". See `importProjectModule`'s own doc
     // for the full mechanism, and `BuildSpaceClientOptions.importModule`'s own doc in `@zanix/space`
-    // for why this is a real, previously-unpatched gap.
+    // for why this gap is real, not hypothetical.
     importModule: importProjectModule,
   })
 

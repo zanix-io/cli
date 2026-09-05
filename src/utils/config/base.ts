@@ -116,8 +116,7 @@ export function baseZnxConfig(
   // wiring it into `compilerOptions.types` here, `deno check`/`deno test` only pick up a type it
   // declares when some statically-reachable file happens to import that module — never true for a
   // pure `declare global` file — so a type used only from code the static graph can't see (e.g. a
-  // runtime-discovered handler) silently fails to resolve instead of being caught. Same fix already
-  // applied by hand in a real sibling project's own `deno.json` before this was wired in here.
+  // runtime-discovered handler) silently fails to resolve instead of being caught.
   const typingsPath = znxMainFolders.src.subfolders.typings
   const compilerOptions: ConfigFile['compilerOptions'] = {
     strict: true,

@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.9-alpha.3",
+  "version": "2.0.9-alpha.4",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -92,10 +92,10 @@
     "@zanix/utils/regex": "jsr:@zanix/utils@^4.2.1/regex",
     "@zanix/server": "jsr:@zanix/server@^4.2.1",
     "@zanix/server/graphql": "jsr:@zanix/server@^4.2.1/graphql",
-    // Powers `import-project-module.ts`'s own general fix for resolving a CONSUMING project's own
-    // bare specifiers against ITS nearest `deno.json(c)`, never `cli`'s — see that module's own
-    // doc. Already a real, working transitive dependency (pulled in via `@deno/vite-plugin`);
-    // declared directly here because this package now imports it on its own terms too.
+    // Powers `import-project-module.ts`'s own resolution of a CONSUMING project's own bare
+    // specifiers against ITS nearest `deno.json(c)`, never `cli`'s — see that module's own doc.
+    // Already a real, working transitive dependency (pulled in via `@deno/vite-plugin`); declared
+    // directly here because this package also imports it directly, on its own terms.
     "@deno/loader": "jsr:@deno/loader@^0.5.0",
     // Real JS lexer `import-project-module.ts` uses to find a transpiled file's own import/export
     // specifiers precisely — the same one Vite/Rollup use internally for this exact job. See that
@@ -111,20 +111,20 @@
     // the real registration step (`defineCoreMetadata()` + auto-discovered `src/server/` handlers)
     // its own boot sequence never got, having dropped to `activateApps`/`bootstrapServers` directly
     // instead of the project's real `mod.ts`'s `Zanix.start()`. See that call site's own doc for
-    // the full mechanism and the real "Missing core connector slot" failure this closes.
+    // the full mechanism and the real "Missing core connector slot" failure this prevents.
     "@zanix/core": "jsr:@zanix/core@^3.1.1",
     "@zanix/app": "jsr:@zanix/app@^1.0.2",
     "@zanix/app/runtime": "jsr:@zanix/app@^1.0.2/runtime",
-    "@zanix/space": "jsr:@zanix/space@^1.3.0",
-    "@zanix/space/vite": "jsr:@zanix/space@^1.3.0/vite",
-    "@zanix/space/dev": "jsr:@zanix/space@^1.3.0/dev",
-    "@zanix/space/testing": "jsr:@zanix/space@^1.3.0/testing",
-    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.3.0/assets-manifest",
-    "@zanix/space/comet": "jsr:@zanix/space@^1.3.0/comet",
-    "@zanix/space/client": "jsr:@zanix/space@^1.3.0/client",
-    "@zanix/space/client/preact": "jsr:@zanix/space@^1.3.0/client/preact",
-    "@zanix/space/react": "jsr:@zanix/space@^1.3.0/react",
-    "@zanix/space/preact": "jsr:@zanix/space@^1.3.0/preact",
+    "@zanix/space": "jsr:@zanix/space@^1.4.0",
+    "@zanix/space/vite": "jsr:@zanix/space@^1.4.0/vite",
+    "@zanix/space/dev": "jsr:@zanix/space@^1.4.0/dev",
+    "@zanix/space/testing": "jsr:@zanix/space@^1.4.0/testing",
+    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.4.0/assets-manifest",
+    "@zanix/space/comet": "jsr:@zanix/space@^1.4.0/comet",
+    "@zanix/space/client": "jsr:@zanix/space@^1.4.0/client",
+    "@zanix/space/client/preact": "jsr:@zanix/space@^1.4.0/client/preact",
+    "@zanix/space/react": "jsr:@zanix/space@^1.4.0/react",
+    "@zanix/space/preact": "jsr:@zanix/space@^1.4.0/preact",
     "@zanix/space-ui": "jsr:@zanix/space-ui@^1.0.0",
     "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^1.0.0/preact",
     "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^1.0.0/runtime",
@@ -151,8 +151,8 @@
     "react": "npm:react@^19.2.0",
     "react-dom": "npm:react-dom@^19.2.0",
     // `react`'s own subpath doesn't auto-expand just because the bare package name above is
-    // aliased — confirmed via a real, isolated repro: `deno run --config <this file>` (the exact
-    // shape `zanix space dev`'s own `RealImportEvaluator.runExternalModule`
+    // aliased: `deno run --config <this file>` (the exact shape `zanix space dev`'s own
+    // `RealImportEvaluator.runExternalModule`
     // (`ssr-module-evaluator.ts`, `@zanix/space`) uses for a real, Vite-transformed SSR module,
     // written to and natively imported from a plain OS temp dir) fails `Import
     // "react/jsx-dev-runtime" not a dependency` even with `"react"` declared above — Deno's own
@@ -165,9 +165,9 @@
     // project fails this way on literally the FIRST real page render under `zanix space dev`.
     "react/jsx-runtime": "npm:react@^19.2.0/jsx-runtime",
     "react/jsx-dev-runtime": "npm:react@^19.2.0/jsx-dev-runtime",
-    // `@zanix/space's own Vite build pipeline now wires `@vitejs/plugin-react`'s
-    // `reactCompiler` option for real (React Compiler adoption) — that plugin resolves this
-    // package by name from the consuming project at build time; it is never bundled inside
+    // `@zanix/space's own Vite build pipeline wires `@vitejs/plugin-react`'s `reactCompiler`
+    // option (React Compiler support) — that plugin resolves this package by name from the
+    // consuming project at build time; it is never bundled inside
     // `@vitejs/plugin-react` itself. Needed here for the same reason `react`/`react-dom` above
     // are: `command.test.ts`'s in-process `space build` integration tests reuse THIS repo's own
     // `node_modules`, not a scaffolded project's, so this must be declared here too, not only in
@@ -185,7 +185,7 @@
     // directly (`--theme astronaut`'s own demo uses the latter), and without these declared HERE
     // too, `zanix space dev` fails outright with "not a dependency and not in import map" the
     // moment it tries to resolve them, regardless of what the scaffolded project's own `deno.json`
-    // says (confirmed live). Same versions `THIRD_PARTY_DEPENDENCY_VERSIONS` (`cli`'s own
+    // says. Same versions `THIRD_PARTY_DEPENDENCY_VERSIONS` (`cli`'s own
     // `dependencies.ts`) already pins for what a freshly generated project gets.
     "preact": "npm:preact@^10.29.0",
     "preact/hooks": "npm:preact@^10.29.0/hooks",
@@ -200,8 +200,8 @@
     // Same reason as `preact`/`preact/hooks` above: `space-plugin.ts`'s own `optimizeDeps.include`
     // (preact branch) names both, and `zanix space dev` needs a real, top-level
     // `node_modules/@prefresh/*` entry to resolve them — without this declared HERE too, Vite's own
-    // dep optimizer fails with "Failed to resolve dependency: @prefresh/core" the moment it tries
-    // (confirmed live). Fixes a real correctness bug, not just a discovery-scan race: two different
+    // dep optimizer fails with "Failed to resolve dependency: @prefresh/core" the moment it tries.
+    // This fixes a real correctness bug, not just a discovery-scan race: two different
     // `@prefresh/core` instances silently split Prefresh's own re-render tracking in two, making a
     // Comet's own Fast-Refresh update run with zero errors but never touch the DOM — see
     // `space-plugin.ts`'s own doc in `@zanix/space` for the full mechanism.
@@ -219,28 +219,25 @@
     // every bare specifier for a running `zanix` process, regardless of which file/package issues
     // it — resolves against THIS config, never a scaffolded project's own `deno.json` (same
     // `preact`/`preact/hooks` reasoning above): without this entry, it fails outright with "not a
-    // dependency and not in import map" (confirmed live), turning the identity fix into a hard
-    // resolution failure instead.
-    "@zanix/auth": "jsr:@zanix/auth@^1.1.2",
+    // dependency and not in import map", turning the identity fix into a hard resolution failure
+    // instead.
+    "@zanix/auth": "jsr:@zanix/auth@^1.2.1",
     // `@zanix/datamaster` and `@zanix/notifications` need the identical entry, for the identical
     // reason as `@zanix/auth` immediately above — `native-runtime-modules.ts` (`@zanix/space`)
     // documents all three as sharing the exact same DI-container identity split (each package
     // registers its own `@Provider`-decorated class via a `./core` side-effect import, down to the
-    // same doc comment verbatim — see that file's own "same confirmed mechanism" section). Without
+    // same doc comment verbatim — see that file's own header doc for the full mechanism). Without
     // these two specifically, `RealImportEvaluator.runExternalModule`'s plain native `import()`
     // (`ssr-module-evaluator.ts`, `@zanix/space`) has no entry to resolve either bare specifier
-    // against at all — unlike `@zanix/auth` above, neither was ever declared here, so a route/guard
-    // file reached through `zanix space dev`'s SSR pipeline that bare-imports either package fails
-    // outright with "not a dependency and not in import map" the moment it does (reported
-    // reproducible against real `@zanix/notifications` imports on published `@zanix/space@1.1.0`/
-    // `1.2.0`) — a hard crash, not the SAME-but-silent wrong-copy split `@zanix/auth`'s own entry
-    // above already prevents).
+    // against at all — unlike `@zanix/auth` above, neither is declared here, so a route/guard file
+    // reached through `zanix space dev`'s SSR pipeline that bare-imports either package fails
+    // outright with "not a dependency and not in import map" the moment it does — a hard crash, not
+    // the SAME-but-silent wrong-copy split `@zanix/auth`'s own entry above already prevents.
     "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.1",
     "@zanix/notifications": "jsr:@zanix/notifications@^1.1.0",
     // `@zanix/asyncmq` above (`imports` block, alongside `@zanix/asyncmq/jobs`) already closes this
     // identical gap for that package — declared for the same native-runtime-module identity reason
-    // as `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` here, just not originally
-    // commented as such.
+    // as `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` here.
     "@std/path": "jsr:@std/path@0.224",
     "@std/fs": "jsr:@std/fs@1.0.24",
     "@std/jsonc": "jsr:@std/jsonc@1.0.2",

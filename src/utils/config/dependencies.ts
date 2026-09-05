@@ -89,7 +89,7 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // instances in the same process, splitting `SpaceDevSocket` identity and throwing "already
   // defined" on its own dev-socket route. Bump this ALONGSIDE `cli`'s own `deno.jsonc` entry,
   // never independently.
-  '@zanix/space': 'jsr:@zanix/space@^1.3.0',
+  '@zanix/space': 'jsr:@zanix/space@^1.4.0',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/
   // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`

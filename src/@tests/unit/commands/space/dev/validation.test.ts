@@ -10,13 +10,15 @@ import { join } from '@std/path'
 import { getTemporaryFolder } from '@zanix/helpers'
 import { defineSpaceApp, setSitemapDeclaration, setValidationConfig } from '@zanix/space'
 import { runDevValidation } from 'commands/space/dev/validation.ts'
+import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
 
-// `runDevValidation`'s own dynamic imports (`await import('@zanix/space')`,
-// `await import(filePath)` for a discovered page) are all plain, native Deno `import()` calls —
-// resolved against THIS repo's own `deno.jsonc`, unlike `zanix space dev`'s real Vite dev engine
-// (see `command-live-boot.test.ts`'s own doc for why THAT path can't render a real page here). That
-// makes this function directly, fully testable with a real scaffolded project and no Vite involved
-// at all.
+// `runDevValidation`'s own `@zanix/space`/`@zanix/space/vite` resolution
+// (`importProjectDependency`, project-anchored — see that function's own doc) and its
+// `await import(filePath)` for a discovered page (`importProjectModule`) both resolve against
+// `withRoutesProject`'s own real `deno.json` below, unlike `zanix space dev`'s real Vite dev
+// engine (see `command-live-boot.test.ts`'s own doc for why THAT path can't render a real page
+// here). That makes this function directly, fully testable with a real scaffolded project and no
+// Vite involved at all.
 
 /**
  * Creates a real, isolated `routes` directory and, same as a real `space.app.ts` would,
@@ -24,12 +26,26 @@ import { runDevValidation } from 'commands/space/dev/validation.ts'
  * back via `getRoutesDir()`, exactly as `zanix space dev` does for a real project, rather than
  * being told where to look directly. Every test declares its OWN absolute path this way, so
  * nothing leaks into another test sharing this file's module registry.
+ *
+ * Also writes a real `deno.json` declaring `@zanix/space`/`@zanix/space/vite` — `runDevValidation`
+ * resolves both against `root`'s own nearest config now, never `@zanix/cli`'s (see
+ * `importProjectDependency`'s own doc); without a real declaration here, resolution would only
+ * "work" by accident, by walking up past `root` and landing on THIS repo's own `deno.jsonc`.
  */
 async function withRoutesProject(
   run: (root: string) => Promise<void>,
 ): Promise<void> {
   const root = await Deno.makeTempDir({ dir: getTemporaryFolder(import.meta.url) })
   try {
+    await Deno.writeTextFile(
+      join(root, 'deno.json'),
+      JSON.stringify({
+        imports: {
+          '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
+          '@zanix/space/vite': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/vite`,
+        },
+      }),
+    )
     const routesDir = join(root, 'src', 'space', 'routes')
     await Deno.mkdir(routesDir, { recursive: true })
     defineSpaceApp({ name: 'dev-validation-test', routesDir })
@@ -40,8 +56,8 @@ async function withRoutesProject(
 }
 
 Deno.test('runDevValidation returns undefined when --no-validation is passed', async () => {
-  await withRoutesProject(async () => {
-    const report = await runDevValidation({ validation: false })
+  await withRoutesProject(async (root) => {
+    const report = await runDevValidation({ validation: false }, root)
     assertEquals(report, undefined)
   })
 })
@@ -50,10 +66,10 @@ Deno.test(
   'runDevValidation returns undefined when the project itself disables validation ' +
     '(defineSpaceApp({ validation: false })) — a flag never opts a project back in',
   async () => {
-    await withRoutesProject(async () => {
+    await withRoutesProject(async (root) => {
       setValidationConfig(false)
       try {
-        const report = await runDevValidation({})
+        const report = await runDevValidation({}, root)
         assertEquals(report, undefined)
       } finally {
         // Real, process-wide `@zanix/space` registry state (`setValidationConfig`'s own doc) —
@@ -83,7 +99,7 @@ export default class HomePage extends SpacePageController {
 `,
       )
 
-      const report = await runDevValidation({})
+      const report = await runDevValidation({}, root)
 
       assert(report, 'expected a real report, not undefined')
       assert(
@@ -117,7 +133,7 @@ export default class HomePage extends SpacePageController {
 `,
       )
 
-      const report = await runDevValidation({ validation: 'render' })
+      const report = await runDevValidation({ validation: 'render' }, root)
 
       assert(report, 'expected a real report, not undefined')
       assert(
@@ -139,7 +155,7 @@ Deno.test(
         'export default null\n',
       )
 
-      const report = await runDevValidation({})
+      const report = await runDevValidation({}, root)
 
       assert(report, 'expected a real report, not undefined')
       assert(
@@ -163,7 +179,7 @@ Deno.test(
       )
       setSitemapDeclaration('auto')
       try {
-        const report = await runDevValidation({})
+        const report = await runDevValidation({}, root)
 
         assert(report, 'expected a real report, not undefined')
         assert(
@@ -186,13 +202,25 @@ Deno.test(
   async () => {
     const root = await Deno.makeTempDir({ dir: getTemporaryFolder(import.meta.url) })
     try {
+      // Same real declaration `withRoutesProject` writes above — this test builds its own `root`
+      // by hand (a custom `routesDir`, outside that helper's fixed layout), so it needs the same
+      // `deno.json` too.
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
+            '@zanix/space/vite': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/vite`,
+          },
+        }),
+      )
       const routesDir = join(root, 'custom', 'pages')
       await Deno.mkdir(routesDir, { recursive: true })
       await Deno.writeTextFile(join(routesDir, 'page.tsx'), 'export default null\n')
       setSitemapDeclaration('auto')
       defineSpaceApp({ name: 'dev-validation-custom-routes', routesDir })
       try {
-        const report = await runDevValidation({})
+        const report = await runDevValidation({}, root)
 
         assert(report, 'expected a real report, not undefined')
         assert(
@@ -223,7 +251,7 @@ Deno.test(
         `export const notAPage = true\n`,
       )
 
-      const report = await runDevValidation({ validation: 'render' })
+      const report = await runDevValidation({ validation: 'render' }, root)
 
       assert(report, 'expected a real report, not undefined')
     })

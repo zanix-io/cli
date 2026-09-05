@@ -1,37 +1,17 @@
 import type { Commander } from 'cli'
 import type { SpaceDevOptions } from 'commands/space/dev/command.ts'
+import type * as ZanixServerModule from '@zanix/server'
+import type * as ZanixSpaceDevModule from '@zanix/space/dev'
+import type * as ZanixSpaceModule from '@zanix/space'
+import type * as ZanixAppRuntimeModule from '@zanix/app/runtime'
 
-import {
-  bootstrapServers,
-  DEFAULT_APPLICATION,
-  ProgramModule,
-  webServerManager,
-  ZANIX_SERVER_MODULES,
-} from '@zanix/server'
-import {
-  broadcastClientCssChanged,
-  broadcastClientModuleChanged,
-  broadcastFullReloadNeeded,
-  broadcastSsrModuleChanged,
-  clientEntryPlugin,
-  createDevAssetHandler,
-  createSpaceDevEngine,
-  createViteHotClientHandler,
-  getActiveRenderer,
-  getBootstrapSpaceAppConfig,
-  getDevRoutesReloader,
-  getUserPreHandler,
-  setDevClientEnabled,
-  setDevImportModule,
-  spacePlugin,
-} from '@zanix/space/dev'
-import { getRoutesDir } from '@zanix/space'
 import { dirname, resolve } from '@std/path'
 import { assertProjectType, getCurrentProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
 import {
   cleanupImportBatch,
   createImportBatchContext,
+  importProjectDependency,
   importProjectModule,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
@@ -166,6 +146,47 @@ async function spaceDevAction(
   // an orphan a random UUID names uniquely.
   await sweepStaleGeneratedModules(root)
   const spaceApp = await importSpaceApp(this, root)
+
+  // Resolved against THIS project's own config, never `@zanix/cli`'s own native imports — see
+  // `importProjectDependency`'s own doc for the real, reported bug this avoids: `@zanix/cli`
+  // natively needs `bootstrapServers`/`ProgramModule`/`webServerManager`/`ZANIX_SERVER_MODULES`
+  // (`@zanix/server`) and `createSpaceDevEngine`/`getActiveRenderer`/`SpaceDevSocket`'s own
+  // registration (`@zanix/space/dev`, imported as a side effect of this resolution)/`getRoutesDir`
+  // (`@zanix/space`) to be the SAME module instances `space.app.ts` (imported just above) reads
+  // and writes through — a separately resolved instance of any of these would either silently
+  // read back nothing the project declared, or register `SpaceDevSocket`'s dev-socket route
+  // twice, throwing "already defined" the moment a served project's own `@zanix/space` version
+  // diverges from whatever `@zanix/cli` itself would otherwise have resolved natively.
+  const [zanixServer, zanixSpaceDev, zanixSpace] = await Promise.all([
+    importProjectDependency(root, '@zanix/server'),
+    importProjectDependency(root, '@zanix/space/dev'),
+    importProjectDependency(root, '@zanix/space'),
+  ]) as [typeof ZanixServerModule, typeof ZanixSpaceDevModule, typeof ZanixSpaceModule]
+  const {
+    bootstrapServers,
+    DEFAULT_APPLICATION,
+    ProgramModule,
+    webServerManager,
+    ZANIX_SERVER_MODULES,
+  } = zanixServer
+  const {
+    broadcastClientCssChanged,
+    broadcastClientModuleChanged,
+    broadcastFullReloadNeeded,
+    broadcastSsrModuleChanged,
+    clientEntryPlugin,
+    createDevAssetHandler,
+    createSpaceDevEngine,
+    createViteHotClientHandler,
+    getActiveRenderer,
+    getBootstrapSpaceAppConfig,
+    getDevRoutesReloader,
+    getUserPreHandler,
+    setDevClientEnabled,
+    setDevImportModule,
+    spacePlugin,
+  } = zanixSpaceDev
+  const { getRoutesDir } = zanixSpace
 
   // Same guard `zanix space build` runs, for the same reason: a renderer mismatch between
   // `space.app.ts` and `compilerOptions.jsxImportSource` produces symptoms that never point at the
@@ -366,14 +387,21 @@ async function spaceDevAction(
       })
     }
 
-    const { activateApps } = await import('@zanix/app/runtime')
+    // Same project-anchored reasoning as the `@zanix/server`/`@zanix/space/dev`/`@zanix/space`
+    // resolution above — `activateApps` internally checks `isZanixAppDefinition(spaceApp)` against
+    // a bare `Symbol()` brand, which only ever matches the SAME `@zanix/app` instance
+    // `@zanix/space`'s own `defineSpaceApp` used to build `spaceApp` in the first place.
+    const { activateApps } = await importProjectDependency(
+      root,
+      '@zanix/app/runtime',
+    ) as typeof ZanixAppRuntimeModule
     await activateApps([spaceApp])
 
     // AFTER activation, deliberately. Activation is what runs `loadRoutes()` and — for a
     // `renderer: 'preact'` project — registers that renderer's page renderer. Validating before it
     // would see no routes, and a render probe would render every page with the wrong renderer. This
     // is also why `zanix space build` cannot run the render phase at all: it never activates.
-    const report = await runDevValidation(options)
+    const report = await runDevValidation(options, root)
     if (report) reportValidation(report)
 
     // Same "opt-out, on by default when the feature is configured" shape as document validation

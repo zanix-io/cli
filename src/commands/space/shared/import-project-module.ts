@@ -46,38 +46,42 @@ await esModuleLexerInit
  *
  * 1. A bare specifier `@zanix/cli`'s OWN configuration can ALSO resolve — to ANY target, even a
  *    genuinely different one than the project's own config would give — is left completely
- *    untouched. Some packages (`@zanix/space`, `@zanix/app`, `@zanix/server`) are not only a
- *    project's own dependency: `@zanix/cli` ITSELF imports them natively for its own orchestration
- *    (`getActiveRenderer()`, `activateApps()`, `bootstrapServers()`, ...) and shares real,
- *    module-level protocol state through them with whatever `space.app.ts` imports (a renderer
- *    registry, a route registry, ...). Resolving such a specifier against the PROJECT's own config
- *    instead — even to a valid, different target — loads a SEPARATE module instance of that
- *    package, silently breaking that shared state (confirmed as a real failure: two independently
- *    loaded `SpaceDevSocket` instances each registered the same dev-socket route into
- *    `@zanix/server`'s one shared registry, and the second threw "already defined"). Deferring to
- *    native resolution whenever `@zanix/cli` already has an answer sidesteps this entirely.
+ *    untouched. This matters whenever `@zanix/cli` ITSELF natively imports a package for its own
+ *    orchestration and shares real, module-level protocol state through it with whatever
+ *    `space.app.ts` imports. Resolving such a specifier against the PROJECT's own config instead —
+ *    even to a valid, different target — would load a SEPARATE module instance of that package,
+ *    silently breaking that shared state. Deferring to native resolution whenever `@zanix/cli`
+ *    already has an answer sidesteps this entirely.
  *
- *    **EXCEPT** when `@zanix/cli`'s own answer lands INSIDE `@zanix/cli`'s own hand-written source
- *    tree ({@linkcode resolvesIntoCliOwnSourceTree}) — a real, confirmed false positive of this
- *    exact check, never the genuine identity-sharing case above: `@zanix/cli`'s own `deno.jsonc`
- *    also declares plain internal folder aliases (`typings/`, `shared/`, `utils/` →
- *    `./src/{typings,shared,utils}/`), purely so `@zanix/cli`'s OWN source can use short
- *    bare-specifier-style imports internally — and `zanix new` scaffolds the IDENTICAL alias names
- *    into every consuming project's own `deno.json`. A project file's own `import 'utils/x.ts'`
- *    therefore ALSO "resolves successfully" against `@zanix/cli`'s config, but to `@zanix/cli`'s
- *    OWN `src/utils/x.ts`, never the project's — silently, until the two files' exports diverge
- *    (confirmed as a real failure: a real project's own interactor importing `utils/constants.ts`
- *    resolved against `@zanix/cli`'s own same-named file instead of its own). Falls through to step
- *    2 below in this case, exactly as if `@zanix/cli`'s config had no answer at all.
- * 2. Only a specifier `@zanix/cli` genuinely has no answer for at all — the real bug this module
- *    exists to fix — is resolved against the PROJECT's own configuration instead. A result that
- *    carries its own scheme (`jsr:`, `npm:`, `https:`, `node:`) is left exactly as `@deno/loader`
- *    resolved it: native `import()` follows one of these correctly from ANY governing config,
- *    since a published package carries its own self-contained dependency graph. A result that
- *    lands in `node_modules` (a real, already-installed npm package) is reconstructed back into
- *    its own scheme form instead of being handed to `import()` as a raw file path, which bypasses
- *    Deno's own CJS/ESM interop (confirmed as a real failure: a bare `'react/jsx-runtime'`
- *    resolved this way reads as a plain ESM re-export with no `jsx` named export). A result that
+ *    **EXCEPT** for `@zanix/space`/`@zanix/app`/`@zanix/server` and their subpaths
+ *    ({@linkcode PROJECT_ANCHORED_ONLY_PACKAGES}) — the historical motivating case for this whole
+ *    step, but `@zanix/cli` no longer holds a separate native instance of any of them at all: its
+ *    own dev/build orchestration ({@linkcode importProjectDependency}, used by `dev/action.ts`/
+ *    `build/action.ts`/`import-space-app.ts`/`dev/validation.ts`) resolves them against the SAME
+ *    project config this step 2 does, unconditionally. Skipped entirely for these three, falling
+ *    straight through to step 2 below.
+ *
+ *    **ALSO EXCEPT** when `@zanix/cli`'s own answer lands INSIDE `@zanix/cli`'s own hand-written
+ *    source tree ({@linkcode resolvesIntoCliOwnSourceTree}) — a false positive of this exact check,
+ *    never the genuine identity-sharing case above: `@zanix/cli`'s own `deno.jsonc` also declares
+ *    plain internal folder aliases (`typings/`, `shared/`, `utils/` → `./src/{typings,shared,utils}/`),
+ *    purely so `@zanix/cli`'s OWN source can use short bare-specifier-style imports internally —
+ *    and `zanix new` scaffolds the IDENTICAL alias names into every consuming project's own
+ *    `deno.json`. A project file's own `import 'utils/x.ts'` therefore ALSO "resolves successfully"
+ *    against `@zanix/cli`'s config, but to `@zanix/cli`'s OWN `src/utils/x.ts`, never the
+ *    project's — silently, until the two files' exports diverge (e.g. a project's own interactor
+ *    importing `utils/constants.ts` resolves against `@zanix/cli`'s own same-named file instead of
+ *    its own). Falls through to step 2 below in this case too, exactly as if `@zanix/cli`'s config
+ *    had no answer at all.
+ * 2. Only a specifier `@zanix/cli` genuinely has no answer for at all is resolved against the
+ *    PROJECT's own configuration instead. A result that carries its own scheme (`jsr:`, `npm:`,
+ *    `https:`, `node:`) is left exactly as `@deno/loader` resolved it: native `import()` follows
+ *    one of these correctly from ANY governing config, since a published package carries its own
+ *    self-contained dependency graph. A result that lands in `node_modules` (a real,
+ *    already-installed npm package) is reconstructed back into its own scheme form instead of
+ *    being handed to `import()` as a raw file path, which bypasses Deno's own CJS/ESM interop — a
+ *    bare `'react/jsx-runtime'` resolved this way reads as a plain ESM re-export with no `jsx`
+ *    named export. A result that
  *    lands anywhere else on disk is only followed recursively when a real `deno.json(c)` exists
  *    somewhere above it — proof it's genuinely part of a project's own source tree (or a
  *    linked/workspace sibling with its own config), not vendored third-party code otherwise
@@ -91,8 +95,8 @@ await esModuleLexerInit
  * error-view resolution does exactly this) needs that call to land on the REAL sibling file, which
  * only works when the executing module's own location is a real path in the REAL directory the
  * sibling actually lives in — a `blob:` base has no meaningful hierarchical structure for relative
- * resolution to work against at all (confirmed as a real failure, `TypeError: Invalid URL`,
- * against real `@zanix/space` source before this fix).
+ * resolution to work against at all, throwing `TypeError: Invalid URL` against a real
+ * `@zanix/space` source module that relies on it.
  *
  * As a consequence of resolving through the project's own real configuration, this also honors a
  * project's own `"links"` override for a locally checked-out, unpublished dependency — something a
@@ -149,10 +153,9 @@ export function findDenoConfigPath(startDir: string): string | undefined {
 }
 
 /** Converts a `deno.json(c)`'s own `"minimumDependencyAge"` field into the `newestDependencyDate`
- * cutoff {@linkcode Workspace} accepts. Real, confirmed gap this closes: `@deno/loader`'s own
- * config-file discovery (`configPath`) reads a project's `imports`/`compilerOptions`/etc.
- * automatically, but never translates this ONE field on its own — confirmed empirically, not
- * assumed: a real project's own `"minimumDependencyAge": 0` had zero effect on a `Workspace`
+ * cutoff {@linkcode Workspace} accepts. `@deno/loader`'s own config-file discovery (`configPath`)
+ * reads a project's `imports`/`compilerOptions`/etc. automatically, but never translates this ONE
+ * field on its own: a project's own `"minimumDependencyAge": 0` has zero effect on a `Workspace`
  * constructed from its `configPath` alone, still rejecting a same-day-published dependency with
  * Deno's own default 24h window. Every `Workspace` this module constructs needs this computed and
  * passed explicitly instead. Supports the two shapes this ecosystem's own configs actually use — a
@@ -193,12 +196,13 @@ function getLoaderFor(configPath: string | undefined): Promise<Loader> {
       platform: 'node',
       configPath,
       // `WorkspaceOptions.newestDependencyDate` is TYPED as `Date`, but the underlying WASM
-      // binding's actual (de)serializer rejects a real `Date` instance outright at runtime —
-      // `Failed deserializing workspace options.: Error: invalid type: JsValue(Date), expected an
-      // RFC 3339 formatted date and time string`, confirmed live — it only accepts the ISO string
-      // form. The cast below is bridging a genuine type/runtime mismatch in `@deno/loader@0.5.0`
-      // itself, not a mistake in `readNewestDependencyDate`'s own `Date`-returning signature (kept
-      // as `Date` since that's the semantically correct return type for every OTHER caller).
+      // binding's actual (de)serializer rejects a real `Date` instance outright at runtime,
+      // throwing `Failed deserializing workspace options.: Error: invalid type: JsValue(Date),
+      // expected an RFC 3339 formatted date and time string` — it only accepts the ISO string
+      // form. The cast below bridges this genuine type/runtime mismatch in the currently pinned
+      // `@deno/loader` itself, not a mistake in `readNewestDependencyDate`'s own `Date`-returning
+      // signature (kept as `Date` since that's the semantically correct return type for every
+      // OTHER caller).
       newestDependencyDate: readNewestDependencyDate(configPath)?.toISOString() as
         | Date
         | undefined,
@@ -216,7 +220,7 @@ function getLoaderFor(configPath: string | undefined): Promise<Loader> {
  * itself is loaded via `jsr:` (any real global install, `deno install -g jsr:@zanix/cli` included):
  * there is no local checkout for it to have a config path FOR at all in that case, so
  * `fromFileUrl` would throw `Must be a file URL` on every single invocation, real projects
- * included — confirmed live against a real global install, not hypothetical. Leaving it
+ * included. Leaving it
  * `undefined` is not a workaround so much as the structurally correct answer: `resolvesIntoCliOwnSourceTree`
  * already treats a falsy `cliConfigPath` as "no distinct cli source tree to collide with" (see its
  * own doc), and `getLoaderFor(undefined)` doesn't mean "no config" either — per `@deno/loader`'s
@@ -245,20 +249,19 @@ function getCliLoader(): Promise<Loader> {
  * Deno actually materializes one — its own global cache, or a local `node_modules` — never inside
  * `cli`'s own checked-out/published source itself).
  *
- * {@linkcode resolveReplacement} uses this to catch a real, confirmed false positive in its own
- * "`cli`'s config can also resolve this, leave it untouched" check (see that function's own doc):
- * `cli`'s `deno.jsonc` declares its own internal folder aliases (`typings/`, `shared/`, `utils/` →
+ * {@linkcode resolveReplacement} uses this to catch a false positive in its own "`cli`'s config
+ * can also resolve this, leave it untouched" check (see that function's own doc): `cli`'s
+ * `deno.jsonc` declares its own internal folder aliases (`typings/`, `shared/`, `utils/` →
  * `./src/{typings,shared,utils}/`, purely so `cli`'s OWN source can use short bare-specifier-style
  * imports internally) — and `zanix new` scaffolds the IDENTICAL alias names into every consuming
  * project's own `deno.json`. A project file importing `utils/constants.ts` therefore ALSO resolves
  * successfully against `cli`'s own config — but to `cli`'s OWN `src/utils/constants.ts`, never the
  * project's — the exact opposite of a genuine identity-sharing concern (`@zanix/space`,
- * `@zanix/server`, ...), which always resolves outside `cli`'s own source tree entirely. Confirmed
- * as a real, live failure, not a theoretical one: a real consuming project's own
+ * `@zanix/server`, ...), which always resolves outside `cli`'s own source tree entirely. This stays
+ * invisible only as long as both files happen to export the same names: a consuming project's own
  * `auth.interactor.ts` (`import { LOGIN_ACTIONS, TOKEN_EXPIRATION } from 'utils/constants.ts'`)
- * silently resolved against `cli`'s own `src/utils/constants.ts` instead of its own — invisible
- * only as long as BOTH files happened to export the same names; surfaced loudly, with a stack
- * trace pointing at `cli`'s own file path, the moment they diverged. */
+ * silently resolving against `cli`'s own `src/utils/constants.ts` instead of its own surfaces
+ * loudly, with a stack trace pointing at `cli`'s own file path, the moment the two diverge. */
 function resolvesIntoCliOwnSourceTree(resolvedUrl: string): boolean {
   if (!cliConfigPath || !resolvedUrl.startsWith('file://')) return false
   const cliRoot = dirname(cliConfigPath)
@@ -268,23 +271,22 @@ function resolvesIntoCliOwnSourceTree(resolvedUrl: string): boolean {
 }
 
 /** A second, deeper case of the identical false-positive shape {@linkcode resolvesIntoCliOwnSourceTree}
- * exists to catch — see the real, confirmed failure this closes at that function's own call site.
- * When `cliConfigPath` is `undefined` (any genuine global install), `cliLoader` is built via
- * `@deno/loader`'s own config-file auto-discovery, starting from `Deno.cwd()` — the served
- * PROJECT's own directory during a real `zanix space dev`/`build` run — so it silently becomes
- * identical to `referrerLoader`, discovering the project's own config instead of anything
- * belonging to `cli`. A `file://` result under that exact condition can never be a genuine
- * `cli`-own-identity answer at all: `cli` has no local source tree of its own to have a real
- * answer for in the first place there, and a genuine package identity (`@zanix/space` et al.)
- * always resolves to a `jsr:`/`https:` target under a global install, never `file://` (save for a
- * deliberate local `links` override, which needs the same recursive treatment a project's own
- * file gets regardless) — so it must be `cliLoader`'s auto-discovery accidentally matching a
- * project's own bare LOCAL alias (e.g. `"triggers/": "./src/triggers/"`) instead. Extracted as its
- * own pure, testable function specifically because this exact branch can never be exercised by a
- * real `deno test` run (`cliConfigPath` is only ever `undefined` when this module itself loaded
- * from a remote `jsr:`/`https:` specifier, never a local `file://` checkout — the same limitation
- * `getCliLoader`'s own test documents) — testing the pure boolean logic directly is the next best
- * thing to a real end-to-end repro. */
+ * exists to catch, at that function's own call site. When `cliConfigPath` is `undefined` (any
+ * genuine global install), `cliLoader` is built via `@deno/loader`'s own config-file
+ * auto-discovery, starting from `Deno.cwd()` — the served PROJECT's own directory during a real
+ * `zanix space dev`/`build` run — so it becomes identical to `referrerLoader`, discovering the
+ * project's own config instead of anything belonging to `cli`. A `file://` result under that exact
+ * condition can never be a genuine `cli`-own-identity answer: `cli` has no local source tree of
+ * its own to have a real answer for in the first place there, and a genuine package identity
+ * (`@zanix/space` et al.) always resolves to a `jsr:`/`https:` target under a global install,
+ * never `file://` (save for a deliberate local `links` override, which needs the same recursive
+ * treatment a project's own file gets regardless) — so it must be `cliLoader`'s auto-discovery
+ * matching a project's own bare LOCAL alias (e.g. `"triggers/": "./src/triggers/"`) instead.
+ * Extracted as its own pure, testable function specifically because this exact branch can never be
+ * exercised by a real `deno test` run (`cliConfigPath` is only ever `undefined` when this module
+ * itself loads from a remote `jsr:`/`https:` specifier, never a local `file://` checkout — the
+ * same limitation `getCliLoader`'s own test documents) — testing the pure boolean logic directly
+ * is the next best thing to a real end-to-end repro. */
 export function cliLoaderHasNoRealLocalAnswer(
   configPath: string | undefined,
   resolvedUrl: string,
@@ -300,8 +302,8 @@ const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/
  * rewrite. A non-JS asset was never resolved through an import map in the first place, so it never
  * had the resolution ambiguity this function exists to fix — but see {@linkcode process}'s own
  * `JS_MEDIA_TYPES` branch for why CSS/JSON still need a real stub rather than being handed to
- * `import()` using their own resolved path unchanged: native `import()` cannot load either at all
- * on its own, confirmed as a real failure once `discoverPages` started recursing this deep. */
+ * `import()` using their own resolved path unchanged: native `import()` cannot load either media
+ * type at all on its own. */
 const JS_MEDIA_TYPES = new Set<MediaType>([
   MediaType.JavaScript,
   MediaType.Jsx,
@@ -361,10 +363,24 @@ function splitPackageSpecifier(specifier: string): { base: string; subpath: stri
   return { base, subpath: specifier.slice(base.length) }
 }
 
+/** Base package names {@linkcode importProjectDependency} now resolves for `@zanix/cli`'s own
+ * native orchestration calls (`dev/action.ts`, `build/action.ts`, `import-space-app.ts`,
+ * `dev/validation.ts`) — `cli` no longer holds a SEPARATE, natively-loaded module instance of any
+ * of these at all. `resolveReplacement`'s own "try `cli`'s config first" step below exists only to
+ * protect shared module-level identity for a package `cli` ALSO imports natively for its own
+ * orchestration (a renderer registry, a route registry, ...) — with no separate `cli`-native
+ * import left to protect identity with for these three, deferring to `cli`'s own answer for them
+ * has nothing left to guard, and would actively REINTRODUCE a divergence whenever `cli` itself
+ * runs from a local checkout (`cliConfigPath` a real, fixed path, unrelated to `Deno.cwd()` —
+ * `getCliLoader`'s own doc covers this): `cli`'s own native orchestration now always resolves
+ * these against the SERVED PROJECT's config, so the project's own `space.app.ts` import must too,
+ * unconditionally, in every install shape. */
+const PROJECT_ANCHORED_ONLY_PACKAGES = new Set(['@zanix/space', '@zanix/app', '@zanix/server'])
+
 /** Reconstructs a scheme-based specifier for `specifier` from `configPath`'s own `imports` map —
  * an exact match first, then the specifier's own base PACKAGE name with its subpath appended to
  * whatever scheme literal that package resolves to (the same shape a real `jsr:`/`npm:` subpath
- * specifier already takes, e.g. `npm:react@^19.2.0` + `/jsr-runtime` → `npm:react@^19.2.0/jsx-
+ * specifier already takes, e.g. `npm:react@^X.Y.Z` + `/jsx-runtime` → `npm:react@^X.Y.Z/jsx-
  * runtime`). Returns `undefined` when neither is declared, or the declared value isn't itself
  * scheme-based (a local alias has nothing useful to reconstruct from). */
 function reconstructSchemeSpecifier(configPath: string, specifier: string): string | undefined {
@@ -380,18 +396,17 @@ function reconstructSchemeSpecifier(configPath: string, specifier: string): stri
 
 /** Matches Deno's own npm-cache directory layout — `.deno/<name>@<version>/node_modules/<name>/`
  * — capturing the package name (with a `+` still standing in for a scoped package's own `/`, e.g.
- * `@radix-ui+primitive`, confirmed against a real `node_modules/.deno/` listing) and its resolved
- * version. */
+ * `@radix-ui+primitive`) and its resolved version. */
 const NPM_CACHE_PATH_RE = /\/node_modules\/\.deno\/((?:@[^/+]+\+)?[^/@]+)@([^/]+)\/node_modules\//
 
 /** A last-resort fallback for {@linkcode reconstructSchemeSpecifier} when there's no local config
- * FILE to read at all — real, confirmed gap this closes: `cliConfigPath` is `undefined` for any
- * genuine `deno install -g jsr:@zanix/cli` install (`getCliLoader`'s own doc), so
- * `reconstructSchemeSpecifier(cliConfigPath, specifier)` silently evaluates to `undefined` on
- * every real global install, falling through to the raw `file://` `node_modules` path this whole
- * mechanism exists to avoid — reported live (`zanix-iam`, real 2.0.8 global install): `Import
- * {jsx} from 'react/jsx-runtime'` still failed with the exact same "does not provide an export"
- * error, unchanged by that fix, because the reconstruction never actually ran.
+ * FILE to read at all: `cliConfigPath` is `undefined` for any genuine `deno install -g
+ * jsr:@zanix/cli` install (`getCliLoader`'s own doc), so `reconstructSchemeSpecifier(cliConfigPath,
+ * specifier)` silently evaluates to `undefined` on every real global install, falling through to
+ * the raw `file://` `node_modules` path this whole mechanism exists to avoid — a bare
+ * `'react/jsx-runtime'` resolved that way still fails with the same "does not provide an export"
+ * error the scheme reconstruction above is meant to prevent, since it never runs without a config
+ * path.
  *
  * Needs no config file at all: the version is parsed directly out of the ALREADY-RESOLVED
  * `resolvedPath` itself, via Deno's own stable npm-cache directory convention
@@ -409,6 +424,219 @@ export function reconstructNpmSpecifierFromResolvedPath(
   const version = match[2]
   const { base, subpath } = splitPackageSpecifier(specifier)
   return `npm:${base}@${version}${subpath}`
+}
+
+/** The literal filename every `zanix space` project's manifest lives at, at its root — kept in
+ * sync BY HAND with `SPACE_APP_MODULE` (`commands/new/lib/tree/projects/space.ts`), never
+ * imported from there: that module's own real top-level imports (the whole `zanix new` tree/
+ * generator graph) have no business loading into this comparatively lightweight, broadly-reused
+ * module just to read one string constant back out of it. Used purely as a referrer file for
+ * {@linkcode importProjectDependency}'s own `@zanix/space` resolution — confirmed empirically that
+ * a real referrer isn't even load-bearing here (`@deno/loader`'s own `resolveSync` returns the
+ * identical result for a bare specifier whether or not the referrer path actually exists on
+ * disk), but every real call site already has this exact file guaranteed to exist by the time it
+ * calls this function (after `importSpaceApp`/`importProjectModule` on it already succeeded), so
+ * there's no reason to invent a synthetic path instead. */
+const PROJECT_MANIFEST_FILE = 'space.app.ts'
+
+/** Resolves `specifier` through `loader`, forcing the real dependency-constraint solve for an
+ * unexpanded `jsr:`/`http(s):` literal (same gap `resolveReplacement`'s own project-resolution
+ * branch already documents in full), and reconstructing a scheme-based specifier when the result
+ * lands in `node_modules` (same CJS/ESM-interop gap `importProjectModule`'s own `node_modules`
+ * branch already guards against) — the two pieces of the resolution dance
+ * {@linkcode importProjectDependency} needs twice, factored out so neither copy drifts from the
+ * other. Returns a URL always safe to hand to native `import()` directly. */
+async function resolveProjectSpecifier(
+  loader: Loader,
+  referrerUrl: string,
+  configPath: string | undefined,
+  specifier: string,
+): Promise<string> {
+  let resolved: string
+  try {
+    resolved = loader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+    if (
+      resolved.startsWith('jsr:') || resolved.startsWith('http:') || resolved.startsWith('https:')
+    ) {
+      await loader.addEntrypoints([resolved])
+      resolved = loader.resolveSync(resolved, referrerUrl, ResolutionMode.Import)
+    }
+  } catch (error) {
+    const literal = configPath ? reconstructSchemeSpecifier(configPath, specifier) : undefined
+    if (literal === undefined) {
+      throw new Error(
+        `Could not resolve '${specifier}' relative to '${referrerUrl}': ${
+          (error as Error).message
+        }`,
+      )
+    }
+    return literal
+  }
+
+  if (resolved.startsWith('file://') && resolved.includes('/node_modules/')) {
+    const reconstructed = (configPath && reconstructSchemeSpecifier(configPath, specifier)) ??
+      reconstructNpmSpecifierFromResolvedPath(resolved, specifier)
+    return reconstructed ?? resolved
+  }
+  return resolved
+}
+
+/** Entries {@linkcode getAugmentedConfigPath} merges into a served project's own real
+ * `deno.json(c)` — only when the project doesn't already declare its own — before
+ * {@linkcode importProjectDependency} builds a `Loader` for it. `@zanix/server`/`@zanix/app`/
+ * `@zanix/app/runtime` are `@zanix/space`'s OWN transitive dependencies (its manifest machinery,
+ * its dev engine's route/server registries), never something a real generated project imports
+ * directly — a pure `space` project's own `deno.json` declares NEITHER bare `@zanix/app` nor
+ * `@zanix/server` at all (only `space-server` declares `@zanix/server`, and only for its own,
+ * unrelated backend reasons — see `PROJECT_TYPE_DEPENDENCIES`, `utils/config/dependencies.ts`).
+ * `@deno/loader`'s own `resolveSync` has no way to answer "what does `@zanix/space` itself resolve
+ * `@zanix/server` to" directly — confirmed empirically (a real repro throws `Import "@zanix/app"
+ * not a dependency` even when queried relative to `@zanix/space`'s own already-resolved URL, since
+ * `Loader.resolveSync` only ever consults the WORKSPACE's own import map, never a resolved
+ * package's own published one). The fix: declare the WIDEST possible range (`*`) for each here, so
+ * `@deno/loader`'s own dependency-constraint solve has SOMETHING to unify against `@zanix/space`'s
+ * own real need, once both are graphed together in the SAME `addEntrypoints` call — confirmed via
+ * a real `deno info --json` repro that this converges on the IDENTICAL version `@zanix/space`
+ * itself transitively resolves each of these to, never independently "the latest published
+ * version": a project declaring `@zanix/space@^1.4.0` (whose own `deno.jsonc` pins
+ * `@zanix/app@^1.0.0`) resolved a wildcard `@zanix/app@*` entry here to the exact same
+ * `1.0.2` `@zanix/space`'s own internal dependency solved to, transitively, with NOTHING here
+ * pinning that number. `@zanix/cli` therefore never tracks or bumps a version for any of these
+ * three — the concrete version is entirely `@zanix/space`'s own call, for every install shape. */
+const TRANSITIVE_ONLY_PACKAGES: Record<string, string> = {
+  '@zanix/app': 'jsr:@zanix/app@*',
+  '@zanix/server': 'jsr:@zanix/server@*',
+  '@zanix/app/runtime': 'jsr:@zanix/app@*/runtime',
+}
+
+/** One in-memory result per REAL config path — same "compute once per process, reuse for every
+ * later call" shape {@linkcode loadersByConfigPath} already establishes, so a project missing
+ * NONE of {@linkcode TRANSITIVE_ONLY_PACKAGES} (nothing to augment) never re-reads/re-parses its
+ * own config more than once, and a project missing some never writes more than one temp file. */
+const augmentedConfigPathByRealPath = new Map<string, Promise<string | undefined>>()
+
+/** Merges {@linkcode TRANSITIVE_ONLY_PACKAGES} into `root`'s own real `deno.json(c)` `imports` —
+ * only the entries it doesn't already declare, so a `space-server` project's own real
+ * `@zanix/server` pin (or any project's own explicit choice for any of the three) is read and left
+ * completely untouched, never silently overridden — and writes the merged result to a real,
+ * temporary sibling of the real config (same directory, so every relative `imports`/`scopes` value
+ * the real file already declares keeps resolving against the SAME base it always has). Returns the
+ * REAL config path unchanged when nothing needed merging at all (the common case for a
+ * `space-server` project, which already declares `@zanix/server` itself) — no temp file, no
+ * divergence from what {@linkcode importProjectModule}'s own `referrerLoader` resolves for
+ * `space.app.ts`'s OWN bare specifiers, since both then share the identical `configPath` and,
+ * through {@linkcode getLoaderFor}'s own cache, the identical `Loader`.
+ *
+ * The temp file itself is deleted immediately after {@linkcode getLoaderFor} has built a real
+ * `Loader` from it — the SAME "write, use once, delete in this same process" discipline
+ * `writeGeneratedModule`'s own temp files already follow (see that function's own doc): once a
+ * `Workspace` has read a config file to build its `Loader`, the file's continued existence on disk
+ * is never load-bearing again, and `getLoaderFor`'s own cache (keyed by this exact path) means the
+ * file is read at most once regardless. Named with the same {@linkcode GENERATED_MODULE_PREFIX}
+ * every other temp file this module writes shares, so a copy a killed process leaves behind is
+ * swept the same way (see {@linkcode GENERATED_MODULE_MATCH}'s own doc) and already covered by
+ * this project's own `.gitignore` (`ignore.base`'s `**\/.zanix-import-*` entry). */
+function getAugmentedConfigPath(root: string): Promise<string | undefined> {
+  const realConfigPath = findDenoConfigPath(root)
+  if (!realConfigPath) return Promise.resolve(undefined)
+
+  let pending = augmentedConfigPathByRealPath.get(realConfigPath)
+  if (!pending) {
+    pending = (async () => {
+      let parsed: Record<string, unknown>
+      try {
+        parsed = parseJsonc(await Deno.readTextFile(realConfigPath)) as Record<string, unknown>
+      } catch {
+        // Genuinely unreadable/unparsable — not this function's own concern to surface; whatever
+        // reads through this path next (resolveSync itself) throws its own, real error already.
+        return realConfigPath
+      }
+      const existingImports = parsed.imports as Record<string, string> | undefined
+      const imports = { ...existingImports }
+      let changed = false
+      for (const [pkg, literal] of Object.entries(TRANSITIVE_ONLY_PACKAGES)) {
+        if (!(pkg in imports)) {
+          imports[pkg] = literal
+          changed = true
+        }
+      }
+      if (!changed) return realConfigPath
+
+      const augmentedPath = join(
+        dirname(realConfigPath),
+        `${GENERATED_MODULE_PREFIX}deps-${crypto.randomUUID()}.json`,
+      )
+      await Deno.writeTextFile(augmentedPath, JSON.stringify({ ...parsed, imports }))
+      // Forces the Loader to read this file NOW, while building the cached Loader — its content is
+      // fully captured in memory once this resolves, so the file itself is safe to delete
+      // immediately after (see this function's own doc for why that matters).
+      await getLoaderFor(augmentedPath)
+      await Deno.remove(augmentedPath).catch(() => {})
+      return augmentedPath
+    })()
+    augmentedConfigPathByRealPath.set(realConfigPath, pending)
+  }
+  return pending
+}
+
+/**
+ * Imports a BARE package specifier (`@zanix/space`, `@zanix/space/dev`, `@zanix/server`,
+ * `@zanix/app`, `@zanix/app/runtime`) — never a project FILE, see {@linkcode importProjectModule}
+ * for that — resolved against `root`'s own nearest `deno.json(c)`, and returns its module
+ * namespace.
+ *
+ * Exists for the same reason `importProjectModule` resolves a project FILE's own bare specifiers
+ * against that project's config instead of `@zanix/cli`'s: `@zanix/cli` itself natively imports
+ * `@zanix/space`/`@zanix/app`/`@zanix/server` for its own dev/build orchestration
+ * (`createSpaceDevEngine`, `activateApps`, `bootstrapServers`, ...), and shares real, module-level
+ * protocol state through them with whatever the served project's own `space.app.ts` imports (a
+ * renderer registry, a route registry, ...). A plain `import('@zanix/space/dev')` from inside
+ * `@zanix/cli`'s own process resolves against WHATEVER config governs that already-running
+ * process — for a real global install, the shim's own separately generated, fixed lockfile,
+ * completely independent of any served project's own declared version. When that diverges from
+ * what the project itself resolves through `importProjectModule`, Deno loads TWO separate module
+ * instances of the same package: `SpaceDevSocket`'s own static class initializer runs once per
+ * instance, each registering the identical dev-socket route into `@zanix/server`'s ONE shared
+ * route registry — the second registration throws `Route path "socket=>/__zanix_space_dev__" is
+ * already defined`. Resolving `@zanix/cli`'s own native orchestration imports THROUGH this
+ * function instead converges both onto the identical resolved URL (and therefore the identical
+ * Deno module-cache key), with no floor for `@zanix/cli` to keep in sync at all: it simply never
+ * holds an opinion on these packages' version, in any install shape.
+ *
+ * `@zanix/space` itself (bare, or a subpath like `@zanix/space/dev`) resolves relative to
+ * `space.app.ts` — the one file every real project is guaranteed to both have and directly import
+ * `@zanix/space` from. `@zanix/server`/`@zanix/app`/`@zanix/app/runtime` do NOT reliably (see
+ * {@linkcode TRANSITIVE_ONLY_PACKAGES}'s own doc) — resolving them against `space.app.ts` as
+ * referrer would therefore fail "not a dependency and not in import map" on a real, correctly
+ * configured `space` project, a strictly worse regression than the bug this function exists to
+ * fix. {@linkcode getAugmentedConfigPath} closes that gap: `@zanix/space` is always graphed FIRST,
+ * via `resolveProjectSpecifier`'s own `addEntrypoints` call, on the SAME `Loader` the augmented
+ * config built — establishing the real dependency-constraint solve `@zanix/space`'s own manifest
+ * participates in — so resolving `@zanix/server`/`@zanix/app`/`@zanix/app/runtime` immediately
+ * after, on that SAME loader, correctly unifies with whatever `@zanix/space` itself transitively
+ * needs, per that constant's own doc.
+ *
+ * No relative-import rewriting, no {@linkcode ImportBatchContext} — unlike a real project FILE, a
+ * bare package specifier has no relative imports of its own to recurse into or dedupe against a
+ * batch.
+ */
+export async function importProjectDependency(
+  root: string,
+  specifier: string,
+): Promise<Record<string, unknown>> {
+  const configPath = await getAugmentedConfigPath(root)
+  const loader = await getLoaderFor(configPath)
+  const manifestReferrer = toFileUrl(resolvePath(root, PROJECT_MANIFEST_FILE)).href
+
+  // Always graph @zanix/space FIRST, on THIS loader — every other package this function ever
+  // resolves is either @zanix/space itself or one of its own transitive dependencies, and the
+  // unification TRANSITIVE_ONLY_PACKAGES's own doc describes only happens correctly once both are
+  // part of the SAME addEntrypoints solve, in this order. A no-op extra round-trip when `specifier`
+  // IS `@zanix/space` itself — harmless, and simpler than special-casing it away.
+  await resolveProjectSpecifier(loader, manifestReferrer, configPath, '@zanix/space')
+
+  const resolved = await resolveProjectSpecifier(loader, manifestReferrer, configPath, specifier)
+  return await import(resolved) as Record<string, unknown>
 }
 
 interface SpecifierMatch {
@@ -541,154 +769,148 @@ export async function importProjectModule(
     // A bare specifier `@zanix/cli`'s OWN configuration can ALSO resolve — to ANY target, even
     // one that genuinely differs from what the project's own config would give — resolves against
     // `cli`'s OWN config instead. This matters for real reasons, not just as an optimization: some
-    // packages (`@zanix/space`, `@zanix/app`, `@zanix/server`) are not only a project's own
-    // dependency — `@zanix/cli` ITSELF imports them natively for its own orchestration
-    // (`getActiveRenderer()`, `activateApps()`, `bootstrapServers()`, ...) and shares real,
-    // module-level protocol state through them with whatever `space.app.ts` imports (a renderer
-    // registry, a route registry, ...). Resolving the specifier against the PROJECT's own config
-    // instead — even to a genuinely valid, different target — loads a SEPARATE module instance of
-    // that package, silently breaking that shared state. Confirmed as a real, not theoretical,
-    // failure: two separately-loaded `SpaceDevSocket` instances (one reached through `@zanix/cli`'s
-    // own native `@zanix/space` import, one through this function's own project-anchored
-    // resolution) each registered the same dev-socket route into `@zanix/server`'s one shared route
-    // registry, and the second registration threw "already defined". Only a specifier `@zanix/cli`
-    // genuinely has no answer for at all — the real bug this whole module exists to fix — falls
-    // through to the project's own resolution below.
-    const cliLoader = await getCliLoader()
-    try {
-      let cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
-      // A `jsr:`/`http(s):` result from `resolveSync` ALONE is an UNEXPANDED literal (e.g. still
-      // `jsr:@zanix/space@^1.3.0`, the raw import-map value, not a real resolved version) — real,
-      // confirmed regression this closes: splicing that literal into the temp file below let
-      // native `import()` perform its OWN, SEPARATE version-range resolution at runtime, which can
-      // land on a DIFFERENT actual version than whatever `cli`'s own static `@zanix/space` import
-      // resolved to — reintroducing the exact "two separate SpaceDevSocket instances" bug this
-      // whole deferral exists to prevent, just one level deeper than the false-positive case
-      // {@linkcode resolvesIntoCliOwnSourceTree} already guards against. `@zanix/space`'s own
-      // `resolveDenoAt` (`deno-optimize-deps-alias.ts`) documents solving the identical problem the
-      // identical way: `addEntrypoints` forces the real dependency-constraint solve, then a second
-      // `resolveSync` on the now-graphed literal returns the real, canonical resolved URL — which,
-      // sharing the exact same `cliLoader`/lockfile state `cli`'s own internal imports resolve
-      // through, converges on the identical module-cache key. Confirmed via a real, isolated repro:
-      // `resolveSync('@zanix/space', ...)` alone returns the literal `jsr:@zanix/space@^1.3.0`;
-      // only after `addEntrypoints` does it return a real version, e.g.
-      // `https://jsr.io/@zanix/space/1.3.0/mod.ts`. A `file://` result needs none of this — it's
-      // already a real, concrete path. This resolved version must always match this file's own
-      // `"@zanix/space"` import-map entry EXACTLY (kept in sync by hand, not derived): if
-      // `@zanix/space` publishes a newer version than what's pinned here, this fresh lookup
-      // returns that newer version while `cli`'s own statically-locked import (governed by
-      // whatever lockfile the running process was installed with) stays pinned to the older one,
-      // splitting identity anyway despite this whole mechanism.
-      if (
-        cliResolved.startsWith('jsr:') || cliResolved.startsWith('http:') ||
-        cliResolved.startsWith('https:')
-      ) {
-        await cliLoader.addEntrypoints([cliResolved])
-        cliResolved = cliLoader.resolveSync(cliResolved, referrerUrl, ResolutionMode.Import)
-      }
-      // EXCEPT when that resolution lands inside `cli`'s OWN hand-written source tree
-      // ({@linkcode resolvesIntoCliOwnSourceTree}) — a real, confirmed false positive of the
-      // check above, never the genuine identity-sharing case it exists for: `cli`'s own internal
-      // folder aliases (`typings/`, `shared/`, `utils/` → `./src/{typings,shared,utils}/`,
-      // declared purely for `cli`'s OWN source to use short bare-specifier imports internally)
-      // share their EXACT names with the aliases `zanix new` scaffolds into every consuming
-      // project — so a project file's own `import 'utils/constants.ts'` resolves "successfully"
-      // here too, but against `cli`'s OWN `src/utils/constants.ts`, never the project's. Falls
-      // through to the project's own resolution below instead, exactly as if `cli`'s config had
-      // no answer at all — see that function's own doc for the real, confirmed failure this
-      // closes.
-      //
-      // A SECOND, deeper case of the identical false-positive shape — see
-      // {@linkcode cliLoaderHasNoRealLocalAnswer}'s own doc for the full account: real, confirmed
-      // failure this closes (reported live, `zanix-iam`/`aeratech-console`, `zanix space build`),
-      // `Import "clients/registry-hub.client.ts" not a dependency`, thrown from the ORIGINAL
-      // `triggers.interactor.ts` — reached this way after `page.tsx`'s own
-      // `import ... from 'triggers/triggers.interactor.ts'` resolved through this exact branch and
-      // returned unrecursed.
-      if (
-        !cliLoaderHasNoRealLocalAnswer(cliConfigPath, cliResolved) &&
-        !resolvesIntoCliOwnSourceTree(cliResolved)
-      ) {
-        // The resolved, fully-qualified URL — never the original bare `specifier` — is what gets
-        // spliced into the rewritten temp file below. Real, confirmed bug: `writeGeneratedModule`'s
-        // temp file is a LOOSE file living in the PROJECT's own directory, not part of any
-        // package's own module graph — a bare specifier only resolves for it via whatever import
-        // map governs the WHOLE running `deno` process (nearest-config discovery from a local
-        // checkout, or an explicit `--config` at process startup), never `cli`'s own config
-        // specifically. Under `deno install -g` (no matching entry in whatever config the shim
-        // forces process-wide), that process-wide map has no answer for `@zanix/space`/
-        // `@zanix/app`/`@zanix/server` at all — native `import()` of the temp file then throws
-        // `Import "@zanix/space" not a dependency` on every real global install, even though
-        // `cliLoader` above already resolved it successfully one line up. Splicing in `cliResolved`
-        // sidesteps the need for any import map at all — a fully-qualified specifier resolves
-        // identically regardless of which config governs the process — while still preserving the
-        // shared module instance the surrounding comment's `SpaceDevSocket` case depends on: Deno's
-        // module cache keys by resolved URL, not by which import statement reached it, and
-        // `@deno/loader`'s own `resolveSync` mirrors Deno's native resolution algorithm by design,
-        // so the two converge on the identical cache key.
-        //
-        // EXCEPT a raw `file://` path straight into `node_modules` — the same CJS/ESM-interop gap
-        // the project-anchored `node_modules` branch further down already guards against (see its
-        // own doc), missed here originally since this branch didn't exist yet when that one was
-        // written. Real, confirmed failure (reported live against `react/jsx-runtime`, reached via
-        // `discoverPages`'s static-analysis pass): react's own CJS entry is a runtime
-        // `if (process.env.NODE_ENV === 'production') { ... } else { ... }` conditional `require`,
-        // which Deno's static CJS→ESM named-export analysis can't see through — a raw `file://`
-        // import of it exposes NO named exports at all, so `import { jsx } from
-        // 'react/jsx-runtime'` fails outright even though the file resolved successfully.
-        // Reconstructing the scheme-based specifier form instead (`npm:react@^19.2.0/jsx-runtime`)
-        // hands native `import()` the same text a normal static import would have used, with full
-        // npm CJS/ESM interop intact — using `cliConfigPath` here, never `referrerConfigPath`: the
-        // import-map entry being reconstructed is `cli`'s own, not the project's.
-        //
-        // Real, confirmed regression in this exact reconstruction, found AFTER first shipping it:
-        // `cliConfigPath` is `undefined` for any genuine global install (never a local checkout —
-        // see `getCliLoader`'s own doc), which made `reconstructSchemeSpecifier` silently no-op on
-        // every real-world case that needed it — reported live (`zanix-iam`) with the identical
-        // "does not provide an export named 'jsx'" failure, unchanged by the first fix, because
-        // reconstruction never actually ran. `reconstructNpmSpecifierFromResolvedPath` is the real
-        // fallback for exactly that case: it needs no config file at all, parsing the version
-        // straight out of `cliResolved` itself via Deno's own npm-cache directory convention.
-        if (cliResolved.startsWith('file://') && cliResolved.includes('/node_modules/')) {
-          const reconstructed =
-            (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier)) ??
-              reconstructNpmSpecifierFromResolvedPath(cliResolved, specifier)
-          return reconstructed ?? cliResolved
+    // packages are not only a project's own dependency — `@zanix/cli` ITSELF imports them natively
+    // for its own orchestration and shares real, module-level protocol state through them with
+    // whatever `space.app.ts` imports (a renderer registry, a route registry, ...). Resolving the
+    // specifier against the PROJECT's own config instead — even to a genuinely valid, different
+    // target — loads a SEPARATE module instance of that package, silently breaking that shared
+    // state. Only a specifier `@zanix/cli` genuinely has no answer for at all falls through to the
+    // project's own resolution below.
+    //
+    // `@zanix/space`/`@zanix/app`/`@zanix/server` are the historical motivating case for this
+    // whole step — but `cli` no longer holds a separate native instance of any of them at all (see
+    // {@linkcode PROJECT_ANCHORED_ONLY_PACKAGES}'s own doc), so this step is skipped entirely for
+    // those three, falling straight through to the project's own resolution below exactly as if
+    // `cli`'s config had no answer at all.
+    const packageBase = splitPackageSpecifier(specifier).base
+    if (!PROJECT_ANCHORED_ONLY_PACKAGES.has(packageBase)) {
+      const cliLoader = await getCliLoader()
+      try {
+        let cliResolved = cliLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
+        // A `jsr:`/`http(s):` result from `resolveSync` ALONE is an UNEXPANDED literal (e.g. still
+        // `jsr:@zanix/space@^X.Y.Z`, the raw import-map value, not a real resolved version) — splicing
+        // that literal into the temp file below would let native `import()` perform its OWN,
+        // SEPARATE version-range resolution at runtime, which can land on a DIFFERENT actual version
+        // than whatever `cli`'s own static `@zanix/space` import resolved to, reintroducing the exact
+        // "two separate SpaceDevSocket instances" failure this whole deferral exists to prevent, just
+        // one level deeper than the false-positive case {@linkcode resolvesIntoCliOwnSourceTree}
+        // already guards against. `@zanix/space`'s own `resolveDenoAt` (`deno-optimize-deps-alias.ts`)
+        // solves the identical problem the identical way: `addEntrypoints` forces the real
+        // dependency-constraint solve, then a second `resolveSync` on the now-graphed literal returns
+        // the real, canonical resolved URL — which, sharing the exact same `cliLoader`/lockfile state
+        // `cli`'s own internal imports resolve through, converges on the identical module-cache key.
+        // `resolveSync('@zanix/space', ...)` alone returns the literal `jsr:@zanix/space@^X.Y.Z`;
+        // only after `addEntrypoints` does it return a real version, e.g.
+        // `https://jsr.io/@zanix/space/X.Y.Z/mod.ts`. A `file://` result needs none of this — it's
+        // already a real, concrete path. This resolved version must always match this file's own
+        // `"@zanix/space"` import-map entry EXACTLY (kept in sync by hand, not derived): if
+        // `@zanix/space` publishes a newer version than what's pinned here, this fresh lookup
+        // returns that newer version while `cli`'s own statically-locked import (governed by
+        // whatever lockfile the running process was installed with) stays pinned to the older one,
+        // splitting identity anyway despite this whole mechanism.
+        if (
+          cliResolved.startsWith('jsr:') || cliResolved.startsWith('http:') ||
+          cliResolved.startsWith('https:')
+        ) {
+          await cliLoader.addEntrypoints([cliResolved])
+          cliResolved = cliLoader.resolveSync(cliResolved, referrerUrl, ResolutionMode.Import)
         }
-        return cliResolved
+        // EXCEPT when that resolution lands inside `cli`'s OWN hand-written source tree
+        // ({@linkcode resolvesIntoCliOwnSourceTree}) — a false positive of the check above, never
+        // the genuine identity-sharing case it exists for: `cli`'s own internal folder aliases
+        // (`typings/`, `shared/`, `utils/` → `./src/{typings,shared,utils}/`, declared purely for
+        // `cli`'s OWN source to use short bare-specifier imports internally) share their EXACT names
+        // with the aliases `zanix new` scaffolds into every consuming project — so a project file's
+        // own `import 'utils/constants.ts'` resolves "successfully" here too, but against `cli`'s
+        // OWN `src/utils/constants.ts`, never the project's. Falls through to the project's own
+        // resolution below instead, exactly as if `cli`'s config had no answer at all — see that
+        // function's own doc for the full account.
+        //
+        // A SECOND, deeper case of the identical false-positive shape — see
+        // {@linkcode cliLoaderHasNoRealLocalAnswer}'s own doc for the full account — surfaces as
+        // `Import "clients/registry-hub.client.ts" not a dependency`, thrown from the ORIGINAL
+        // `triggers.interactor.ts`: reached this way after `page.tsx`'s own
+        // `import ... from 'triggers/triggers.interactor.ts'` resolves through this exact branch and
+        // returns unrecursed.
+        if (
+          !cliLoaderHasNoRealLocalAnswer(cliConfigPath, cliResolved) &&
+          !resolvesIntoCliOwnSourceTree(cliResolved)
+        ) {
+          // The resolved, fully-qualified URL — never the original bare `specifier` — is what gets
+          // spliced into the rewritten temp file below. `writeGeneratedModule`'s temp file is a LOOSE
+          // file living in the PROJECT's own directory, not part of any package's own module graph —
+          // a bare specifier only resolves for it via whatever import map governs the WHOLE running
+          // `deno` process (nearest-config discovery from a local checkout, or an explicit `--config`
+          // at process startup), never `cli`'s own config specifically. Under `deno install -g` (no
+          // matching entry in whatever config the shim forces process-wide), that process-wide map
+          // has no answer for `@zanix/space`/`@zanix/app`/`@zanix/server` at all — native `import()`
+          // of the temp file then throws `Import "@zanix/space" not a dependency` on every real
+          // global install, even though `cliLoader` above already resolved it successfully one line
+          // up. Splicing in `cliResolved` sidesteps the need for any import map at all — a
+          // fully-qualified specifier resolves identically regardless of which config governs the
+          // process — while still preserving the shared module instance the surrounding comment's
+          // `SpaceDevSocket` case depends on: Deno's module cache keys by resolved URL, not by which
+          // import statement reached it, and `@deno/loader`'s own `resolveSync` mirrors Deno's native
+          // resolution algorithm by design, so the two converge on the identical cache key.
+          //
+          // EXCEPT a raw `file://` path straight into `node_modules` — the same CJS/ESM-interop gap
+          // the project-anchored `node_modules` branch further down already guards against (see its
+          // own doc): react's own CJS entry is a runtime
+          // `if (process.env.NODE_ENV === 'production') { ... } else { ... }` conditional `require`,
+          // which Deno's static CJS→ESM named-export analysis can't see through — a raw `file://`
+          // import of it exposes NO named exports at all, so `import { jsx } from
+          // 'react/jsx-runtime'` fails outright even though the file resolved successfully.
+          // Reconstructing the scheme-based specifier form instead (`npm:react@^X.Y.Z/jsx-runtime`)
+          // hands native `import()` the same text a normal static import would have used, with full
+          // npm CJS/ESM interop intact — using `cliConfigPath` here, never `referrerConfigPath`: the
+          // import-map entry being reconstructed is `cli`'s own, not the project's.
+          //
+          // `reconstructSchemeSpecifier` needs a real config FILE to read (`cliConfigPath`), which is
+          // `undefined` for any genuine global install (never a local checkout — see `getCliLoader`'s
+          // own doc), so it silently no-ops on every real-world case that needs it.
+          // `reconstructNpmSpecifierFromResolvedPath` is the real fallback for exactly that case: it
+          // needs no config file at all, parsing the version straight out of `cliResolved` itself via
+          // Deno's own npm-cache directory convention.
+          if (cliResolved.startsWith('file://') && cliResolved.includes('/node_modules/')) {
+            const reconstructed =
+              (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier)) ??
+                reconstructNpmSpecifierFromResolvedPath(cliResolved, specifier)
+            return reconstructed ?? cliResolved
+          }
+          return cliResolved
+        }
+      } catch {
+        // Reconstructs the scheme-based specifier form when `reconstructSchemeSpecifier` can produce
+        // one, rather than falling back to the ORIGINAL bare `specifier` — the same "no import map
+        // for a loose temp file" failure the `!resolvesIntoCliOwnSourceTree` branch above already
+        // guards against, just in this error-fallback path instead of the main one. Returns the
+        // reconstructed scheme literal itself — the same canonical text a normal static import would
+        // have resolved through, resolvable with no import map at all, exactly like the identical
+        // pattern the project-anchored fallback below already uses.
+        const reconstructed = cliConfigPath
+          ? reconstructSchemeSpecifier(cliConfigPath, specifier)
+          : undefined
+        if (reconstructed !== undefined) return reconstructed
+        // `@zanix/cli`'s own config has nothing for this specifier at all — falls through.
       }
-    } catch {
-      // Real, confirmed bug this closes: this branch computed `reconstructSchemeSpecifier`'s
-      // result only to check it wasn't `undefined`, then discarded it and returned the ORIGINAL
-      // bare `specifier` instead — reintroducing the exact "no import map for a loose temp file"
-      // failure 2.0.4's own fix (the `!resolvesIntoCliOwnSourceTree` branch above) exists to
-      // prevent, just in this error-fallback path instead of the main one. Now returns the
-      // reconstructed scheme literal itself — the same real, canonical text a normal static
-      // import would have resolved through, resolvable with no import map at all, exactly like
-      // the identical pattern the project-anchored fallback below already uses correctly.
-      const reconstructed = cliConfigPath
-        ? reconstructSchemeSpecifier(cliConfigPath, specifier)
-        : undefined
-      if (reconstructed !== undefined) return reconstructed
-      // `@zanix/cli`'s own config has nothing for this specifier at all — falls through.
     }
 
     let resolved: string
     try {
       resolved = referrerLoader.resolveSync(specifier, referrerUrl, ResolutionMode.Import)
-      // Same real, confirmed gap as `cliLoader`'s own identical fix above, applied here for a
-      // DIFFERENT reason: a `jsr:`/`http(s):` result from `resolveSync` ALONE is an unexpanded
-      // literal (the raw import-map value, not a real resolved version) — confirmed via a real,
-      // isolated repro: `referrerLoader.resolveSync('@zanix/auth', ...)` (against a real project's
-      // own config) returns the literal `jsr:@zanix/auth@^1.1.2`, not a resolved version. Splicing
-      // that literal in directly hands the ACTUAL version-range resolution to native `import()` at
-      // RUNTIME — governed by whatever config/lockfile the PROCESS itself was started with, never
+      // Same class of gap as `cliLoader`'s own identical fix above, applied here for a DIFFERENT
+      // reason: a `jsr:`/`http(s):` result from `resolveSync` ALONE is an unexpanded literal (the
+      // raw import-map value, not a real resolved version) — e.g.
+      // `referrerLoader.resolveSync('@zanix/auth', ...)` (against a real project's own config)
+      // returns the literal `jsr:@zanix/auth@^X.Y.Z`, not a resolved version. Splicing that literal
+      // in directly hands the ACTUAL version-range resolution to native `import()` at RUNTIME —
+      // governed by whatever config/lockfile the PROCESS itself was started with, never
       // `referrerLoader`'s own `newestDependencyDate` ({@linkcode readNewestDependencyDate}) — so a
       // project's own `"minimumDependencyAge"` setting, despite correctly configuring
-      // `referrerLoader` itself, had NO effect on the specifier this branch actually spliced in:
-      // real, confirmed failure, `Could not find version of '@zanix/auth' that matches specified
-      // version constraint '^1.1.2' ... newer than the specified minimum dependency date`, even
-      // with `"minimumDependencyAge": 0` set in the project's own `deno.json`. Forcing the real
+      // `referrerLoader` itself, has NO effect on the specifier this branch actually splices in:
+      // `Could not find version of '@zanix/auth' that matches specified version constraint
+      // '^X.Y.Z' ... newer than the specified minimum dependency date`, even with
+      // `"minimumDependencyAge": 0` set in the project's own `deno.json`. Forcing the real
       // dependency-constraint solve HERE, through `referrerLoader` (which DOES already carry the
       // project's own correct age-gate cutoff), produces a fully-resolved absolute URL that needs
       // no further native resolution at all — closing the gap completely, not working around it.
@@ -724,10 +946,10 @@ export async function importProjectModule(
       // exists on disk (a project that's already been installed/run once), Node-style resolution
       // finds an already-materialized file directly, no dependency-constraint solve needed. But a
       // raw `file://` path straight into `node_modules` bypasses Deno's own CJS/ESM interop just
-      // the same as the constraint-solve-failure case above (confirmed as a real failure: a bare
-      // `'react/jsx-runtime'` resolved this way reads as a plain ESM re-export with no `jsx` named
-      // export, when the real npm-specifier form resolves and interops correctly) — reconstructed
-      // the same way, for the same reason. `referrerConfigPath` is `undefined` only in the
+      // the same as the constraint-solve-failure case above: a bare `'react/jsx-runtime'` resolved
+      // this way reads as a plain ESM re-export with no `jsx` named export, where the real
+      // npm-specifier form resolves and interops correctly — reconstructed the same way, for the
+      // same reason. `referrerConfigPath` is `undefined` only in the
       // genuinely rare case of no `deno.json(c)` anywhere in this file's own ancestry — falls back
       // to the same config-free reconstruction the `cliLoader` branch above needs unconditionally
       // (see {@linkcode reconstructNpmSpecifierFromResolvedPath}'s own doc for why that one can
@@ -749,8 +971,8 @@ export async function importProjectModule(
    * this) needs that call to land on the REAL sibling file, which only works when the executing
    * module's own location is a real path in the REAL directory the sibling actually lives in — a
    * `blob:` base has no meaningful hierarchical structure for relative resolution to work against
-   * at all (confirmed as a real failure, `TypeError: Invalid URL`, against real `@zanix/space`
-   * source before this fix). Shared between the main JS-rewrite path below and the non-JS stub path
+   * at all, throwing `TypeError: Invalid URL` against a real `@zanix/space` source module that
+   * relies on it. Shared between the main JS-rewrite path below and the non-JS stub path
    * ({@linkcode process}'s own `JS_MEDIA_TYPES` branch) — both need the exact same real-sibling-
    * file guarantee, for the same reason. */
   async function writeGeneratedModule(fileUrl: string, code: string): Promise<string> {
@@ -820,14 +1042,12 @@ export async function importProjectModule(
           // own static import statement still names this exact file, unconditionally evaluated the
           // moment native `import()` runs it (ESM gives a static import no way to opt out of
           // loading). Two media types get a real stub instead of the untouched `fileUrl` below,
-          // because native `import()` cannot load either one on its own at all, confirmed as a
-          // real failure: a Comet's own `*.module.css` import, reachable through a page this
-          // function now recurses into for `discoverPages`'s own build-time discovery pass (see
-          // `discoverPages`'s own `importModule` option, `@zanix/space`), throws Deno's own
-          // "Expected a JavaScript or TypeScript module, but identified a Css module" the instant
-          // the rewritten temp file's own `import` statement runs — never hit before, since nothing
-          // reaching this deep in the graph needed a real CSS import until `discoverPages` started
-          // using this function too. A stub is safe here specifically because nothing at THIS
+          // because native `import()` cannot load either one on its own at all: a Comet's own
+          // `*.module.css` import, reachable through a page this function recurses into for
+          // `discoverPages`'s own build-time discovery pass (see `discoverPages`'s own
+          // `importModule` option, `@zanix/space`), throws Deno's own "Expected a JavaScript or
+          // TypeScript module, but identified a Css module" the instant the rewritten temp file's
+          // own `import` statement runs. A stub is safe here specifically because nothing at THIS
           // level ever needs the real value: this function exists only to let a file's static shape
           // (a page's `head`/`redirect`, a decorator's own metadata, ...) be read back — never to
           // actually RENDER a component, the only place a Comet's own CSS Modules mapping would
@@ -842,10 +1062,9 @@ export async function importProjectModule(
             const json = new TextDecoder().decode(response.code)
             return await writeGeneratedModule(fileUrl, `export default ${json}\n`)
           }
-          // Every OTHER non-JS media type (HTML, Markdown, SQL, Wasm, ...) has no confirmed real
-          // usage reaching this function yet — left exactly as before this fix, handed to
-          // `import()` using its own resolved path unchanged, rather than guessing at a stub shape
-          // with no real failure to confirm it against.
+          // Every OTHER non-JS media type (HTML, Markdown, SQL, Wasm, ...) has no real usage
+          // reaching this function yet — handed to `import()` using its own resolved path
+          // unchanged, rather than guessing at a stub shape with nothing to model it against.
           return fileUrl
         }
 
@@ -892,11 +1111,12 @@ export async function importProjectModule(
 }
 
 /** Matches ANY path ending in the exact shape {@linkcode writeGeneratedModule} writes
- * (`.zanix-import-<uuid>.js`) — a literal regex, not built from `GENERATED_MODULE_PREFIX` via
- * string interpolation into `RegExp`, specifically to avoid that constant's own `.` silently
+ * (`.zanix-import-<uuid>.js`) OR {@linkcode getAugmentedConfigPath} writes
+ * (`.zanix-import-deps-<uuid>.json`) — a literal regex, not built from `GENERATED_MODULE_PREFIX`
+ * via string interpolation into `RegExp`, specifically to avoid that constant's own `.` silently
  * reading as "any character" instead of a literal dot. Keep this pattern in sync with
  * `GENERATED_MODULE_PREFIX` by hand if that constant's own text ever changes. */
-const GENERATED_MODULE_MATCH = /\.zanix-import-[^/\\]+\.js$/
+const GENERATED_MODULE_MATCH = /\.zanix-import-[^/\\]+\.(js|json)$/
 
 /** Directories a REAL orphan can never sit under, even inside `src/` — the same "never real
  * source" list `ignore.base` already establishes for the whole project (`node_modules`, `.git`,
@@ -908,11 +1128,11 @@ const GENERATED_MODULE_MATCH = /\.zanix-import-[^/\\]+\.js$/
  * genuinely reachable under `src/` on a real project, unlike at the project root: a package manager
  * occasionally vendors into a nested `node_modules`, and this repo's own test-tier convention
  * (`naming-and-structure-conventions`) puts a real, per-suite `__tmp__/` directly under
- * `src/@tests/**` — exactly the shape that broke this sweep's own tests before this list existed (a
- * temp FIXTURE root built under this repo's own `src/@tests/.../__tmp__/`, which the whole-tree
- * version of this walk used to skip on the way in, not just on the way past — `@tests` alone
- * already would have caught it, `__tmp__` catches the same shape in a CONSUMING project's own
- * `src/@tests/` tree too). Applied only to the recursive `src/` walk below — `root`'s own shallow,
+ * `src/@tests/**` — exactly the shape a temp FIXTURE root built under this repo's own
+ * `src/@tests/.../__tmp__/` produces: the whole-tree version of this walk needs to skip it on the
+ * way in, not just on the way past (`@tests` alone already catches it; `__tmp__` catches the same
+ * shape in a CONSUMING project's own `src/@tests/` tree too). Applied only to the recursive `src/`
+ * walk below — `root`'s own shallow,
  * one-level scan never recurses far enough for any of these to matter. */
 const NEVER_REAL_SOURCE = [
   /[/\\](node_modules|\.git|vendor|\.?dist|out|\.vite|dist-ssr|coverage|__tmp__|@tests)[/\\]/,
@@ -942,16 +1162,14 @@ async function removeGeneratedModulesUnder(dir: string, recursive: boolean): Pro
 }
 
 /**
- * Removes every `.zanix-import-*.js` file sitting where one could ACTUALLY be — real, confirmed
- * garbage a KILLED earlier `zanix space dev`/`build` process left behind (Ctrl+C, a crash, a
- * force-quit), never something a healthy run produces: every temp file {@linkcode writeGeneratedModule}
- * writes is deleted in its own `finally`, in the SAME process, the instant the import that created
- * it resolves — nothing legitimate ever survives long enough for a LATER, separate invocation to
+ * Removes every `.zanix-import-*.js` file sitting where one could ACTUALLY be — garbage a KILLED
+ * earlier `zanix space dev`/`build` process leaves behind (Ctrl+C, a crash, a force-quit), never
+ * something a healthy run produces: every temp file {@linkcode writeGeneratedModule} writes is
+ * deleted in its own `finally`, in the SAME process, the instant the import that created it
+ * resolves — nothing legitimate ever survives long enough for a LATER, separate invocation to
  * find. A fresh, random UUID names each one, so an orphan is never overwritten or revisited by a
  * later run either — left alone, these accumulate on disk forever, one per killed process, with no
- * self-healing mechanism. Confirmed as a real, live problem, not a hypothetical one: four genuine
- * orphans, from earlier killed sessions, found sitting in a real consumer project's own `src/`
- * tree (`src/space/routes/`, `src/auth/`) before this function existed.
+ * self-healing mechanism otherwise.
  *
  * Called once, at the very top of `zanix space dev`/`build`, before either command does any real
  * work — see each command's own `action.ts`.

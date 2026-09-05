@@ -154,13 +154,13 @@ let filteredConfigPath: string | undefined
             // SERVED project's own graph, not just this package's direct dependencies) against
             // WHATEVER `nodeModulesDir` the process's own governing config declares — never the
             // served project's, even when that project sets its own `nodeModulesDir: "auto"` and
-            // has a real local `node_modules` tree. Omitting it here left every real global install
-            // resolving deep npm dependencies against Deno's flat global cache instead, where a
-            // legacy "private stub subpath" package (a folder holding only a `package.json` whose
-            // `main` escapes its own directory via `../`) fails to resolve at all — confirmed live:
+            // has a real local `node_modules` tree. Without this, a real global install resolves
+            // deep npm dependencies against Deno's flat global cache instead, where a legacy
+            // "private stub subpath" package (a folder holding only a `package.json` whose `main`
+            // escapes its own directory via `../`) fails to resolve at all — confirmed live:
             // `@radix-ui/react-dialog`'s own `react-remove-scroll-bar/constants` dependency, reached
-            // through `zanix space build`'s SSR render of an unrelated served project, threw `Cannot
-            // find module ... verify main entry` until this value was restored.
+            // through `zanix space build`'s SSR render of an unrelated served project, throws
+            // `Cannot find module ... verify main entry` without it.
             nodeModulesDir: publishedConfig.nodeModulesDir,
             imports,
           },

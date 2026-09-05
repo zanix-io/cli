@@ -1,7 +1,12 @@
 import type { SpaceValidationOptions } from 'commands/space/shared/validation-flags.ts'
 import type { ValidationReport } from 'commands/space/shared/report-validation.ts'
+import type * as ZanixSpaceModule from '@zanix/space'
+import type * as ZanixSpaceViteModule from '@zanix/space/vite'
 import { toValidationFlags } from 'commands/space/shared/validation-flags.ts'
-import { importProjectModule } from 'commands/space/shared/import-project-module.ts'
+import {
+  importProjectDependency,
+  importProjectModule,
+} from 'commands/space/shared/import-project-module.ts'
 
 /**
  * Runs document validation for `zanix space dev`.
@@ -24,24 +29,30 @@ import { importProjectModule } from 'commands/space/shared/import-project-module
  * @module
  */
 
-/** A dynamic import of `@zanix/space`, matching how every other `zanix space` command reaches it —
- * `commands/mod.ts` eagerly imports each command's module just to register its CLI surface, so a
- * static import would drag that entire dependency graph into every `zanix` invocation. */
-async function loadSpace() {
-  return await import('@zanix/space')
+/** Resolved against `root`'s own config, never `@zanix/cli`'s own native `@zanix/space` — see
+ * `importProjectDependency`'s own doc for why: `getRoutesDir()`/`getSitemapDeclaration()`/
+ * `getValidationConfig()` below are all getters over module-level state `defineSpaceApp` (inside
+ * `space.app.ts`, already imported and activated by the time `runDevValidation` runs) set eagerly
+ * — a separately resolved `@zanix/space` instance here would read back nothing the project
+ * actually declared. */
+async function loadSpace(root: string) {
+  return await importProjectDependency(root, '@zanix/space') as typeof ZanixSpaceModule
 }
 
 /**
  * Resolves flags, runs the phases they asked for, and returns a report to present.
  *
  * @param options - Raw CLI options for this command.
+ * @param root - The served project's own root — every `@zanix/space` resolution below is
+ * anchored here, never `@zanix/cli`'s own config.
  * @returns `undefined` when validation is switched off entirely, so the caller prints nothing at
  * all rather than announcing an empty run.
  */
 export async function runDevValidation(
   options: SpaceValidationOptions,
+  root: string,
 ): Promise<ValidationReport | undefined> {
-  const space = await loadSpace()
+  const space = await loadSpace(root)
   const {
     resolveValidationFlags,
     mergeValidationConfig,
@@ -58,9 +69,11 @@ export async function runDevValidation(
   const config = mergeValidationConfig(getValidationConfig(), flags.config)
   if (config === false) return undefined
 
-  const { discoverPages, deriveAutoSitemapEntries, validateBuild, runRenderProbe } = await import(
-    '@zanix/space/vite'
-  )
+  // Same project-anchored reasoning as `loadSpace` above — `runRenderProbe` in particular needs
+  // to read back the SAME active-renderer registry the project's own `space.app.ts` populated
+  // (see its own doc below), not a separately resolved `@zanix/space/vite` instance.
+  const { discoverPages, deriveAutoSitemapEntries, validateBuild, runRenderProbe } =
+    await importProjectDependency(root, '@zanix/space/vite') as typeof ZanixSpaceViteModule
 
   // `getRoutesDir()` reads back whatever `defineSpaceApp({ routesDir })` declared (eagerly, at
   // import time) — never a guess at this project's own layout, and the same value

@@ -32,8 +32,8 @@ export function planLayout(
 ): LayoutPlan {
   // A ROOT layout owns the document; a nested one does not. `@zanix/space` replaces its own default
   // document shell with whatever the root layout renders and never checks that it rendered a real
-  // document, so emitting the nested shape here produced a page with no doctype, no `lang`, no
-  // charset and no viewport — a silent regression caused by this generator itself.
+  // document, so emitting the nested shape here would produce a page with no doctype, no `lang`,
+  // no charset and no viewport — a silent regression this generator would cause on its own.
   const { isRoot = false, renderer = 'react' } = options
   return {
     files: [{
