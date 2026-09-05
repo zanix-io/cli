@@ -80,16 +80,16 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
   '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.2/runtime',
-  // Keep this floor in lockstep with `cli`'s OWN `deno.jsonc` entry for the same package
-  // (`imports["@zanix/space"]`), not just "the latest version" for its own sake: `zanix space
-  // dev`/`build` resolves `@zanix/space` bare imports through `cli`'s OWN config
-  // (`import-project-module.ts`'s `resolveReplacement`, the identity-sharing mechanism its own doc
-  // covers in full) — a scaffolded project pinned to an OLDER floor here than what `cli` itself
-  // resolves internally lets two different `@zanix/space` versions load as two separate module
-  // instances in the same process, splitting `SpaceDevSocket` identity and throwing "already
-  // defined" on its own dev-socket route. Bump this ALONGSIDE `cli`'s own `deno.jsonc` entry,
-  // never independently.
-  '@zanix/space': 'jsr:@zanix/space@^1.4.0',
+  // `^1.4.2` — see `deno.jsonc`'s own matching `imports["@zanix/space"]` entry for
+  // the full chain: below `1.4.2`, any project with a single comet hits `zanix space build`'s own
+  // `[UNRESOLVED_ENTRY]` failure (Vite's `worker-import-meta-url` plugin against a real
+  // `@zanix/utils` `Worker` call, transitively reached through `@zanix/space/comet`'s own barrel).
+  // `zanix space dev`/`build` resolve `@zanix/space` (and `@zanix/server`/`@zanix/app`/
+  // `@zanix/app/runtime`) against the SERVED PROJECT's own config, never `cli`'s
+  // (`import-project-module.ts`'s `importProjectDependency`) — this entry has no identity-sharing
+  // reason to match `cli`'s own `deno.jsonc` floor exactly, only to give a freshly scaffolded
+  // project a real, working starting version.
+  '@zanix/space': 'jsr:@zanix/space@^1.4.2',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/
   // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`

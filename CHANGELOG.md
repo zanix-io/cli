@@ -8,6 +8,60 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.9] - 2026-09-05
+
+### Fixed
+
+- **`zanix space dev` crashed with `Route path "socket=>/__zanix_space_dev__" is already defined in
+  "SpaceDevSocket"` whenever a served project's own declared `@zanix/space` version diverged from
+  whatever the installed `@zanix/cli` shim had resolved at install time.** `dev/action.ts`,
+  `build/action.ts`, `dev/validation.ts` and `import-space-app.ts` all natively imported
+  `@zanix/space`/`@zanix/space/dev`/`@zanix/server`/`@zanix/app`/`@zanix/app/runtime` resolved once
+  against `cli`'s own config, never the served project's — a version mismatch loaded two separate
+  module instances of the same package, and `SpaceDevSocket`'s own static registration ran twice.
+  A new `importProjectDependency` now resolves every one of these against the SERVED PROJECT's own
+  `deno.json(c)` instead: `@zanix/space` (bare or subpath) relative to `space.app.ts`, and
+  `@zanix/server`/`@zanix/app`/`@zanix/app/runtime` — `@zanix/space`'s own transitive dependencies,
+  which no real project declares directly — via a temporary config merging in a wildcard entry for
+  each (`jsr:@zanix/app@*`, ...) and graphing `@zanix/space` first in the same dependency-constraint
+  solve, so the concrete version resolved is always whatever `@zanix/space` itself needs. `@zanix/cli`
+  no longer pins or tracks a version for any of the three, in any install shape — this class of bug
+  cannot recur just because `@zanix/space` publishes a new version.
+- A related instance of the same root cause: `isZanixAppDefinition` compared a bare `Symbol()` brand
+  that only matches within the same `@zanix/app` module instance `@zanix/space` itself resolved — a
+  diverging instance silently failed the check (`'space.app.ts' must have a default export from
+  defineSpaceApp()`) instead of ever crashing loudly.
+- A `cliLoader`-resolved specifier landing in `node_modules` under a genuine global install (no local
+  config file to read at all) silently failed to reconstruct as a scheme specifier, reproducing the
+  exact `does not provide an export named 'jsx'` failure a prior fix (2.0.8) was meant to close for
+  good — `reconstructNpmSpecifierFromResolvedPath` now parses the version directly out of the
+  already-resolved path via Deno's own npm-cache directory convention, with no config file needed.
+- A project's own bare LOCAL alias (e.g. `"triggers/"`) resolved "successfully" against `cli`'s own
+  config too under a genuine global install (`cliLoader` silently becomes identical to the project's
+  own loader there), and the identity-sharing branch trusted it as a real `cli`-own answer without
+  recursing into it — the file's own bare imports never got rewritten. Reproduced live: `Import
+  'clients/registry-hub.client.ts' not a dependency`. `cliLoaderHasNoRealLocalAnswer` now recognizes
+  this exact shape (a `file://` result under a global install can never be a genuine package
+  identity) and falls through to the project's own resolution instead.
+- A real global install's shim config silently dropped `nodeModulesDir`, so every served project
+  resolved deep npm dependencies against Deno's flat global cache instead of that project's own
+  vendored tree — reproduced live, three `npm:` hops deep (`@zanix/space-ui`'s `Modal` →
+  `@radix-ui/react-dialog` → `react-remove-scroll` → a legacy "private stub subpath" package),
+  `Cannot find module ... verify main entry`. The shim config now propagates it.
+- The pre-commit hook failed when every staged file was excluded from `deno lint` (e.g. staging only
+  `src/installation/setup.ts`, which can't depend on the `@zanix/utils` logger plugin) — now
+  recognized as a pass, not a lint failure.
+
+### Changed
+
+- `setup.sh`/`setup.ps1` (confirmed drifted out of sync with each other) consolidated into one
+  cross-platform `setup.ts`, published as a real `./setup` export — the README now documents a
+  single `deno run -A jsr:@zanix/cli@[version]/setup [version]` install command for every platform.
+  `LATEST` now derives from this package's own `deno.jsonc` at runtime instead of a hardcoded
+  literal needing a manual bump on every release.
+- `--minimum-dependency-age 0` is now documented as a conditional note (only needed when installing
+  a version published within the last 24h), not baked into the canonical install command.
+
 ## [2.0.8] - 2026-09-04
 
 ### Fixed
