@@ -51,6 +51,17 @@ and this project adheres to
 - The pre-commit hook failed when every staged file was excluded from `deno lint` (e.g. staging only
   `src/installation/setup.ts`, which can't depend on the `@zanix/utils` logger plugin) — now
   recognized as a pass, not a lint failure.
+- A comet built against `@zanix/space/comet`'s own barrel could fail `zanix space build` with Vite's
+  `[UNRESOLVED_ENTRY]` on a real `new Worker(...)` call — a server-only middleware file reachable
+  through that barrel pulled in `@zanix/utils`'s full `logger`/`WorkerManager` chain instead of the
+  browser-safe entry. `ZANIX_DEPENDENCY_VERSIONS['@zanix/space']`'s floor is now `^1.4.2`, where the
+  barrel no longer reaches that chain.
+- `zanix new space`/`space-server` never declared `compilerOptions.lib`, so a comet/page calling a
+  DOM/BOM API directly (`document`, `window`, `navigator`, `HTMLElement`) could fail `deno check`/
+  `deno test` inconsistently depending on invocation shape (config-driven discovery resolves a
+  DOM-inclusive default; an explicit file path argument resolves a narrower one). Both project types
+  now declare `"lib": ["deno.window", "dom", "dom.iterable"]` explicitly, matching `@zanix/space-ui`'s
+  own `deno.jsonc`.
 
 ### Changed
 

@@ -163,6 +163,32 @@ Deno.test(
 )
 
 Deno.test(
+  "baseZnxConfig: space/space-server declare an explicit DOM-inclusive lib — Deno's own default " +
+    'diverges between config-discovered and explicit-file-path invocation, and comets/pages call ' +
+    'DOM/BOM APIs (document, window, HTMLElement) directly, not just through JSX',
+  () => {
+    assertEquals(baseZnxConfig('space').compilerOptions?.lib, [
+      'deno.window',
+      'dom',
+      'dom.iterable',
+    ])
+    assertEquals(
+      baseZnxConfig('space-server').compilerOptions?.lib,
+      ['deno.window', 'dom', 'dom.iterable'],
+    )
+  },
+)
+
+Deno.test(
+  'baseZnxConfig: lib is never set for project types that never carry @zanix/space at all',
+  () => {
+    assertEquals(baseZnxConfig('server').compilerOptions?.lib, undefined)
+    assertEquals(baseZnxConfig('library').compilerOptions?.lib, undefined)
+    assertEquals(baseZnxConfig('app').compilerOptions?.lib, undefined)
+  },
+)
+
+Deno.test(
   'baseZnxConfig: every project type gets a real, valid-shaped version field — deno publish ' +
     "--dry-run fails outright without one, regardless of a type's own publish block",
   () => {

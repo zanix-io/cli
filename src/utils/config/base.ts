@@ -98,7 +98,7 @@ export function baseZnxConfig(
   type: ZanixProjects,
   renderer: 'react' | 'preact' = 'react',
   root: string | undefined = undefined,
-): ConfigFile {
+): ConfigFile & { compilerOptions?: ConfigFile['compilerOptions'] & { lib?: string[] } } {
   const paths = getZanixPaths(type)
   const znxMainFolders = paths.subfolders
   const dist = znxMainFolders['.dist'].NAME
@@ -118,7 +118,9 @@ export function baseZnxConfig(
   // pure `declare global` file — so a type used only from code the static graph can't see (e.g. a
   // runtime-discovered handler) silently fails to resolve instead of being caught.
   const typingsPath = znxMainFolders.src.subfolders.typings
-  const compilerOptions: ConfigFile['compilerOptions'] = {
+  // `lib` isn't in `@zanix/types`'s own `ConfigFile['compilerOptions']` shape yet — only
+  // `space`/`space-server` ever set it, below (see this function's own return type).
+  const compilerOptions: ConfigFile['compilerOptions'] & { lib?: string[] } = {
     strict: true,
     noImplicitAny: true,
     types: [`./${getRelativePath(typingsPath.FOLDER)}/index.d.ts`],
@@ -210,6 +212,15 @@ export function baseZnxConfig(
     // purely off this compiler option, never a hardcoded `react`/`preact` import of their own.
     compilerOptions.jsx = 'react-jsx'
     compilerOptions.jsxImportSource = renderer
+    // Explicit because Deno's default `lib` set depends on invocation shape: config-driven
+    // discovery (matching a `test.include` glob, or plain directory-wide `deno check`) resolves a
+    // DOM-inclusive default, while an explicit file path argument (`deno check src/space/comets/
+    // x.comet.tsx`, `deno test path/to/one.test.tsx`) resolves a narrower, DOM-exclusive one.
+    // Comets/pages routinely call DOM/BOM APIs directly (`document`, `window`, `navigator`,
+    // `HTMLElement`), which need `lib` declared explicitly to type-check consistently under either
+    // invocation shape — `@zanix/space-ui`'s own `deno.jsonc` declares the identical entry for the
+    // same reason.
+    compilerOptions.lib = ['deno.window', 'dom', 'dom.iterable']
   }
   if (type === 'library' || type === 'app') {
     // A `defineZanixApp()`-based package is published/consumed exactly like any other Deno/JSR
