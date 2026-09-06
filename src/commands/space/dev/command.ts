@@ -6,7 +6,9 @@ import {
 } from 'commands/space/shared/validation-flags.ts'
 
 /** Options `spaceDevAction` (`action.ts`) accepts, straight off the parsed CLI flags. */
-export type SpaceDevOptions = { port?: number; graphqlCheck?: boolean } & SpaceValidationOptions
+export type SpaceDevOptions =
+  & { port?: number; envFile?: string; graphqlCheck?: boolean }
+  & SpaceValidationOptions
 
 /**
  * `commands/space/dev/action.ts`'s own real path, kept as a non-literal reference — never inlined
@@ -55,6 +57,14 @@ export function registerSpaceDevCommand(cwd: Commander): void {
     .option(
       '-p --port <port:number>',
       "The SSR server's port. Defaults to 20202.",
+    )
+    .option(
+      '--env-file <path:string>',
+      "The .env file to load and export before this project's own space.app.ts is imported — " +
+        "same effect start/worker's own --env-file=.env has via deno run, since zanix space dev " +
+        'has no deno run invocation of its own to attach that flag to. Resolved relative to the ' +
+        "project root. Degrades gracefully (never an error) when the file doesn't exist. " +
+        "Defaults to '.env'.",
     )
     .option(
       '--no-graphql-check',

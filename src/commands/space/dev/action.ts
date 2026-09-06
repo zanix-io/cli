@@ -6,6 +6,7 @@ import type * as ZanixSpaceModule from '@zanix/space'
 import type * as ZanixAppRuntimeModule from '@zanix/app/runtime'
 
 import { dirname, resolve } from '@std/path'
+import { parse as parseEnvFile } from '@std/dotenv'
 import { assertProjectType, getCurrentProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
 import {
@@ -132,6 +133,31 @@ export function watchSpaceAppFile(spaceAppPath: string, onRestart: () => Promise
  * `activateApps` is only needed after `createSpaceDevEngine`/`importSpaceApp` above have already
  * run, so there's no reason to resolve it any earlier even within this already-lazy module.
  */
+/**
+ * Reads `envPath`, parses its `KEY=value` lines, and exports every one into `Deno.env` — never
+ * overwriting a key already present there, so a real, explicitly-exported shell variable always
+ * wins over the same key's `.env` value. A missing file is not an error: the normal case for a
+ * project with no `.env` at all, or one whose `--env-file` names a path that doesn't exist yet.
+ *
+ * Hand-rolled from `@std/dotenv`'s own still-supported `parse()` (never its `load()` export, which
+ * `@std/dotenv` itself marks for removal) plus a plain `Deno.readTextFile` — this is `load()`'s own
+ * documented `export: true` behavior, reproduced directly: skip any key `Deno.env.get(key)` already
+ * answers, set every other one.
+ */
+async function loadEnvFileVars(envPath: string): Promise<void> {
+  let text: string
+  try {
+    text = await Deno.readTextFile(envPath)
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return
+    throw error
+  }
+  for (const [key, value] of Object.entries(parseEnvFile(text))) {
+    if (Deno.env.get(key) !== undefined) continue
+    Deno.env.set(key, value)
+  }
+}
+
 async function spaceDevAction(
   this: Commander,
   options: SpaceDevOptions,
@@ -139,6 +165,16 @@ async function spaceDevAction(
   assertProjectType(this, ['space', 'space-server'], 'space dev')
 
   const root = Deno.cwd()
+  // `start`/`worker` (`getBaseTasks`, `utils/config/base.ts`) get `.env` for free from their own
+  // `deno run --env-file=.env ...` task string, degrading gracefully (a Deno warning, never an
+  // error) when `.env` doesn't exist yet. `zanix space dev` has no equivalent task-level flag to
+  // attach that to — it runs as a subcommand of the already-started, globally-installed `zanix`/
+  // `znx` binary, not a fresh `deno run <file>` invocation this generated task controls — so
+  // `--env-file` (`command.ts`) loads and exports the SAME file in-process instead, via
+  // `loadEnvFileVars` above, with the identical missing-file tolerance. Must run before
+  // `importSpaceApp` below: `space.app.ts` (or anything it imports, e.g. a `theme.resolve`/config
+  // function) may read `Deno.env.get(...)` at import time, well before this command activates it.
+  await loadEnvFileVars(resolve(root, options.envFile ?? '.env'))
   // Before anything else touches this project's own tree — a killed earlier `zanix space dev`/
   // `build` session (Ctrl+C, a crash) can leave a `.zanix-import-*.js` temp file behind (see
   // `sweepStaleGeneratedModules`'s own doc for why nothing legitimate ever survives to a LATER,

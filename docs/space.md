@@ -11,10 +11,10 @@ subcommand's own section below. Running `zanix space` with no subcommand errors 
 zanix space <dev|build>
 ```
 
-| Subcommand   | Command             | Options                                                                                | Does                                                             |
-| ------------ | ------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--no-graphql-check`                            | Runs the project with real file-watching HMR — see [below](#dev) |
-| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--no-messages`, `--no-graphql-check` | Builds the real, production client bundle — see [below](#build)  |
+| Subcommand   | Command             | Options                                                                                           | Does                                                             |
+| ------------ | ------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--env-file <path>` (default `.env`), `--no-graphql-check` | Runs the project with real file-watching HMR — see [below](#dev) |
+| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--no-messages`, `--no-graphql-check`            | Builds the real, production client bundle — see [below](#build)  |
 
 ## Dev
 
@@ -29,6 +29,16 @@ browser-facing asset transform, automatic reload) — never a substitute for
 `20202` (`@zanix/server`'s own static port default for an `'ssr'` server); the same port also
 serves the dev-only WebSocket connection the browser uses to receive HMR updates, so there's only
 ever one port to open, same-origin.
+
+`--env-file <path>` loads and exports the named file (relative to the project root) into
+`Deno.env` before `space.app.ts` is imported — degrades gracefully (never an error) when the file
+doesn't exist. Defaults to `.env`, the same default `start`/`worker` get for free from their own
+`deno run --env-file=.env ...` task; `zanix space dev` has no `deno run <file>` invocation of its
+own to attach that Deno-native flag to (it's a subcommand of the already-running `zanix`/`znx`
+binary), so this is its own option achieving the same effect. `zanix new space`/`space-server`'s
+own generated `dev` task passes it explicitly (`deno install && zanix space dev --env-file=.env`).
+This never affects `start`/`worker` in production — those keep using Deno's own `--env-file` flag,
+unrelated to this option.
 
 Only valid inside a `space`/`space-server` project — errors out otherwise. Also runs the
 [GraphQL check](#graphql-check) once at boot (`--no-graphql-check` opts out); unlike a build, a

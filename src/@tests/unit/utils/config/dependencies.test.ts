@@ -162,8 +162,11 @@ Deno.test('baseZnxConfig gives server/space/space-server a dev/start task', () =
   // `space-server` get `zanix space dev` instead — real HMR, never a bare process restart — which
   // never references `mod.ts` itself (it imports the project's own `space.app.ts`, not `mod.ts`).
   assertEquals(baseZnxConfig('server').tasks?.dev?.includes('mod.ts'), true)
-  assertEquals(baseZnxConfig('space').tasks?.dev, 'deno install && zanix space dev')
-  assertEquals(baseZnxConfig('space-server').tasks?.dev, 'deno install && zanix space dev')
+  assertEquals(baseZnxConfig('space').tasks?.dev, 'deno install && zanix space dev --env-file=.env')
+  assertEquals(
+    baseZnxConfig('space-server').tasks?.dev,
+    'deno install && zanix space dev --env-file=.env',
+  )
 })
 
 Deno.test('baseZnxConfig gives library/app no dev/start task — no runnable process', () => {

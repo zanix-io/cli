@@ -172,8 +172,15 @@ export function baseZnxConfig(
       // once already installed, so this is safe to run unconditionally on every `dev` invocation,
       // not just the first. The generic `deno run --watch` task below needs no equivalent: a plain
       // `server`/`app` project's own module graph is Deno-native, resolved lazily as normal.
+      //
+      // `--env-file=.env` here is `zanix space dev`'s OWN option (`command.ts`), never Deno's
+      // native flag — `zanix space dev` runs as a subcommand of the already-started, globally-
+      // installed `zanix`/`znx` binary, not a fresh `deno run <file>` invocation this task string
+      // controls, so there's no Deno-native `--env-file` to attach here the way `start`/`worker`
+      // below do. `spaceDevAction` loads and exports the named file in-process instead, with the
+      // same missing-file tolerance.
       dev: isSpaceType
-        ? 'deno install && zanix space dev'
+        ? 'deno install && zanix space dev --env-file=.env'
         : `deno check && deno run --watch --env-file=.env -A ${MAIN_MODULE}`,
       // `space`/`space-server` only — the client-bundle build step (`zanix space build`) other
       // project types have no equivalent of (a plain `deno run --watch` dev loop needs no separate

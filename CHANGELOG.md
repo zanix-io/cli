@@ -72,6 +72,15 @@ and this project adheres to
   change is a paired old-version/new-version swap for a package this project already depended on
   (`@zanix/space-ui@1.0.0→2.0.0`, `@zanix/space@1.4.2→1.5.0`, `@zanix/server@4.2.1→4.2.2`,
   `@zanix/utils@4.2.1→4.4.0`), nothing dropped.
+- **`zanix new space`/`space-server`'s generated `dev` task never loaded a project's own `.env`
+  file, unlike `start`/`worker` (`deno run --env-file=.env ...`) generated for the exact same
+  project.** `zanix space dev` runs as a subcommand of the already-started, globally-installed
+  `zanix`/`znx` binary rather than a fresh `deno run <file>` invocation the generated task string
+  controls, so there was no Deno-native task-level flag to attach `--env-file` to. `zanix space dev`
+  now has its own `--env-file <path>` option (default `'.env'`) that loads and exports the named
+  file in-process (`@std/dotenv`'s `load({ export: true })`) before `space.app.ts` is imported, with
+  the same missing-file tolerance `--env-file=.env` already has for `start`/`worker`. The generated
+  `dev` task now passes it explicitly: `deno install && zanix space dev --env-file=.env`.
 
 ### Changed
 

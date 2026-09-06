@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.9-alpha.5",
+  "version": "2.0.9-alpha.6",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -249,6 +249,12 @@
     // `promptSecret()` — `zanix credentials password-hash`'s own hidden, un-echoed password
     // input when no positional argument is given (`commands/credentials/password-hash/command.ts`).
     "@std/cli": "jsr:@std/cli@1.0.32",
+    // `load()` — `zanix space dev`'s own `.env` loading (`commands/space/dev/action.ts`). Unlike
+    // `start`/`worker` (plain `deno run --env-file=.env ...`), `zanix space dev` runs as a
+    // subcommand of the already-started, globally-installed `zanix`/`znx` binary, so there's no
+    // `deno run` invocation of the generated task itself to attach `--env-file` to; loading and
+    // exporting `.env` in-process is the equivalent for this one task.
+    "@std/dotenv": "jsr:@std/dotenv@0.225.8",
     "typings/": "./src/typings/",
     "shared/": "./src/shared/",
     "utils/": "./src/utils/",

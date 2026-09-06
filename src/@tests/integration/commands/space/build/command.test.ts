@@ -155,9 +155,9 @@ Deno.test(
       // fixed because a red test is not something to hand over.
       assertEquals(cssManifest.global.length, 1)
 
-      // Excludes the client-entry chunk (`hydrateComets()`/`initOrbit()`, its own real, always-built
-      // entry — see `build-client.ts`'s own doc) — this scaffold's only COMET chunk is what the rest
-      // of this assertion cares about.
+      // Excludes the client-entry chunk (`initClientEntry()`, its own real, always-built entry —
+      // see `build-client.ts`'s own doc) — this scaffold's only COMET chunk is what the rest of
+      // this assertion cares about.
       const jsAssets = []
       for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
         if (entry.name.endsWith('.js') && !entry.name.startsWith('client-entry')) {

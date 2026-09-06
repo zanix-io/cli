@@ -3,12 +3,20 @@ import { baseZnxConfig, INITIAL_PROJECT_VERSION, RUN_PERMISSIONS } from 'utils/c
 import type { ZanixProjects } from '@zanix/types'
 
 Deno.test(
-  'baseZnxConfig: space/space-server get `deno install && zanix space dev`, never the generic ' +
-    'watch-reload — `deno install` runs first so Vite never hits an unresolved npm-backed import ' +
-    "(e.g. react-dom) on a fresh scaffold's very first run",
+  'baseZnxConfig: space/space-server get `deno install && zanix space dev --env-file=.env`, ' +
+    'never the generic watch-reload — `deno install` runs first so Vite never hits an unresolved ' +
+    "npm-backed import (e.g. react-dom) on a fresh scaffold's very first run, and --env-file=.env " +
+    "is zanix space dev's OWN option (never Deno's native flag — this isn't a `deno run` " +
+    "invocation), matching start/worker's own default",
   () => {
-    assertEquals(baseZnxConfig('space').tasks?.dev, 'deno install && zanix space dev')
-    assertEquals(baseZnxConfig('space-server').tasks?.dev, 'deno install && zanix space dev')
+    assertEquals(
+      baseZnxConfig('space').tasks?.dev,
+      'deno install && zanix space dev --env-file=.env',
+    )
+    assertEquals(
+      baseZnxConfig('space-server').tasks?.dev,
+      'deno install && zanix space dev --env-file=.env',
+    )
   },
 )
 
