@@ -62,6 +62,16 @@ and this project adheres to
   DOM-inclusive default; an explicit file path argument resolves a narrower one). Both project types
   now declare `"lib": ["deno.window", "dom", "dom.iterable"]` explicitly, matching `@zanix/space-ui`'s
   own `deno.jsonc`.
+- `ZANIX_DEPENDENCY_VERSIONS`/`deno.jsonc`'s own floors for `@zanix/space-ui` (`^1.0.0` → `^2.0.0`)
+  now require the real breaking release that fixes `Menu`'s comet incompatibility (`Menu` drops its
+  `@zanix/space` dependency and moves out of `./runtime`; `image` is replaced by `visual`) —
+  previously allowed but not required, so a project could still resolve the old, comet-broken `Menu`
+  under the same range. `deno.lock` regenerated against a full `deno test` run (not `deno check`
+  against a single entry file), which is what keeps every command whose own dependencies resolve
+  only through a dynamically-imported `action.ts` correctly pinned too — confirmed by diff: every
+  change is a paired old-version/new-version swap for a package this project already depended on
+  (`@zanix/space-ui@1.0.0→2.0.0`, `@zanix/space@1.4.2→1.5.0`, `@zanix/server@4.2.1→4.2.2`,
+  `@zanix/utils@4.2.1→4.4.0`), nothing dropped.
 
 ### Changed
 

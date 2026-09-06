@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.9-alpha.4",
+  "version": "2.0.9-alpha.5",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -125,10 +125,15 @@
     "@zanix/space/client/preact": "jsr:@zanix/space@^1.4.2/client/preact",
     "@zanix/space/react": "jsr:@zanix/space@^1.4.2/react",
     "@zanix/space/preact": "jsr:@zanix/space@^1.4.2/preact",
-    "@zanix/space-ui": "jsr:@zanix/space-ui@^1.0.0",
-    "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^1.0.0/preact",
-    "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^1.0.0/runtime",
-    "@zanix/space-ui/runtime/preact": "jsr:@zanix/space-ui@^1.0.0/runtime/preact",
+    // Floor bumped to `^2.0.0` for the `Menu`/`NavDrawer` breaking change (`Menu` drops its
+    // `@zanix/space` dependency and moves from `./runtime` to the default entrypoint; `image` is
+    // replaced by `visual`) — published, `deno.lock` regenerated against the real release
+    // (confirmed via a full `deno test` run, not just `deno check`, so every dynamically-imported
+    // command's own dependency stayed pinned too).
+    "@zanix/space-ui": "jsr:@zanix/space-ui@^2.0.0",
+    "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^2.0.0/preact",
+    "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^2.0.0/runtime",
+    "@zanix/space-ui/runtime/preact": "jsr:@zanix/space-ui@^2.0.0/runtime/preact",
     // The one real ICU dependency this package owns — `@zanix/space` itself never depends on this
     // (see `compile-messages.ts`'s own module doc). Same version `@zanix/space-ui` pins for its own
     // (type-only) reference to `MessageFormatElement`, kept in sync deliberately, not by accident.

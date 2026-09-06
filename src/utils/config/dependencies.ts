@@ -95,7 +95,10 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`
   // fetches its scaffold icon catalog from; that function needs no change of its own now that this
   // entry exists, by design (see its own doc).
-  '@zanix/space-ui': 'jsr:@zanix/space-ui@^1.0.0',
+  // Floor bumped to `^2.0.0` for the `Menu`/`NavDrawer` breaking change (see `deno.jsonc`'s own
+  // matching entry) — published; `resolveSpaceUiVersion`'s own `--icons` fetch resolves against
+  // the real `2.0.0` release.
+  '@zanix/space-ui': 'jsr:@zanix/space-ui@^2.0.0',
   // Same subpath-alias convention as `@zanix/validator`/`@zanix/types` above (both real `@zanix/
   // utils` subpaths, pinned to the same floor as those two rather than the bare package's own
   // caret range) — `app`'s generated `mod.ts` (`getAppModTemplate`) imports the real Zanix

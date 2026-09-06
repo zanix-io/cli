@@ -58,27 +58,29 @@
     "jsr:@zanix/datamaster@^1.9.1": "1.9.1",
     "jsr:@zanix/notifications@1": "1.2.1",
     "jsr:@zanix/notifications@^1.1.0": "1.2.1",
-    "jsr:@zanix/server@4": "4.2.1",
-    "jsr:@zanix/server@^4.1.0": "4.2.1",
-    "jsr:@zanix/server@^4.2.1": "4.2.1",
-    "jsr:@zanix/space-ui@1": "1.0.0",
-    "jsr:@zanix/space@^1.3.0": "1.4.2",
-    "jsr:@zanix/space@^1.4.2": "1.4.2",
-    "jsr:@zanix/utils@4": "4.2.1",
-    "jsr:@zanix/utils@^4.1.0": "4.2.1",
-    "jsr:@zanix/utils@^4.2.1": "4.2.1",
-    "npm:@deno/vite-plugin@^2.0.3": "2.0.3_vite@8.2.2",
+    "jsr:@zanix/server@4": "4.2.2",
+    "jsr:@zanix/server@^4.1.0": "4.2.2",
+    "jsr:@zanix/server@^4.2.1": "4.2.2",
+    "jsr:@zanix/space-ui@2": "2.0.0",
+    "jsr:@zanix/space@1": "1.5.0",
+    "jsr:@zanix/space@^1.3.0": "1.5.0",
+    "jsr:@zanix/space@^1.4.2": "1.5.0",
+    "jsr:@zanix/utils@4": "4.4.0",
+    "jsr:@zanix/utils@^4.1.0": "4.4.0",
+    "jsr:@zanix/utils@^4.2.1": "4.4.0",
+    "jsr:@zanix/utils@^4.4.0": "4.4.0",
+    "npm:@deno/vite-plugin@^2.0.3": "2.0.3_vite@8.2.2_esbuild@0.20.2",
     "npm:@formatjs/icu-messageformat-parser@^3.5.17": "3.5.17",
     "npm:@formatjs/intl@^4.1.19": "4.1.20",
-    "npm:@preact/preset-vite@^2.10.6": "2.10.6_@babel+core@7.29.7_vite@8.2.2_preact@10.29.8",
+    "npm:@preact/preset-vite@^2.10.6": "2.10.6_@babel+core@7.29.7_vite@8.2.2_esbuild@0.20.2_preact@10.29.8",
     "npm:@prefresh/core@^1.5.10": "1.5.11_preact@10.29.8",
     "npm:@prefresh/utils@^1.2.1": "1.2.1",
-    "npm:@rolldown/plugin-babel@~0.2.3": "0.2.3_vite@8.2.2",
-    "npm:@tailwindcss/vite@^4.3.3": "4.3.3_vite@8.2.2",
+    "npm:@rolldown/plugin-babel@~0.2.3": "0.2.3_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2",
+    "npm:@tailwindcss/vite@^4.3.3": "4.3.3_vite@8.2.2_esbuild@0.20.2",
     "npm:@types/react-dom@^19.2.0": "19.2.7_@types+react@19.2.18",
     "npm:@types/react@^19.2.0": "19.2.18",
-    "npm:@vanilla-extract/vite-plugin@^5.2.6": "5.2.6_vite@8.2.2",
-    "npm:@vitejs/plugin-react@^6.0.5": "6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2",
+    "npm:@vanilla-extract/vite-plugin@^5.2.6": "5.2.6_vite@8.2.2_esbuild@0.20.2",
+    "npm:@vitejs/plugin-react@^6.0.5": "6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7",
     "npm:amqplib@^2.0.1": "2.0.1",
     "npm:babel-plugin-react-compiler@1": "1.0.0",
     "npm:es-module-lexer@^1.5.4": "1.7.0",
@@ -363,8 +365,8 @@
         "npm:handlebars"
       ]
     },
-    "@zanix/server@4.2.1": {
-      "integrity": "880e39db0a58012b8cc8cac26e366bd7d0d8c2069c4ad68a9cf185fec2172b45",
+    "@zanix/server@4.2.2": {
+      "integrity": "b1d60ae6b9d68abd3d7a8f1c15e946d19d28e23f4925743b336b3b0b3c0a1402",
       "dependencies": [
         "jsr:@std/http",
         "jsr:@std/path@0.224",
@@ -394,14 +396,13 @@
         "npm:vite"
       ]
     },
-    "@zanix/space@1.4.2": {
-      "integrity": "ef45328643879f8f0c46e38c86b5a27c7384503b4f0f7dab724047855c828ea7",
+    "@zanix/space@1.5.0": {
+      "integrity": "4f1e87dc782d26ddb3fe979a94b647475113e8a762fda1c81d5d9d62d305a6f1",
       "dependencies": [
         "jsr:@deno/loader",
         "jsr:@std/path@0.224",
         "jsr:@zanix/app@1",
         "jsr:@zanix/server@^4.1.0",
-        "jsr:@zanix/space@^1.4.2",
         "jsr:@zanix/utils@^4.1.0",
         "npm:@deno/vite-plugin",
         "npm:@preact/preset-vite",
@@ -421,10 +422,11 @@
         "npm:vite"
       ]
     },
-    "@zanix/space-ui@1.0.0": {
-      "integrity": "ca5a4d21a79d6a4ba493fd60d4f10d995359376bc94525fcede388af727245b0",
+    "@zanix/space-ui@2.0.0": {
+      "integrity": "87c4d9cf23489ed9677e2dd99b053bb4e9a89425a2ae961ea94f385d47fcea6f",
       "dependencies": [
-        "jsr:@zanix/utils@^4.1.0",
+        "jsr:@zanix/space@1",
+        "jsr:@zanix/utils@^4.4.0",
         "npm:@formatjs/icu-messageformat-parser",
         "npm:@formatjs/intl",
         "npm:@types/react",
@@ -432,8 +434,8 @@
         "npm:schema-dts"
       ]
     },
-    "@zanix/utils@4.2.1": {
-      "integrity": "0945cd5bd7de0068343f1fa04625e6c632ba7d41f6180acb960d92aae50c67b6",
+    "@zanix/utils@4.4.0": {
+      "integrity": "759615e2b3e91c3e51696cf9cebd3f056d6e238372024860651b3672e817e339",
       "dependencies": [
         "jsr:@std/crypto",
         "jsr:@std/fmt@0.224",
@@ -606,7 +608,7 @@
         "@babel/helper-validator-identifier"
       ]
     },
-    "@deno/vite-plugin@2.0.3_vite@8.2.2": {
+    "@deno/vite-plugin@2.0.3_vite@8.2.2_esbuild@0.20.2": {
       "integrity": "sha512-TbIawVRFqIfshSa4CYEPMgLbEIKHg+WXymWvvwlsyct1X8tG4O1OrQldvU/faw6bw7NBCyxVYdT4iIv93jQSig==",
       "dependencies": [
         "@deno/loader@npm:@jsr/deno__loader@0.5.0",
@@ -1022,7 +1024,7 @@
     "@oxc-project/types@0.148.0": {
       "integrity": "sha512-Nm4s/jB+4FpFsPhWGEC4h7rzksesmtnMXomo6rCMcg/b8zLQuOziRgkCS1fxDCXOlJB/6Q8oABOZ/OP6RIPj9A=="
     },
-    "@preact/preset-vite@2.10.6_@babel+core@7.29.7_vite@8.2.2_preact@10.29.8": {
+    "@preact/preset-vite@2.10.6_@babel+core@7.29.7_vite@8.2.2_esbuild@0.20.2_preact@10.29.8": {
       "integrity": "sha512-ZZ5RIT2ZVXg8UxRA8VZpoT8CdpDG7RFIqOT4bELqNBp85+HKvQBbgmh3gsoW1UOQXx26TLe+ZRNKI7q281Kckw==",
       "dependencies": [
         "@babel/core",
@@ -1051,7 +1053,7 @@
     "@prefresh/utils@1.2.1": {
       "integrity": "sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw=="
     },
-    "@prefresh/vite@2.4.12_preact@10.29.8_vite@8.2.2": {
+    "@prefresh/vite@2.4.12_preact@10.29.8_vite@8.2.2_esbuild@0.20.2": {
       "integrity": "sha512-FY1fzXpUjiuosznMV0YM7XAOPZjB5FIdWS0W24+XnlxYkt9hNAwwsiKYn+cuTEoMtD/ZVazS5QVssBr9YhpCQA==",
       "dependencies": [
         "@babel/core",
@@ -1168,9 +1170,10 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@rolldown/plugin-babel@0.2.3_vite@8.2.2": {
+    "@rolldown/plugin-babel@0.2.3_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2": {
       "integrity": "sha512-+zEk16yGlz1F9STiRr6uG9hmIXb6nprjLczV/htGptYuLoCuxb+itZ03RKCEeOhBpDDd1NU7qF6x1VLMUp62bw==",
       "dependencies": [
+        "@babel/core",
         "picomatch@4.0.7",
         "rolldown",
         "vite"
@@ -1285,7 +1288,7 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tailwindcss/vite@4.3.3_vite@8.2.2": {
+    "@tailwindcss/vite@4.3.3_vite@8.2.2_esbuild@0.20.2": {
       "integrity": "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==",
       "dependencies": [
         "@tailwindcss/node",
@@ -1336,7 +1339,7 @@
         "@babel/core"
       ]
     },
-    "@vanilla-extract/compiler@0.7.2": {
+    "@vanilla-extract/compiler@0.7.2_esbuild@0.20.2": {
       "integrity": "sha512-VslwMJ01taDhJmMo0+A0SWn2dloMnYi0+BbvLuXXlqK4ufVRwXsq/U/Fp8ANkw3jevmQXy+JL7VtIQdjEtylDQ==",
       "dependencies": [
         "@vanilla-extract/css",
@@ -1379,7 +1382,7 @@
     "@vanilla-extract/private@1.0.9": {
       "integrity": "sha512-gT2jbfZuaaCLrAxwXbRgIhGhcXbRZCG3v4TTUnjw0EJ7ArdBRxkq4msNJkbuRkCgfIK5ATmprB5t9ljvLeFDEA=="
     },
-    "@vanilla-extract/vite-plugin@5.2.6_vite@8.2.2": {
+    "@vanilla-extract/vite-plugin@5.2.6_vite@8.2.2_esbuild@0.20.2": {
       "integrity": "sha512-mGk0YEan+NyeoxEO51LfxOdtw2JBI+Yb840FGg+zvG6tVU3YfDgKGPiGuk5oT8jqzfsm7H89DyjOVCpl6Bnn0w==",
       "dependencies": [
         "@vanilla-extract/compiler",
@@ -1387,7 +1390,7 @@
         "vite"
       ]
     },
-    "@vitejs/plugin-react@6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2": {
+    "@vitejs/plugin-react@6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7": {
       "integrity": "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==",
       "dependencies": [
         "@rolldown/plugin-babel",
@@ -2828,7 +2831,7 @@
     "validator@13.15.35": {
       "integrity": "sha512-TQ5pAGhd5whStmqWvYF4OjQROlmv9SMFVt37qoCBdqRffuuklWYQlCNnEs2ZaIBD1kZRNnikiZOS1eqgkar0iw=="
     },
-    "vite-node@6.0.0": {
+    "vite-node@6.0.0_esbuild@0.20.2": {
       "integrity": "sha512-oj4PVrT+pDh6GYf5wfUXkcZyekYS8kKPfLPXVl8qe324Ec6l4K2DUKNadRbZ3LQl0qGcDz+PyOo7ZAh00Y+JjQ==",
       "dependencies": [
         "cac",
@@ -2839,7 +2842,7 @@
       ],
       "bin": true
     },
-    "vite-prerender-plugin@0.5.13_vite@8.2.2": {
+    "vite-prerender-plugin@0.5.13_vite@8.2.2_esbuild@0.20.2": {
       "integrity": "sha512-IKSpYkzDBsKAxa05naRbj7GvNVMSdww/Z/E89oO3xndz+gWnOBOKOAbEXv7qDhktY/j3vHgJmoV1pPzqU2tx9g==",
       "dependencies": [
         "kolorist",
@@ -2927,7 +2930,7 @@
       "jsr:@zanix/datamaster@^1.9.1",
       "jsr:@zanix/notifications@^1.1.0",
       "jsr:@zanix/server@^4.2.1",
-      "jsr:@zanix/space-ui@1",
+      "jsr:@zanix/space-ui@2",
       "jsr:@zanix/space@^1.4.2",
       "jsr:@zanix/utils@^4.2.1",
       "npm:@formatjs/icu-messageformat-parser@^3.5.17",
