@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.0.9-alpha.6",
+  "version": "2.0.9",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -29,17 +29,18 @@
     "new": "deno task znx new",
     "generate": "deno task znx generate",
     "prepare": "deno task znx prepare -g -e",
-    // `deno install -g` only resolves/locks packages reachable from `mod.ts`'s STATIC import
-    // graph — every command whose real body lives in a dynamically-imported `action.ts` (the
-    // lazy-dispatch pattern this repo uses to keep the CLI surface eager/lightweight) resolves its
-    // own dependencies fresh at runtime instead, which puts them back under Deno's default 24h
-    // minimum-dependency-age policy no matter what `--minimum-dependency-age` value was passed at
-    // install time — that flag configures the install step, not the generated shim's runtime
-    // behavior, and the shim never bakes it in. Copying this repo's own complete `deno.lock` (which
-    // already has every dependency resolved, including the ones only reached via `action.ts`) over
-    // the installed shim's own partial lock file makes those dynamic imports reuse an already-locked
-    // version instead of triggering fresh, age-gated resolution.
-    "cli:install": "deno install -f --minimum-dependency-age 0 -A -g -n zanix --config ./deno.jsonc ./mod.ts && cp ./deno.lock \"$HOME/.deno/bin/.zanix/deno.lock\"",
+    // Routes through this package's own real installer (`src/installation/setup.ts`, `--local`
+    // mode) instead of a standalone `deno install` line — a real, confirmed gap this replaced: the
+    // old standalone line installed straight from `./mod.ts` and never went through JSR at all, so
+    // it could never exercise (or catch a regression in) the code path a real end-user's `deno run
+    // -A jsr:@zanix/cli check-cycles`/`deno install -g jsr:@zanix/cli` actually goes through —
+    // including `deno install -g`'s own dynamic-import dependency-locking gap `setup.ts` already
+    // handles (only packages reachable from `mod.ts`'s STATIC import graph get resolved/locked at
+    // install time; every command whose real body lives in a dynamically-imported `action.ts`, this
+    // repo's own lazy-dispatch pattern, resolves fresh at runtime instead, hitting Deno's default
+    // 24h minimum-dependency-age policy regardless of what was passed at install time — `setup.ts`
+    // fixes this by syncing this checkout's own complete `deno.lock` into the installed shim's).
+    "cli:install": "deno run -A ./src/installation/setup.ts --local",
     "cli:uninstall": "deno uninstall -g zanix"
   },
   "exclude": ["**/__tmp__/**"],
