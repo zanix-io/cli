@@ -13,38 +13,19 @@
  * resolve against a version that actually declares this export. Installing a version published
  * within the last 24 hours fails before this script ever runs, with Deno's own "minimum
  * dependency age" error — add `--minimum-dependency-age 0` right after `-A` in that case.
- *
- * `--local` mode (`deno run -A ./src/installation/setup.ts --local`, wired to this repo's own
- * `deno task cli:install`) installs THIS checkout instead of a published `jsr:@zanix/cli@version`
- * — the maintainer's own "try my local changes as the real global `zanix` binary" workflow. It's
- * the same script, not a separate one, specifically so the install/smoke-test/lockfile-sync steps
- * a real end-user goes through never drift out of sync with what the maintainer exercises day to
- * day (a real, confirmed gap this replaced: the old standalone `cli:install` task line installed
- * straight from `./mod.ts` and never went through JSR at all, so it could never have caught a bug
- * that only reproduces once THIS module itself loads from a real remote specifier — exactly what
- * broke `check-cycles`'s own `import.meta.url` handling). `fromFileUrl` is safe to use in the
- * `--local` branches below ONLY because `--local` is, by construction, never invoked any other way
- * than as a real local file (there is no "remote local install" — the concept is a contradiction),
- * unlike this package's OWN internal modules, which must never assume `import.meta.url` is
- * `file://` (see `commands/check-cycles/lib/analyze.ts`'s `runHarness` for the real bug that
- * assumption caused).
  */
 
-import { fromFileUrl } from '@std/path'
 import { parse as parseJsonc } from '@std/jsonc'
-
-const isLocal = Deno.args[0] === '--local'
 
 // Derived from this package's own `deno.jsonc`, not a hardcoded literal — the source of truth
 // for what "latest" means stays in one place. `fetch` (not `Deno.readTextFile`) works whether
 // `import.meta.url` is a real `file://` checkout or `https://jsr.io/...`. Falls back to a fixed
-// literal only if this file is ever invoked outside its own published package layout. Skipped
-// entirely in `--local` mode — there is no version to resolve, only this checkout on disk.
-const LATEST = isLocal ? undefined : await fetch(new URL('../../deno.jsonc', import.meta.url))
+// literal only if this file is ever invoked outside its own published package layout.
+const LATEST = await fetch(new URL('../../deno.jsonc', import.meta.url))
   .then((response) => response.text())
   .then((text) => (parseJsonc(text) as { version: string }).version)
   .catch(() => '2.0.8')
-const VERSION = isLocal ? undefined : (Deno.args[0] ?? LATEST)
+const VERSION = Deno.args[0] ?? LATEST
 const BIN_NAME = 'zanix'
 const SEPARATOR = '==================================================='
 
@@ -125,47 +106,30 @@ console.log(
 )
 console.log(SEPARATOR)
 
-// Check if Zanix is already installed — skipped in `--local` mode, which always force-reinstalls
-// (`-f`, added to `installArgs` below) instead of prompting: a maintainer re-running this after
-// every local change would otherwise hit a confirmation prompt on every single iteration.
-if (!isLocal) {
-  if (await commandExists(BIN_NAME)) {
-    if (await confirm('Zanix is already installed. Do you want to replace the current version?')) {
-      info('Updating...')
-      await run('deno', ['uninstall', '-g', BIN_NAME])
-    } else {
-      fail('Installation will not proceed.')
-    }
+// Check if Zanix is already installed
+if (await commandExists(BIN_NAME)) {
+  if (await confirm('Zanix is already installed. Do you want to replace the current version?')) {
+    info('Updating...')
+    await run('deno', ['uninstall', '-g', BIN_NAME])
   } else {
-    info('Installing Zanix...')
+    fail('Installation will not proceed.')
   }
 } else {
-  info('Installing Zanix (local checkout)...')
+  info('Installing Zanix...')
 }
 
-// `--local`: this checkout's own `./mod.ts`, a real local file — always, by construction (see
-// this file's own top-of-file doc). Otherwise, the published `jsr:@zanix/cli@version` a real
-// end-user installs.
-const APP = isLocal
-  ? fromFileUrl(new URL('../../mod.ts', import.meta.url))
-  : `jsr:@zanix/cli@${VERSION}`
+const APP = `jsr:@zanix/cli@${VERSION}`
 
 // `deno install -g`'s own generated shim runs under a synthetic, install-time config — this
-// package's own `deno.jsonc` (and the `imports` map every native `import()` this package performs
-// against a bare specifier needs) is never consulted unless `--config` is passed to `deno install`
-// itself.
+// package's own published `deno.jsonc` (and the `imports` map every native `import()` this
+// package performs against a bare specifier needs) is never consulted unless `--config` is passed
+// to `deno install` itself. Fetched fresh for this install and filtered down to genuine
+// scheme-based entries only (`jsr:`/`npm:`/`http(s):`) — this package's own internal local
+// aliases (`typings/`, `shared/`, ...) would resolve against wherever this temp file sits, not
+// this package's real source tree, so they're dropped.
 let configArgs: string[] = []
 let filteredConfigPath: string | undefined
-if (isLocal) {
-  // This checkout's own `deno.jsonc`, used AS-IS, unfiltered — unlike the remote branch below,
-  // every alias it declares (`typings/`, `shared/`, ...) already resolves correctly against this
-  // real, local source tree, so there's nothing to strip.
-  configArgs = ['--config', fromFileUrl(new URL('../../deno.jsonc', import.meta.url))]
-} else {
-  // Fetched fresh for this install and filtered down to genuine scheme-based entries only
-  // (`jsr:`/`npm:`/`http(s):`) — this package's own internal local aliases (`typings/`, `shared/`,
-  // ...) would resolve against wherever this temp file sits, not this package's real source tree,
-  // so they're dropped.
+{
   const configResponse = await fetch(`https://jsr.io/@zanix/cli/${VERSION}/deno.jsonc`).catch(() =>
     null
   )
@@ -219,8 +183,7 @@ if (isLocal) {
 
 // `--minimum-dependency-age 0` is required: installing a version published within Deno's default
 // 24h freshness window — routine right after a release — otherwise rejects outright, even for
-// this package's own entry-point resolution. `-f` in `--local` mode force-overwrites any existing
-// install instead of the interactive confirm flow above (skipped entirely in that mode).
+// this package's own entry-point resolution.
 {
   const { success, output } = await run('deno', [
     'install',
@@ -230,18 +193,13 @@ if (isLocal) {
     BIN_NAME,
     '--minimum-dependency-age',
     '0',
-    ...(isLocal ? ['-f'] : []),
     ...configArgs,
     APP,
   ])
   if (filteredConfigPath) await Deno.remove(filteredConfigPath).catch(() => {})
   if (!success) {
     console.log(output)
-    fail(
-      `Failed to install '${BIN_NAME}' (${
-        isLocal ? 'local checkout' : `version ${VERSION}`
-      }) via 'deno install'.`,
-    )
+    fail(`Failed to install '${BIN_NAME}' (version ${VERSION}) via 'deno install'.`)
   }
 }
 
@@ -262,47 +220,36 @@ if (isLocal) {
 // `minimumDependencyAge`. Merges this package's own published lockfile (which does cover those,
 // generated from a full `deno test` run) into the shim's, adding only what the install step
 // didn't already resolve. Best-effort — never fails the whole install over a sync failure here.
-//
-// `--local` mode has no "published" lockfile to fetch and merge — this checkout's own `deno.lock`
-// already covers its full local dependency graph (assuming it's current), so it's copied over the
-// shim's wholesale instead, same as the standalone `cli:install` task line this replaced.
 info('Syncing dependency lockfile...')
 {
   const denoInstallRoot = Deno.env.get('DENO_INSTALL_ROOT') ??
     `${Deno.env.get('HOME') ?? Deno.env.get('USERPROFILE')}/.deno`
   const shimLockPath = `${denoInstallRoot}/bin/.${BIN_NAME}/deno.lock`
-  if (isLocal) {
-    const localLockPath = fromFileUrl(new URL('../../deno.lock', import.meta.url))
-    await Deno.copyFile(localLockPath, shimLockPath).catch(() =>
-      warn(`Could not copy this checkout's own 'deno.lock' into the shim (${shimLockPath}).`)
+  const shimLockExists = await Deno.stat(shimLockPath).then(() => true).catch(() => false)
+  if (shimLockExists) {
+    const lockResponse = await fetch(`https://jsr.io/@zanix/cli/${VERSION}/deno.lock`).catch(() =>
+      null
     )
-  } else {
-    const shimLockExists = await Deno.stat(shimLockPath).then(() => true).catch(() => false)
-    if (shimLockExists) {
-      const lockResponse = await fetch(`https://jsr.io/@zanix/cli/${VERSION}/deno.lock`).catch(() =>
-        null
-      )
-      if (lockResponse?.ok) {
-        try {
-          const shim = JSON.parse(await Deno.readTextFile(shimLockPath))
-          const published = await lockResponse.json()
-          for (const section of ['specifiers', 'jsr', 'npm']) {
-            for (const [key, value] of Object.entries(published[section] ?? {})) {
-              shim[section] ??= {}
-              if (!(key in shim[section])) shim[section][key] = value
-            }
+    if (lockResponse?.ok) {
+      try {
+        const shim = JSON.parse(await Deno.readTextFile(shimLockPath))
+        const published = await lockResponse.json()
+        for (const section of ['specifiers', 'jsr', 'npm']) {
+          for (const [key, value] of Object.entries(published[section] ?? {})) {
+            shim[section] ??= {}
+            if (!(key in shim[section])) shim[section][key] = value
           }
-          await Deno.writeTextFile(shimLockPath, JSON.stringify(shim, null, 2) + '\n')
-        } catch {
-          warn(
-            `Lockfile sync failed — '${BIN_NAME} space dev'/'build' may reject a freshly-published dependency until a retry.`,
-          )
         }
-      } else {
+        await Deno.writeTextFile(shimLockPath, JSON.stringify(shim, null, 2) + '\n')
+      } catch {
         warn(
-          `Could not fetch the published lockfile — '${BIN_NAME} space dev'/'build' may reject a freshly-published dependency.`,
+          `Lockfile sync failed — '${BIN_NAME} space dev'/'build' may reject a freshly-published dependency until a retry.`,
         )
       }
+    } else {
+      warn(
+        `Could not fetch the published lockfile — '${BIN_NAME} space dev'/'build' may reject a freshly-published dependency.`,
+      )
     }
   }
 }
@@ -311,5 +258,5 @@ info('Syncing dependency lockfile...')
 console.log(`\n${SEPARATOR}`)
 console.log(colors.blue('🎉 Installation completed!'))
 console.log(colors.blue(`✨ You can use the '${BIN_NAME}' command from any terminal.`))
-console.log(colors.blue(`📦 Version: ${isLocal ? 'local checkout' : VERSION}`))
+console.log(colors.blue(`📦 Version: ${VERSION}`))
 console.log(SEPARATOR)

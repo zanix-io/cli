@@ -23,7 +23,7 @@ import logger from '@zanix/logger'
  * alike, restricted to files resolving under the checked repo's own root — a cross-package
  * `@zanix/*` cycle is a separate, cross-package concern, not this command's) and finds real
  * cycles via Tarjan's SCC; (2) only for files actually inside a cycle, a real AST pass (via
- * `Deno.lint.runPlugin`, run as its own `deno test` subprocess — see `analyze.ts`'s `runHarness`
+ * `Deno.lint.runPlugin`, run as its own `deno test` subprocess — see `harness.test.ts`'s own doc
  * for why) finds a top-level statement that executes something AND reads a binding still inside
  * that same cycle. A bare cycle with no such statement is reported as clean, not as a finding —
  * most cycles in this ecosystem are harmless, and flagging every one would be pure noise.
