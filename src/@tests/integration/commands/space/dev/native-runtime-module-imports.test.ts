@@ -55,6 +55,18 @@ const NATIVE_RUNTIME_ZANIX_PACKAGES = [
   '@zanix/datamaster',
   '@zanix/asyncmq',
   '@zanix/notifications',
+  // `@zanix/errors` closes a real, reproduced `e instanceof HttpError` split for an `HttpError`
+  // thrown by a natively-resolved package's own internals (e.g. `@zanix/auth`'s `totp.ts`) — see
+  // `native-runtime-modules.ts`'s own header doc, "`@zanix/utils` is on this list too", for the
+  // full incident. NOT bare `'@zanix/utils'` — deliberately excluded, both because a real project
+  // file's own `import { HttpError } from '@zanix/errors'` never reaches `@zanix/space`'s own
+  // `resolveId` hook as `'@zanix/utils'`/`'@zanix/utils/errors'` (confirmed empirically; see that
+  // file's own doc), and because the real `@zanix/utils` package has no root (`.`) export at all —
+  // `import('@zanix/utils')` itself fails with `Unknown export '.'`, which is exactly why this
+  // entry, unlike `@zanix/datamaster`/`@zanix/notifications`/`@zanix/asyncmq` above, needed no new
+  // `deno.jsonc` entry either: `@zanix/errors` is already an ordinary top-level `imports` alias
+  // here for `cli`'s own real use (`jsr:@zanix/utils@^X/errors`).
+  '@zanix/errors',
 ] as const
 
 Deno.test(
