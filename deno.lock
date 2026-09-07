@@ -335,6 +335,9 @@
         "jsr:@zanix/utils@4"
       ]
     },
+    "@zanix/cli@2.0.8": {
+      "integrity": "73537ddc338be450e8bdfd309e8e8354846bdc6949f034923711c386d83e2fa9"
+    },
     "@zanix/core@3.1.1": {
       "integrity": "9bf8bcc3865181d47877fc66bb4dd1b8b2fd962a97d0a5523b3da5882ca75b13",
       "dependencies": [
