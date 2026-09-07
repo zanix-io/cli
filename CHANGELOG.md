@@ -8,6 +8,59 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-09-07
+
+### Fixed
+
+- **`@zanix/server` (or any `@zanix/*` package) could load as TWO separate module instances when a
+  served project imported it both directly and transitively through a third-party `@zanix/*`
+  package it also imported directly** — e.g. a project directly importing `@zanix/server` alongside
+  `@zanix/datamaster`, whose own published `deno.jsonc` declares `"@zanix/server":
+  "jsr:@zanix/server@^4.0.0"` internally. `instanceof` then failed across the two instances
+  (`"ZanixCacheCoreProvider" is not a valid Provider. Please extend 'ZanixProvider'"`), reproduced
+  live against real, currently-published packages. Root cause: `import-project-module.ts` always
+  eagerly pre-resolved a project's own bare specifier to one fixed, exact URL before native
+  `import()` — the project's own direct edge and the third-party package's own internal edge were
+  then resolved by two entirely separate mechanisms (this project's own `@deno/loader` resolution
+  vs. native resolution governed by whatever config the running `zanix` process itself had), which
+  could land on two different concrete versions even when both ranges were semver-compatible.
+  `detectTransitiveCollisionPackages` now detects this shape structurally (via a real `deno info
+  --json` probe over the project's own direct `@zanix/*` imports) — regardless of whether the two
+  editions happen to already match today, since a version bump on either side can split them apart
+  later with zero code change on the project's own end. When a genuine risk is found,
+  `zanix space dev`/`build` re-exec the whole process once, under a configuration merging in the
+  served project's own declarations, and the flagged specifier is left unexpanded instead of
+  eagerly collapsed — letting native `import()` converge both edges itself, the same way any
+  ordinary Deno project's own dependency resolution already would. A non-fatal pre-flight warning
+  (reusing `zanix check-duplicates`'s own lockfile inspection) also now runs at the start of both
+  commands, surfacing an adjacent, unrelated hazard (a `@zanix/*` package resolved to two different
+  versions within the project's own `deno.lock`) before it can cause a similarly cryptic failure.
+  Every other existing resolution path (`PROJECT_ANCHORED_ONLY_PACKAGES`/`TRANSITIVE_ONLY_PACKAGES`,
+  covering `@zanix/space`/`@zanix/app`/`@zanix/server` themselves) is untouched — this is strictly
+  additive, engaging only for a project genuinely exhibiting this shape.
+- **`zanix check-cycles` crashed with `TypeError: Must be a file URL` on any repo with a real
+  intra-package cycle — reproduced live against `@zanix/asyncmq` and `@zanix/datamaster`, both of
+  which have a harmless cycle that reaches this code path (phase 1's `deno info`/Tarjan pass found
+  it and correctly reported it as clean; the crash happened in phase 2's side-effect analysis).**
+  `runHarness` (`analyze.ts`) computed its own harness script's path via `fromFileUrl(new
+  URL('./side-effects/harness.test.ts', import.meta.url))` — only ever a real `file://` URL when
+  `@zanix/cli` itself loads from a local checkout, never once it loads from a REMOTE specifier
+  instead (`https://jsr.io/...`), exactly what this command's own documented, CI-recommended
+  invocation does (`deno run -A jsr:@zanix/cli check-cycles`), and what a global install
+  (`deno install -g jsr:@zanix/cli`) does too. `runHarness` now generates a fresh, real LOCAL
+  `.test.ts` file on every run instead, importing `analyze-file.ts` via `import.meta.resolve` (a
+  valid absolute specifier regardless of protocol, and never throws on a non-file one) rather than
+  converting a URL to a path. The now-redundant static `harness.test.ts` was removed; its logic
+  lives in the new, tested `buildHarnessSource`.
+- **This repo's own internal `deno task cli:install` never actually exercised `@zanix/cli`'s real
+  install path (`setup.ts`'s `jsr:@zanix/cli@version` flow) — a standalone `deno install ...
+  ./mod.ts` line installed straight from the local checkout instead, which is exactly why the bug
+  above went uncaught internally: a purely local install can never load a module remotely.**
+  `setup.ts` now has a `--local` mode (the same welcome/smoke-test/lockfile-sync steps, installing
+  this checkout instead of a published version), and `cli:install` is now `deno run -A
+  ./src/installation/setup.ts --local` — the maintainer's own day-to-day install and the real
+  end-user's installer are the same code, so they can no longer drift apart the way they did here.
+
 ## [2.0.9] - 2026-09-07
 
 ### Fixed
@@ -90,6 +143,28 @@ and this project adheres to
   file in-process (`@std/dotenv`'s `load({ export: true })`) before `space.app.ts` is imported, with
   the same missing-file tolerance `--env-file=.env` already has for `start`/`worker`. The generated
   `dev` task now passes it explicitly: `deno install && zanix space dev --env-file=.env`.
+- **`zanix check-cycles` crashed with `TypeError: Must be a file URL` on any repo with a real
+  intra-package cycle — reproduced live against `@zanix/asyncmq` and `@zanix/datamaster`, both of
+  which have a harmless cycle that reaches this code path (phase 1's `deno info`/Tarjan pass found
+  it and correctly reported it as clean; the crash happened in phase 2's side-effect analysis).**
+  `runHarness` (`analyze.ts`) computed its own harness script's path via `fromFileUrl(new
+  URL('./side-effects/harness.test.ts', import.meta.url))` — only ever a real `file://` URL when
+  `@zanix/cli` itself loads from a local checkout, never once it loads from a REMOTE specifier
+  instead (`https://jsr.io/...`), exactly what this command's own documented, CI-recommended
+  invocation does (`deno run -A jsr:@zanix/cli check-cycles`), and what a global install
+  (`deno install -g jsr:@zanix/cli`) does too. `runHarness` now generates a fresh, real LOCAL
+  `.test.ts` file on every run instead, importing `analyze-file.ts` via `import.meta.resolve` (a
+  valid absolute specifier regardless of protocol, and never throws on a non-file one) rather than
+  converting a URL to a path. The now-redundant static `harness.test.ts` was removed; its logic
+  lives in the new, tested `buildHarnessSource`.
+- **This repo's own internal `deno task cli:install` never actually exercised `@zanix/cli`'s real
+  install path (`setup.ts`'s `jsr:@zanix/cli@version` flow) — a standalone `deno install ...
+  ./mod.ts` line installed straight from the local checkout instead, which is exactly why the bug
+  above went uncaught internally: a purely local install can never load a module remotely.**
+  `setup.ts` now has a `--local` mode (the same welcome/smoke-test/lockfile-sync steps, installing
+  this checkout instead of a published version), and `cli:install` is now `deno run -A
+  ./src/installation/setup.ts --local` — the maintainer's own day-to-day install and the real
+  end-user's installer are the same code, so they can no longer drift apart the way they did here.
 
 ### Changed
 

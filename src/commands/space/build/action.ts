@@ -11,6 +11,7 @@ import {
   importProjectModule,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
+import { guardAgainstTransitiveCollisions } from 'commands/space/shared/transitive-collision-guard.ts'
 import { toValidationFlags } from 'commands/space/shared/validation-flags.ts'
 import {
   failOnBlockingDiagnostics,
@@ -99,6 +100,10 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   assertProjectType(this, ['space', 'space-server'], 'space build')
 
   const root = Deno.cwd()
+  // Before anything else — same reasoning as `zanix space dev`'s own identical call: a genuine
+  // collision risk (see `guardAgainstTransitiveCollisions`'s own doc) needs the WHOLE process
+  // restarted under a shared configuration before any resolution below this line runs.
+  await guardAgainstTransitiveCollisions(root)
   // Before anything else touches this project's own tree — same reasoning as `zanix space dev`'s
   // own identical call: a killed earlier session can leave a `.zanix-import-*.js` temp file
   // behind, and nothing else ever revisits an orphan a random UUID names uniquely. See
