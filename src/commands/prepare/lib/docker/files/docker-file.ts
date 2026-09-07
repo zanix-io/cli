@@ -1,5 +1,6 @@
 import type { DockerfileOptions } from 'commands/prepare/lib/typings.ts'
 
+import { readModuleConfig } from '@zanix/utils/helpers'
 import { MAIN_MODULE } from '@zanix/utils/constants'
 import { createDockerBaseFile } from 'commands/prepare/lib/docker/files/base.ts'
 import {
@@ -35,8 +36,15 @@ const CLIENT_BUILD_DIR = '.dist/client'
  * produce `${CLIENT_BUILD_DIR}` before the runtime stage — never a second, independently-maintained
  * `deno run -A jsr:@zanix/cli space build` invocation that could drift from the task's own flags.
  * The `zanix` binary itself isn't on PATH in a fresh `denoland/deno` image, so the build stage
- * installs it globally first (`deno install -A -g -n zanix jsr:@zanix/cli` — the same command this
- * package's own README documents for a real developer machine).
+ * installs it first via the REAL, documented `/setup` script (`README.md`'s own "Installation"
+ * section) — never a bare `deno install -A -g -n zanix jsr:@zanix/cli`: that skips `setup.ts`'s own
+ * `--config` propagation (the target version's own published `imports`/`nodeModulesDir`, filtered
+ * and passed to `deno install --config`), which a genuine global install needs to resolve deep npm
+ * dependencies against the served project's own vendored tree instead of Deno's flat global cache.
+ * Pinned to this CLI's own currently-running version, read via {@linkcode readModuleConfig} (the
+ * `${CLI_INSTALL}` template placeholder below) — never left unpinned: a bare `jsr:@zanix/cli`
+ * silently tracks whatever is "latest stable" on JSR the moment the image is built, with no way to
+ * reproduce an older build.
  *
  * `'server'` and `'app'` share the SAME `dockerfile.process.base` template — structurally identical
  * (`FROM`/`WORKDIR`/`ENV`/`COPY`/`EXPOSE`/`CMD ["task", ...]`), differing only in which file gets
@@ -80,6 +88,21 @@ export async function createDockerfile(
   const entrypointModule = isAppType ? SERVE_MODULE : MAIN_MODULE
   const taskName = isAppType ? 'serve' : 'start'
 
+  // The REAL, documented install command (`README.md`'s "Installation" section) — never a bare
+  // `deno install -A -g -n zanix jsr:@zanix/cli`, which skips `setup.ts`'s own `--config`
+  // propagation (see this function's own doc). Pinned to THIS running `cli`'s own version whenever
+  // `readModuleConfig` can read it (the normal case, published or local checkout alike — the exact
+  // same call `cli.ts` already makes for its own `--version` flag) so a generated Dockerfile always
+  // reproduces the same install, never silently drifting to "whatever is latest on JSR today".
+  // Falls back to the bare, unpinned `/setup` form (both `[version]` slots default to `cli`'s own
+  // published `latest`, per `setup.ts`'s own `LATEST` constant) only in the unlikely case no version
+  // could be read — still the real documented command, just unpinned.
+  let cliInstallCommand = 'deno run -A jsr:@zanix/cli/setup'
+  if (isSpaceType) {
+    const { version } = await readModuleConfig(import.meta.url)
+    if (version) cliInstallCommand = `deno run -A jsr:@zanix/cli@${version}/setup ${version}`
+  }
+
   return createDockerBaseFile(
     { baseFile: `dockerfile.${variant}.base`, filename: 'Dockerfile', ...opts },
     (content) =>
@@ -88,6 +111,7 @@ export async function createDockerfile(
         .replace(/\$\{PORT\}/g, String(DEFAULT_PORT))
         .replace(/\$\{ENTRYPOINT_MODULE\}/g, entrypointModule)
         .replace(/\$\{TASK_NAME\}/g, taskName)
-        .replace(/\$\{CLIENT_BUILD_DIR\}/g, CLIENT_BUILD_DIR),
+        .replace(/\$\{CLIENT_BUILD_DIR\}/g, CLIENT_BUILD_DIR)
+        .replace(/\$\{CLI_INSTALL\}/g, cliInstallCommand),
   )
 }

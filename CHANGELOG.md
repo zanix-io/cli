@@ -8,9 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [2.0.9] - 2026-09-05
+## [2.0.9] - 2026-09-07
 
 ### Fixed
+
+- **`zanix prepare --docker`'s generated `Dockerfile` for `space`/`space-server` projects installed
+  the CLI with a bare, unpinned `deno install -A -g -n zanix jsr:@zanix/cli`** — not the CLI's own
+  documented install command (`README.md`'s `/setup` script), and with no version floor, so a fresh
+  build silently tracked whatever was currently "latest stable" on JSR. `dockerfile.space.base` now
+  runs `deno run -A jsr:@zanix/cli@[version]/setup [version]`, pinned to this CLI's own
+  currently-running version — the real, reproducible command a human is already told to use, which
+  also propagates `setup.ts`'s own `--config` step (the target version's own published
+  `imports`/`nodeModulesDir`), never skipped by the bare install.
 
 - **`zanix space dev` crashed with `Route path "socket=>/__zanix_space_dev__" is already defined in
   "SpaceDevSocket"` whenever a served project's own declared `@zanix/space` version diverged from

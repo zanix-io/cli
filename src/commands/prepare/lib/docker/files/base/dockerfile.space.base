@@ -35,9 +35,12 @@ RUN deno install
 COPY . .
 # The `zanix` binary itself is NOT on PATH in this (or any fresh `denoland/deno`) base image —
 # installed here, once, so `deno task build` below (this project's own `zanix space build` task —
-# see `baseZnxConfig`'s own `tasks.build`) actually resolves. This is the SAME install command this
-# package's own README documents for a real developer machine, not a Docker-specific variant.
-RUN deno install -A -g -n zanix jsr:@zanix/cli
+# see `baseZnxConfig`'s own `tasks.build`) actually resolves. This is the SAME `/setup` install
+# command this package's own README documents for a real developer machine, not a Docker-specific
+# variant — never a bare, unpinned global `deno install`: that skips `setup.ts`'s own `--config`
+# propagation (the target version's own published `imports`/`nodeModulesDir`, needed to resolve deep
+# npm dependencies against this project's own vendored tree instead of Deno's flat global cache).
+RUN ${CLI_INSTALL}
 # `deno task build`, not a second, independently-maintained `deno run -A jsr:@zanix/cli space
 # build` invocation — one declared build step a project's own `deno.json` already owns, so a flag
 # added to the task (`--out-dir`, `--obfuscate`, ...) never has to be remembered here too.

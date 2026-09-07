@@ -41,11 +41,14 @@ Deno.test('Docker create Dockerfile for a space project', async () => {
 
   const content = await Deno.readTextFile(defaultFolder + '/Dockerfile')
 
-  assert(content.includes('deno install'))
-  // Installs the `zanix` binary globally FIRST (not on PATH in a fresh `denoland/deno` image),
-  // then builds via this project's own declared `deno task build` — never a second,
-  // independently-maintained `deno run -A jsr:@zanix/cli space build` invocation.
-  assert(content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
+  // Installs the `zanix` binary globally FIRST (not on PATH in a fresh `denoland/deno` image) via
+  // the REAL, documented `/setup` script — never a bare `deno install -A -g -n zanix
+  // jsr:@zanix/cli`, which skips `setup.ts`'s own `--config` propagation — then builds via this
+  // project's own declared `deno task build` — never a second, independently-maintained `deno run
+  // -A jsr:@zanix/cli space build` invocation.
+  assert(content.includes('deno run -A jsr:@zanix/cli'))
+  assert(content.includes('/setup'))
+  assert(!content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
   assert(content.includes('RUN deno task build'))
   assert(!content.includes('deno run -A jsr:@zanix/cli space build'))
   assert(content.includes('dist/client'))
@@ -82,11 +85,9 @@ Deno.test('Docker create Dockerfile for a space-server project', async () => {
 
   const content = await Deno.readTextFile(defaultFolder + '/Dockerfile')
 
-  assert(content.includes('deno install'))
-  // Installs the `zanix` binary globally FIRST (not on PATH in a fresh `denoland/deno` image),
-  // then builds via this project's own declared `deno task build` — never a second,
-  // independently-maintained `deno run -A jsr:@zanix/cli space build` invocation.
-  assert(content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
+  assert(content.includes('deno run -A jsr:@zanix/cli'))
+  assert(content.includes('/setup'))
+  assert(!content.includes('deno install -A -g -n zanix jsr:@zanix/cli'))
   assert(content.includes('RUN deno task build'))
   assert(!content.includes('deno run -A jsr:@zanix/cli space build'))
   assert(content.includes('dist/client'))
