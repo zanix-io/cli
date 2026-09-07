@@ -15,7 +15,9 @@ import {
   importProjectDependency,
   importProjectModule,
   sweepStaleGeneratedModules,
+  TRANSITIVE_REEXEC_ENV,
 } from 'commands/space/shared/import-project-module.ts'
+import { guardAgainstTransitiveCollisions } from 'commands/space/shared/transitive-collision-guard.ts'
 import { collectFiles } from '@zanix/helpers'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
 import { reportValidation } from 'commands/space/shared/report-validation.ts'
@@ -67,6 +69,17 @@ export function watchSpaceAppFile(spaceAppPath: string, onRestart: () => Promise
         await onRestart()
         new Deno.Command(Deno.execPath(), {
           args: ['run', '-A', Deno.mainModule, ...Deno.args],
+          // Explicitly clears (never merely omits) TRANSITIVE_REEXEC_ENV, which THIS process may
+          // have inherited from ITS OWN parent if `guardAgainstTransitiveCollisions` re-exec'd to
+          // get here (`Deno.Command`'s own `env` option MERGES into, never replaces, the inherited
+          // OS environment — confirmed real: without this, the new process reads the SAME truthy
+          // value straight from its environment, believes the collision guard already ran, and
+          // skips it — permanently, for the REST of this dev session, since every SUBSEQUENT
+          // restart inherits it again from here). An empty string here is enough: the guard's own
+          // `Deno.env.get(...)` check treats `''` the same as unset. Setting it to `''` (not
+          // simply never mentioning the key) is what actually overrides the inherited value —
+          // `env` only ever ADDS/OVERWRITES specific keys, it doesn't remove one already present.
+          env: { [TRANSITIVE_REEXEC_ENV]: '' },
           stdin: 'inherit',
           stdout: 'inherit',
           stderr: 'inherit',
@@ -165,6 +178,10 @@ async function spaceDevAction(
   assertProjectType(this, ['space', 'space-server'], 'space dev')
 
   const root = Deno.cwd()
+  // Before anything else — a genuine collision risk (see `guardAgainstTransitiveCollisions`'s own
+  // doc) needs the WHOLE process restarted under a shared configuration; every resolution below
+  // this line runs either already fixed up that way, or has nothing to fix at all.
+  await guardAgainstTransitiveCollisions(root)
   // `start`/`worker` (`getBaseTasks`, `utils/config/base.ts`) get `.env` for free from their own
   // `deno run --env-file=.env ...` task string, degrading gracefully (a Deno warning, never an
   // error) when `.env` doesn't exist yet. `zanix space dev` has no equivalent task-level flag to

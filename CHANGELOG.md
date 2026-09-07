@@ -8,6 +8,37 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-09-07
+
+### Fixed
+
+- **`@zanix/server` (or any `@zanix/*` package) could load as TWO separate module instances when a
+  served project imported it both directly and transitively through a third-party `@zanix/*`
+  package it also imported directly** — e.g. a project directly importing `@zanix/server` alongside
+  `@zanix/datamaster`, whose own published `deno.jsonc` declares `"@zanix/server":
+  "jsr:@zanix/server@^4.0.0"` internally. `instanceof` then failed across the two instances
+  (`"ZanixCacheCoreProvider" is not a valid Provider. Please extend 'ZanixProvider'"`), reproduced
+  live against real, currently-published packages. Root cause: `import-project-module.ts` always
+  eagerly pre-resolved a project's own bare specifier to one fixed, exact URL before native
+  `import()` — the project's own direct edge and the third-party package's own internal edge were
+  then resolved by two entirely separate mechanisms (this project's own `@deno/loader` resolution
+  vs. native resolution governed by whatever config the running `zanix` process itself had), which
+  could land on two different concrete versions even when both ranges were semver-compatible.
+  `detectTransitiveCollisionPackages` now detects this shape structurally (via a real `deno info
+  --json` probe over the project's own direct `@zanix/*` imports) — regardless of whether the two
+  editions happen to already match today, since a version bump on either side can split them apart
+  later with zero code change on the project's own end. When a genuine risk is found,
+  `zanix space dev`/`build` re-exec the whole process once, under a configuration merging in the
+  served project's own declarations, and the flagged specifier is left unexpanded instead of
+  eagerly collapsed — letting native `import()` converge both edges itself, the same way any
+  ordinary Deno project's own dependency resolution already would. A non-fatal pre-flight warning
+  (reusing `zanix check-duplicates`'s own lockfile inspection) also now runs at the start of both
+  commands, surfacing an adjacent, unrelated hazard (a `@zanix/*` package resolved to two different
+  versions within the project's own `deno.lock`) before it can cause a similarly cryptic failure.
+  Every other existing resolution path (`PROJECT_ANCHORED_ONLY_PACKAGES`/`TRANSITIVE_ONLY_PACKAGES`,
+  covering `@zanix/space`/`@zanix/app`/`@zanix/server` themselves) is untouched — this is strictly
+  additive, engaging only for a project genuinely exhibiting this shape.
+
 ## [2.0.9] - 2026-09-07
 
 ### Fixed

@@ -4,6 +4,7 @@ import {
   cleanupImportBatch,
   cliLoaderHasNoRealLocalAnswer,
   createImportBatchContext,
+  detectTransitiveCollisionPackages,
   importProjectModule,
   readNewestDependencyDate,
   reconstructNpmSpecifierFromResolvedPath,
@@ -226,10 +227,10 @@ Deno.test(
 )
 
 Deno.test(
-  "getCliLoader's own fromFileUrl(import.meta.url) call is guarded by a file:// scheme check, " +
-    'never called unconditionally',
+  "getCliConfigPath's own fromFileUrl(import.meta.url) call is guarded by a file:// scheme " +
+    'check, never called unconditionally',
   async () => {
-    // Verifies `getCliLoader()` guards its `fromFileUrl(import.meta.url)` call with a scheme
+    // Verifies `getCliConfigPath()` guards its `fromFileUrl(import.meta.url)` call with a scheme
     // check — an unguarded call throws `Must be a file URL` the instant `@zanix/cli` itself loads
     // via `jsr:` (this module's own `import.meta.url` is `https://jsr.io/...` there, not
     // `file://`), exactly what a real global install (`deno install -g jsr:@zanix/cli`) does. No
@@ -237,23 +238,24 @@ Deno.test(
     // instance, so a `deno test` run here can never observe it as anything but `file://` — so this
     // parses the raw source text instead (same technique
     // `lazy-command-specifiers-relative.test.ts` uses for the sibling bug class) and fails loud if
-    // `fromFileUrl(import.meta.url)` (inside `getCliLoader`) is ever called without a preceding
-    // scheme guard.
+    // `fromFileUrl(import.meta.url)` (inside `getCliConfigPath`, the function `getCliLoader` and
+    // `prepareTransitiveCollisionReexec` both now share this lazily-computed value through) is
+    // ever called without a preceding scheme guard.
     const source = await Deno.readTextFile(
       new URL('../../../../../commands/space/shared/import-project-module.ts', import.meta.url),
     )
     const fnMatch = source.match(
-      /function getCliLoader\(\)[\s\S]*?\n\}/,
+      /export function getCliConfigPath\(\)[\s\S]*?\n\}/,
     )
     assert(
       fnMatch,
-      "getCliLoader's own declaration could not be found — did it move or get renamed?",
+      "getCliConfigPath's own declaration could not be found — did it move or get renamed?",
     )
 
     const body = fnMatch[0]
     assert(
       /import\.meta\.url\.startsWith\(\s*(['"])file:\/\/\1\s*\)/.test(body),
-      'getCliLoader() no longer guards its fromFileUrl(import.meta.url) call with a ' +
+      'getCliConfigPath() no longer guards its fromFileUrl(import.meta.url) call with a ' +
         "file:// scheme check — this regresses back to throwing 'Must be a file URL' the moment " +
         "@zanix/cli loads via jsr: (see this test's own doc for the full account).",
     )
@@ -711,5 +713,182 @@ Deno.test(
       ),
       false,
     )
+  },
+)
+
+Deno.test(
+  'detectTransitiveCollisionPackages: an empty set for a project with no deno.json(c) at all — ' +
+    'nothing to detect a collision against',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      const collisions = await detectTransitiveCollisionPackages(root)
+      assertEquals(collisions.size, 0)
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+// The next two tests cover the zero- and one-direct-import shapes separately (never a shared
+// loop over both — `no-await-in-loop` flags exactly that shape, and it also keeps each fixture's
+// own `finally` cleanup scoped to a single, independent `Deno.test`, the convention every other
+// fixture in this file already follows). Neither shape can possibly exhibit the "reachable both
+// directly and transitively via a DIFFERENT direct import" condition this function looks for, so
+// both must short-circuit to an empty set without spawning a single subprocess — the common case
+// for the overwhelming majority of real projects (a plain `space` project declaring only
+// `@zanix/space`, or a `server` project declaring only `@zanix/server`), which must stay a fast,
+// pure no-op for them.
+
+Deno.test(
+  'detectTransitiveCollisionPackages: an empty set for a project declaring NO direct @zanix/* ' +
+    'imports at all — nothing that could carry one transitively',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(join(root, 'deno.json'), JSON.stringify({ imports: {} }))
+      const collisions = await detectTransitiveCollisionPackages(root)
+      assertEquals(collisions.size, 0)
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'detectTransitiveCollisionPackages: an empty set for a project declaring exactly ONE direct ' +
+    '@zanix/* import — no OTHER direct import exists to carry it transitively',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({ imports: { '@zanix/server': 'jsr:@zanix/server@^4.0.0' } }),
+      )
+      const collisions = await detectTransitiveCollisionPackages(root)
+      assertEquals(collisions.size, 0)
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'detectTransitiveCollisionPackages: flags @zanix/server for a project directly importing both ' +
+    "@zanix/server AND @zanix/datamaster — @zanix/datamaster's own published deno.jsonc declares " +
+    '"@zanix/server": "jsr:@zanix/server@^4.0.0" as its own internal dependency, exactly the ' +
+    'confirmed real-world shape (real repro against the actually-published packages, not a ' +
+    'synthetic stand-in — this exact pairing IS the reported bug)',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/server': 'jsr:@zanix/server@^4.0.0',
+            '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.0',
+          },
+        }),
+      )
+      const collisions = await detectTransitiveCollisionPackages(root)
+      assert(
+        collisions.has('@zanix/server'),
+        `expected '@zanix/server' to be flagged as a collision risk (found: ${
+          [...collisions].join(', ') || '(none)'
+        }) — if @zanix/datamaster's own published dependency on @zanix/server ever changes shape, ` +
+          'update this fixture to match',
+      )
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'detectTransitiveCollisionPackages: memoizes per root — a second call for the SAME root reuses ' +
+    'the first result rather than spawning another deno info --json subprocess',
+  async () => {
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/server': 'jsr:@zanix/server@^4.0.0',
+            '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.0',
+          },
+        }),
+      )
+      const first = await detectTransitiveCollisionPackages(root)
+      const start = performance.now()
+      const second = await detectTransitiveCollisionPackages(root)
+      const elapsedMs = performance.now() - start
+      assertEquals([...second].sort(), [...first].sort())
+      assert(
+        elapsedMs < 50,
+        `second call took ${elapsedMs}ms — expected a near-instant cache hit, not a fresh ` +
+          're-resolution (would double the real network cost of this detection on every ' +
+          'importProjectModule/importProjectDependency call within one process)',
+      )
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'importProjectModule: a flagged transitive-collision-risk specifier (@zanix/server, alongside ' +
+    'a direct @zanix/datamaster import) is spliced into the rewritten temp file as the UNEXPANDED ' +
+    'jsr: literal — deliberately NOT forced through the eager dependency-constraint solve every ' +
+    "other bare specifier gets, per resolveReplacement's own matching branch",
+  async () => {
+    // This is the other half of the confirmed fix: an unflagged specifier (covered by the
+    // existing "gets forced through a real dependency-constraint solve" tests above) MUST keep
+    // getting eagerly resolved to an exact URL, but a FLAGGED one must NOT — leaving it unexpanded
+    // is precisely what lets native `import()`, running under a process
+    // `prepareTransitiveCollisionReexec` already fixed up, unify it with @zanix/datamaster's own
+    // internal (compatible) request for the same package, instead of two independently-resolved
+    // URLs silently diverging into two separate module instances (the actual reported bug,
+    // reproduced empirically — see this repo's own PR/issue history for the real instanceof-false
+    // repro this fix targets).
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/server': 'jsr:@zanix/server@^4.0.0',
+            '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.0',
+          },
+        }),
+      )
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { ZanixProvider } from '@zanix/server'\nexport const value = typeof ZanixProvider\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        await importProjectModule(entryPath, batchContext)
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        const specifierMatch = rewritten.match(/from\s+(['"])(.+?)\1/)
+        assert(specifierMatch, 'expected a real import specifier in the rewritten temp file')
+        const resolvedSpecifier = specifierMatch[2]
+
+        assert(
+          /^jsr:@zanix\/server@[\^~]/.test(resolvedSpecifier),
+          `expected the flagged '@zanix/server' specifier to stay an UNEXPANDED range literal ` +
+            `(e.g. 'jsr:@zanix/server@^4.0.0'), got '${resolvedSpecifier}' instead — the ` +
+            "collision-risk skip in resolveReplacement's referrer branch regressed.",
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
   },
 )
