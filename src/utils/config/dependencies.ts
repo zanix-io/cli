@@ -80,16 +80,27 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // entrypoint imports `bootstrapRemoteApp` from here directly (never `@zanix/core`, see
   // `getSpaceModTemplate`'s own doc in `cli`), so this needs its own declared specifier.
   '@zanix/app/runtime': 'jsr:@zanix/app@^1.0.2/runtime',
-  // `^1.4.2` — see `deno.jsonc`'s own matching `imports["@zanix/space"]` entry for
-  // the full chain: below `1.4.2`, any project with a single comet hits `zanix space build`'s own
-  // `[UNRESOLVED_ENTRY]` failure (Vite's `worker-import-meta-url` plugin against a real
-  // `@zanix/utils` `Worker` call, transitively reached through `@zanix/space/comet`'s own barrel).
-  // `zanix space dev`/`build` resolve `@zanix/space` (and `@zanix/server`/`@zanix/app`/
+  // Real floor requirement is `1.4.2` — see `deno.jsonc`'s own matching `imports["@zanix/space"]`
+  // entry for the full chain: below `1.4.2`, any project with a single comet hits `zanix space
+  // build`'s own `[UNRESOLVED_ENTRY]` failure (Vite's `worker-import-meta-url` plugin against a
+  // real `@zanix/utils` `Worker` call, transitively reached through `@zanix/space/comet`'s own
+  // barrel). `zanix space dev`/`build` resolve `@zanix/space` (and `@zanix/server`/`@zanix/app`/
   // `@zanix/app/runtime`) against the SERVED PROJECT's own config, never `cli`'s
-  // (`import-project-module.ts`'s `importProjectDependency`) — this entry has no identity-sharing
-  // reason to match `cli`'s own `deno.jsonc` floor exactly, only to give a freshly scaffolded
-  // project a real, working starting version.
-  '@zanix/space': 'jsr:@zanix/space@^1.4.2',
+  // (`import-project-module.ts`'s `importProjectDependency`) — for a REAL served project, running
+  // as its own subprocess, this entry has no identity-sharing reason to match `cli`'s own
+  // `deno.jsonc` floor exactly.
+  //
+  // Kept at the SAME range as `deno.jsonc`'s own `imports["@zanix/space"]` entry regardless
+  // (`^1.6.0`, already above the `1.4.2` floor above): `cli`'s own test suite writes this entry
+  // into an ephemeral fixture project resolved via `importProjectDependency`, in the SAME process
+  // as tests that ALSO natively import `@zanix/space` through `cli`'s own `deno.jsonc` — see that
+  // function's own doc for the two-module-instance `SpaceDevSocket` collision this can cause.
+  // Matching the range narrows, but does not by itself close, that gap: `importProjectDependency`
+  // resolves this entry against a `@deno/loader` `Workspace` with no companion `deno.lock` of its
+  // own, so it always re-resolves the range against the CURRENT `jsr.io` state rather than
+  // reusing `cli`'s own locked version — the two can still diverge the moment a newer
+  // `@zanix/space` version ships, independent of what this entry's range is set to.
+  '@zanix/space': 'jsr:@zanix/space@^1.6.0',
   // Real, published JSR package as of `0.1.0` (verified directly against
   // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/
   // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`

@@ -1,4 +1,5 @@
 import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
+import { resolvePinnedSpaceVersion } from '../../../../shared/resolve-pinned-space-version.ts'
 
 /**
  * Every fixture in this folder writes a scaffolded project's `deno.json` by hand (never through
@@ -89,16 +90,23 @@ import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
 // for this file's own sake.
 const UTILS_BASE = ZANIX_DEPENDENCY_VERSIONS['@zanix/utils/logger'].replace(/\/logger$/, '')
 
+// The EXACT concrete version, never `ZANIX_DEPENDENCY_VERSIONS['@zanix/space']`'s own floating
+// range directly — see `resolvePinnedSpaceVersion`'s own doc for why every `@zanix/space` entry
+// below needs this instead: a fixture's project-anchored resolution re-queries `jsr.io`'s live
+// state independently of `cli`'s own locked `@zanix/space` import, and the two diverge the moment
+// a new version ships, loading two different `SpaceDevSocket` module instances into one process.
+const SPACE_BASE = await resolvePinnedSpaceVersion()
+
 /** Spread into a fixture's own `deno.json` `imports` map — always safe to include every entry
  * unconditionally, even for a react-only fixture: an unused import-map entry costs nothing, and it
  * keeps every fixture in this folder identical regardless of which renderer it happens to test. */
 export const SPACE_CLIENT_IMPORTS: Record<string, string> = {
-  '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
-  '@zanix/space/react': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/react`,
-  '@zanix/space/preact': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/preact`,
-  '@zanix/space/client': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/client`,
-  '@zanix/space/client/preact': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/client/preact`,
+  '@zanix/space': SPACE_BASE,
+  '@zanix/space/react': `${SPACE_BASE}/react`,
+  '@zanix/space/preact': `${SPACE_BASE}/preact`,
+  '@zanix/space/client': `${SPACE_BASE}/client`,
+  '@zanix/space/client/preact': `${SPACE_BASE}/client/preact`,
   '@zanix/logger/client': `${UTILS_BASE}/logger/client`,
-  '@zanix/space/assets-manifest': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/assets-manifest`,
+  '@zanix/space/assets-manifest': `${SPACE_BASE}/assets-manifest`,
   '@zanix/errors': `${UTILS_BASE}/errors`,
 }

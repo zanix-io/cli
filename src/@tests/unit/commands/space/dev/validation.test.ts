@@ -10,7 +10,17 @@ import { join } from '@std/path'
 import { getTemporaryFolder } from '@zanix/helpers'
 import { defineSpaceApp, setSitemapDeclaration, setValidationConfig } from '@zanix/space'
 import { runDevValidation } from 'commands/space/dev/validation.ts'
-import { ZANIX_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
+import { resolvePinnedSpaceVersion } from '../../../../shared/resolve-pinned-space-version.ts'
+
+// The EXACT concrete version this file's own top-level `@zanix/space/react` import above already
+// resolves to (via `cli`'s own locked `deno.lock`) — never `ZANIX_DEPENDENCY_VERSIONS['@zanix/space']`'s
+// floating range directly. See `resolvePinnedSpaceVersion`'s own doc: `withRoutesProject` below
+// writes this into a fixture project resolved through `importProjectDependency`, a SEPARATE,
+// unlocked `@deno/loader` `Workspace` that re-queries `jsr.io`'s live state on every call — a
+// floating range there can resolve to a DIFFERENT concrete version than this file's own native
+// import above, loading two `SpaceDevSocket` module instances into one process and crashing on the
+// second's route registration.
+const SPACE_VERSION = await resolvePinnedSpaceVersion()
 
 // `runDevValidation`'s own `@zanix/space`/`@zanix/space/vite` resolution
 // (`importProjectDependency`, project-anchored — see that function's own doc) and its
@@ -41,8 +51,8 @@ async function withRoutesProject(
       join(root, 'deno.json'),
       JSON.stringify({
         imports: {
-          '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
-          '@zanix/space/vite': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/vite`,
+          '@zanix/space': SPACE_VERSION,
+          '@zanix/space/vite': `${SPACE_VERSION}/vite`,
         },
       }),
     )
@@ -209,8 +219,8 @@ Deno.test(
         join(root, 'deno.json'),
         JSON.stringify({
           imports: {
-            '@zanix/space': ZANIX_DEPENDENCY_VERSIONS['@zanix/space'],
-            '@zanix/space/vite': `${ZANIX_DEPENDENCY_VERSIONS['@zanix/space']}/vite`,
+            '@zanix/space': SPACE_VERSION,
+            '@zanix/space/vite': `${SPACE_VERSION}/vite`,
           },
         }),
       )
