@@ -17,7 +17,6 @@
     "jsr:@std/cli@1.0.32": "1.0.32",
     "jsr:@std/cli@~0.224.7": "0.224.7",
     "jsr:@std/crypto@^1.1.0": "1.1.0",
-    "jsr:@std/dotenv@*": "0.225.8",
     "jsr:@std/dotenv@0.225.8": "0.225.8",
     "jsr:@std/encoding@1": "1.0.11",
     "jsr:@std/encoding@1.0.0-rc.2": "1.0.0-rc.2",
@@ -33,7 +32,6 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/json@^1.0.2": "1.1.0",
-    "jsr:@std/jsonc@1": "1.0.2",
     "jsr:@std/jsonc@1.0.2": "1.0.2",
     "jsr:@std/media-types@^1.0.0-rc.1": "1.1.0",
     "jsr:@std/net@~0.224.3": "0.224.5",
@@ -63,10 +61,10 @@
     "jsr:@zanix/server@4": "4.2.3",
     "jsr:@zanix/server@^4.1.0": "4.2.3",
     "jsr:@zanix/server@^4.2.1": "4.2.3",
-    "jsr:@zanix/space-ui@2": "2.0.0",
-    "jsr:@zanix/space@1": "1.6.0",
-    "jsr:@zanix/space@^1.3.0": "1.6.0",
-    "jsr:@zanix/space@^1.6.0": "1.6.0",
+    "jsr:@zanix/space-ui@2": "2.0.2",
+    "jsr:@zanix/space@1": "1.8.0",
+    "jsr:@zanix/space@^1.3.0": "1.8.0",
+    "jsr:@zanix/space@^1.6.0": "1.8.0",
     "jsr:@zanix/utils@4": "4.4.0",
     "jsr:@zanix/utils@^4.1.0": "4.4.0",
     "jsr:@zanix/utils@^4.2.1": "4.4.0",
@@ -75,14 +73,14 @@
     "npm:@formatjs/icu-messageformat-parser@^3.5.17": "3.5.17",
     "npm:@formatjs/intl@^4.1.19": "4.1.20",
     "npm:@preact/preset-vite@^2.10.6": "2.10.6_@babel+core@7.29.7_vite@8.2.2_esbuild@0.20.2_preact@10.29.8",
-    "npm:@prefresh/core@^1.5.10": "1.5.11_preact@10.29.8_preact-render-to-string@6.7.0",
+    "npm:@prefresh/core@^1.5.10": "1.5.11_preact@10.29.8",
     "npm:@prefresh/utils@^1.2.1": "1.2.1",
-    "npm:@rolldown/plugin-babel@~0.2.3": "0.2.3_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2",
+    "npm:@rolldown/plugin-babel@~0.2.3": "0.2.4_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2",
     "npm:@tailwindcss/vite@^4.3.3": "4.3.3_vite@8.2.2_esbuild@0.20.2",
     "npm:@types/react-dom@^19.2.0": "19.2.7_@types+react@19.2.18",
     "npm:@types/react@^19.2.0": "19.2.18",
     "npm:@vanilla-extract/vite-plugin@^5.2.6": "5.2.6_vite@8.2.2_esbuild@0.20.2",
-    "npm:@vitejs/plugin-react@^6.0.5": "6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7",
+    "npm:@vitejs/plugin-react@^6.0.5": "6.1.1_@rolldown+plugin-babel@0.2.4_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7",
     "npm:amqplib@^2.0.1": "2.0.1",
     "npm:babel-plugin-react-compiler@1": "1.0.0",
     "npm:es-module-lexer@^1.5.4": "1.7.0",
@@ -94,8 +92,7 @@
     "npm:postcss-modules@^9.0.1": "9.0.1_postcss@8.5.28",
     "npm:postcss@^8.5.26": "8.5.28",
     "npm:preact-render-to-string@^6.5.0": "6.7.0_preact@10.29.8",
-    "npm:preact@^10.29.0": "10.29.8_preact-render-to-string@6.7.0",
-    "npm:qrcode-generator@^1.4.4": "1.5.2",
+    "npm:preact@^10.29.0": "10.29.8",
     "npm:react-dom@^19.2.0": "19.2.8_react@19.2.8",
     "npm:react@19.2.8": "19.2.8",
     "npm:react@^19.2.0": "19.2.8",
@@ -370,14 +367,6 @@
         "npm:handlebars"
       ]
     },
-    "@zanix/server@4.2.0": {
-      "integrity": "827ae993a8c785cc3fe2a295afded82fa7ee5d693435e05b65a5fca0f296d0ce",
-      "dependencies": [
-        "jsr:@std/http",
-        "jsr:@std/path@0.224",
-        "jsr:@zanix/utils@^4.1.0"
-      ]
-    },
     "@zanix/server@4.2.3": {
       "integrity": "475a3b19e2bd349900948b36b41ae11d5d23506a9a588f1d5b5d768567d35fc8",
       "dependencies": [
@@ -409,8 +398,8 @@
         "npm:vite"
       ]
     },
-    "@zanix/space@1.6.0": {
-      "integrity": "92227c22cf9f84123b98b8b3f0c03b673887c04ee1b7bf3099991bc073330246",
+    "@zanix/space@1.8.0": {
+      "integrity": "2fb247acc6d8876745afbeab0cbc50ecb70079c9a87e4e596b0a280a23a5d2d5",
       "dependencies": [
         "jsr:@deno/loader",
         "jsr:@std/path@0.224",
@@ -435,32 +424,8 @@
         "npm:vite"
       ]
     },
-    "@zanix/space@1.6.1": {
-      "integrity": "5780604b30c3d4e0e160e771422f39b916d63613551c56d45a95a6505ff15956",
-      "dependencies": [
-        "jsr:@deno/loader",
-        "jsr:@std/path@0.224",
-        "jsr:@zanix/app@1",
-        "jsr:@zanix/server@^4.1.0",
-        "jsr:@zanix/utils@^4.1.0",
-        "npm:@deno/vite-plugin",
-        "npm:@preact/preset-vite",
-        "npm:@rolldown/plugin-babel",
-        "npm:@tailwindcss/vite",
-        "npm:@vanilla-extract/vite-plugin",
-        "npm:@vitejs/plugin-react",
-        "npm:postcss",
-        "npm:postcss-modules",
-        "npm:preact",
-        "npm:preact-render-to-string",
-        "npm:react-dom",
-        "npm:react@^19.2.0",
-        "npm:sharp",
-        "npm:vite"
-      ]
-    },
-    "@zanix/space-ui@2.0.0": {
-      "integrity": "87c4d9cf23489ed9677e2dd99b053bb4e9a89425a2ae961ea94f385d47fcea6f",
+    "@zanix/space-ui@2.0.2": {
+      "integrity": "6429183879fa93e67d26d081a31bf039d065099022aaee2ba75367f017f502be",
       "dependencies": [
         "jsr:@zanix/space@1",
         "jsr:@zanix/utils@^4.4.0",
@@ -470,9 +435,6 @@
         "npm:react@^19.2.0",
         "npm:schema-dts"
       ]
-    },
-    "@zanix/utils@4.2.0": {
-      "integrity": "11a2053930b25de2d0fc7f920c1c05d8c1915bd95d769d9a994bc5e89dadc79f"
     },
     "@zanix/utils@4.4.0": {
       "integrity": "759615e2b3e91c3e51696cf9cebd3f056d6e238372024860651b3672e817e339",
@@ -1084,7 +1046,7 @@
     "@prefresh/babel-plugin@0.5.3": {
       "integrity": "sha512-57LX2SHs4BX2s1IwCjNzTE2OJeEepRCNf1VTEpbNcUyHfMO68eeOWGDIt4ob9aYlW6PEWZ1SuwNikuoIXANDtQ=="
     },
-    "@prefresh/core@1.5.11_preact@10.29.8_preact-render-to-string@6.7.0": {
+    "@prefresh/core@1.5.11_preact@10.29.8": {
       "integrity": "sha512-Ml00PP8jeHaADxfQqxUs4+M5JS+T5J26UnvPVfsrmlpGw2I3e9XtM0DMeuzkmvg+Tn7VdHSMpLBrDPG0iHoDqQ==",
       "dependencies": [
         "preact"
@@ -1210,8 +1172,8 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@rolldown/plugin-babel@0.2.3_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2": {
-      "integrity": "sha512-+zEk16yGlz1F9STiRr6uG9hmIXb6nprjLczV/htGptYuLoCuxb+itZ03RKCEeOhBpDDd1NU7qF6x1VLMUp62bw==",
+    "@rolldown/plugin-babel@0.2.4_@babel+core@7.29.7_rolldown@1.2.7_vite@8.2.2": {
+      "integrity": "sha512-ygmm2j/mN+aCvstHo0x3IOu4uc6LqXT9SJ3q4kpfG/+Yhfz0B+E47FITcC0FljZADwUFARP6E2kiE+Lc26D8wg==",
       "dependencies": [
         "@babel/core",
         "picomatch@4.0.7",
@@ -1430,7 +1392,7 @@
         "vite"
       ]
     },
-    "@vitejs/plugin-react@6.1.1_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7": {
+    "@vitejs/plugin-react@6.1.1_@rolldown+plugin-babel@0.2.4_babel-plugin-react-compiler@1.0.0_vite@8.2.2_@babel+core@7.29.7_rolldown@1.2.7": {
       "integrity": "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==",
       "dependencies": [
         "@rolldown/plugin-babel",
@@ -2582,14 +2544,8 @@
         "preact"
       ]
     },
-    "preact@10.29.8_preact-render-to-string@6.7.0": {
-      "integrity": "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q==",
-      "dependencies": [
-        "preact-render-to-string"
-      ],
-      "optionalPeers": [
-        "preact-render-to-string"
-      ]
+    "preact@10.29.8": {
+      "integrity": "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q=="
     },
     "prelude-ls@1.1.2": {
       "integrity": "sha512-ESF23V4SKG6lVSGZgYNpbsiaAkdab6ZgOxe52p7+Kid3W3u3bxR4Vfd/o21dmN7jSt0IwgZ4v5MUd26FEtXE9w=="
@@ -2599,9 +2555,6 @@
     },
     "punycode@2.3.1": {
       "integrity": "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="
-    },
-    "qrcode-generator@1.5.2": {
-      "integrity": "sha512-pItrW0Z9HnDBnFmgiNrY1uxRdri32Uh9EjNYLPVC2zZ3ZRIIEqBoDgm4DkvDwNNDHTK7FNkmr8zAa77BYc9xNw=="
     },
     "react-dom@19.2.8_react@19.2.8": {
       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
