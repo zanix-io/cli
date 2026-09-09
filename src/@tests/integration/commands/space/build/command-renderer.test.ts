@@ -78,3 +78,96 @@ export default defineSpaceApp({
     }
   },
 )
+
+Deno.test(
+  "zanix space build: renderer: 'preact' also shares ONE ImportBatchContext across " +
+    'buildSpaceClient — the shared-import dedup fix (action.ts) is renderer-agnostic, not ' +
+    "react-specific (see command.test.ts's own identically-shaped react test)",
+  async () => {
+    const root = await Deno.makeTempDir({ dir: getTemporaryFolder(import.meta.url) })
+    const originalCwd = Deno.cwd()
+    try {
+      const counterPath = join(root, 'shared-import-counter.txt')
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify(
+          { zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS },
+          null,
+          2,
+        ),
+      )
+      await Deno.writeTextFile(
+        join(root, 'space.app.ts'),
+        `import { defineSpaceApp } from '@zanix/space'
+
+export default defineSpaceApp({
+  name: 'test-preact-shared-import-app',
+  routesDir: './src/space/routes',
+  renderer: 'preact',
+})
+`,
+      )
+      const routes = join(root, 'src', 'space', 'routes')
+      await Deno.mkdir(join(routes, 'about'), { recursive: true })
+      // Same fixture shape as `command.test.ts`'s own react version of this test — reached ONLY
+      // via a relative import from each page below, never a top-level entry `discoverPages` itself
+      // calls `importModule` on.
+      await Deno.writeTextFile(
+        join(routes, 'shared-marker.ts'),
+        `const path = ${JSON.stringify(counterPath)}
+const existing = await Deno.readTextFile(path).catch(() => '')
+await Deno.writeTextFile(path, existing + 'x')
+export const marker = true
+`,
+      )
+      await Deno.writeTextFile(
+        join(routes, 'page.tsx'),
+        `import { Page, SpacePageController } from '@zanix/space'
+import './shared-marker.ts'
+
+function HomeView() {
+  return 'Home'
+}
+
+@Page()
+export default class HomePage extends SpacePageController {
+  static override head = { title: 'Home' }
+  component = HomeView
+}
+`,
+      )
+      await Deno.writeTextFile(
+        join(routes, 'about', 'page.tsx'),
+        `import { Page, SpacePageController } from '@zanix/space'
+import '../shared-marker.ts'
+
+function AboutView() {
+  return 'About'
+}
+
+@Page()
+export default class AboutPage extends SpacePageController {
+  static override head = { title: 'About' }
+  component = AboutView
+}
+`,
+      )
+
+      Deno.chdir(root)
+      const command = registerCommand()
+      await command.settings.actionHandler({})
+
+      assertEquals(getActiveRenderer(), 'preact')
+
+      // Exactly one mark despite two pages reaching the shared file — same proof
+      // `command.test.ts`'s own react test already establishes, confirming the dedup fix isn't
+      // gated on which renderer the project declares (`discoverPages`'s own `importModule` call
+      // takes no `renderer` argument at all — see `build-client.ts`'s own source).
+      const marks = await Deno.readTextFile(counterPath)
+      assertEquals(marks, 'x')
+    } finally {
+      Deno.chdir(originalCwd)
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)

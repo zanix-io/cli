@@ -8,6 +8,42 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- **`zanix space build` shares one `ImportBatchContext` across the whole `buildSpaceClient` call**
+  (`commands/space/build/action.ts`), instead of letting `importProjectModule` build a fresh,
+  private one per page/layout (its own default when no batch context is passed). Any project file
+  reached indirectly by more than one page through a RELATIVE import — a shared layout header, a
+  common component several pages import — used to get rewritten to its own temp file and natively
+  `import()`-ed again for every page that reached it, real, avoidable work that scaled with the
+  project's own page count rather than its actual dependency-graph size. `zanix space dev`'s own
+  `src/server/` registration scan already used this exact pattern; `zanix space build`'s
+  page-discovery/document-validation pass (`discoverPages`, which runs BEFORE Vite's own timed
+  build step) did not. Cleanup is skipped on a failed build — `discoverPages`'s own internal
+  `Promise.all` can leave sibling imports genuinely in flight the instant the first one rejects, so
+  cleaning up immediately risks a confusing secondary error; left instead for
+  `sweepStaleGeneratedModules` (already run at the top of every `zanix space dev`/`build`) to sweep
+  on the next invocation, the same self-healing path a killed process already relies on.
+
+### Added
+
+- **New `--obfuscate-exclude <globs>` flag for `zanix space build`**
+  (`commands/space/build/command.ts`/`action.ts`, `excludeObfuscationTargets` in
+  `commands/build/lib/obfuscate.ts`). `--obfuscate` used to obfuscate every built `.js` file with
+  no way to opt any of them out — including vendor/`node_modules`-derived chunks, where
+  `javascript-obfuscator`'s identifier renaming isn't guaranteed safe. A reported, reproduced real
+  case: `monaco-editor`'s own self-referencing `static {}` singleton pattern got its self-reference
+  renamed to a generated identifier declared nowhere in the output, throwing `TypeError: ... is not
+  a constructor` in production the first time it ran. `--obfuscate-exclude` takes comma-separated
+  glob(s) matched against each chunk's path relative to `--out-dir` (e.g.
+  `--obfuscate-exclude 'assets/monaco*.js,assets/mouseTarget*.js'`) so a project can skip exactly
+  the chunks it knows break, without giving up obfuscation for the rest of its own code. Documented
+  in `docs/space.md` (`--obfuscate`'s own row now also warns that vendor code is obfuscated too by
+  default) and `docs/build.md` (`zanix build`'s single-bundle path already avoids this class of bug
+  via its existing `--external`/`--npm` exclusion, now called out explicitly). Deliberately does
+  NOT default to auto-detecting/skipping vendor chunks — see `excludeObfuscationTargets`'s own doc
+  for the real, confirmed reason a filename-based heuristic would be unsafe here.
+
 ## [2.1.0] - 2026-09-09
 
 ### Added

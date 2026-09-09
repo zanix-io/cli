@@ -33,6 +33,16 @@ zanix build --obfuscate --npm some-native-addon
 zanix build -i src/worker.ts -o .dist/worker.mjs --no-bundle
 ```
 
+> [!WARNING]
+> `--obfuscate` runs against the WHOLE bundled output file — any vendor dependency `--bundle`
+> (the default) inlines is obfuscated right along with your own code. `javascript-obfuscator` is
+> not guaranteed to preserve arbitrary third-party code unmodified (see
+> [`zanix space build`'s own `--obfuscate` warning](./space.md#build) for a confirmed real case).
+> If a dependency breaks under obfuscation, exclude it from the bundle entirely with
+> `--external`/`--npm` (the `some-native-addon` example above) or `--no-bundle` — there's no real
+> product reason to obfuscate third-party code anyway, since it was never proprietary to begin
+> with.
+
 ## See also
 
 - [`new`](./new.md) — every project scaffold includes a `.dist/` folder this

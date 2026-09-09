@@ -230,6 +230,41 @@ Deno.test(
   },
 )
 
+Deno.test(
+  'zanix space build: --obfuscate-exclude skips only the matching chunk(s)',
+  async () => {
+    await withScaffoldedProject(async (root) => {
+      const command = registerCommand()
+      await command.settings.actionHandler({
+        obfuscate: true,
+        // Excludes the comet chunk (`comets-counter-<hash>.js`, see the previous test's own
+        // comment for why it's the only non-`client-entry` asset here) but not `sw.js`.
+        obfuscateExclude: 'assets/comets-counter*.js',
+      })
+
+      const outDir = join(root, '.dist', 'client')
+      const jsAssets = []
+      for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
+        if (entry.name.endsWith('.js') && !entry.name.startsWith('client-entry')) {
+          jsAssets.push(entry.name)
+        }
+      }
+      assertEquals(jsAssets.length, 1)
+      // Excluded: Vite's own minifier still runs (unrelated to --obfuscate-exclude), but
+      // `javascript-obfuscator` never touched this chunk — the marker string survives readably,
+      // and none of `obfuscateFile`'s own tells (the `_0x...` identifiers/string-array wrapper the
+      // previous test asserts ARE present) show up here.
+      const code = await Deno.readTextFile(join(outDir, 'assets', jsAssets[0]))
+      assert(code.includes('counter-marker'), code)
+      assert(!code.includes('_0x'), code)
+
+      // NOT excluded: `sw.js` is obfuscated exactly as it is without --obfuscate-exclude.
+      const swCode = await Deno.readTextFile(join(outDir, 'sw.js'))
+      assert(swCode.includes('_0x'), swCode)
+    })
+  },
+)
+
 Deno.test('zanix space build: --no-minify keeps real, readable output', async () => {
   await withScaffoldedProject(async (root) => {
     const command = registerCommand()
@@ -517,6 +552,110 @@ Deno.test(
         await Deno.readTextFile(join(outDir, 'sitemap-manifest.json')),
       )
       assertEquals(manifest, [{ loc: '/' }, { loc: '/login' }])
+    })
+  },
+)
+
+/**
+ * A dedicated fixture: two real pages that both reach the SAME shared file through a RELATIVE
+ * import — never a top-level entry `discoverPages` itself calls `importModule` on, so its own
+ * per-file cache cannot be what dedupes it (only a SHARED `ImportBatchContext`, `action.ts`'s own
+ * wiring, can). The shared file's own top-level code appends one byte to a real counter file every
+ * time it actually runs — an observable proof of how many times it was imported, not an assertion
+ * about internals.
+ */
+async function withSharedRelativeImportProject(
+  run: (root: string, counterPath: string) => Promise<void>,
+): Promise<void> {
+  const root = await Deno.makeTempDir({ dir: getTemporaryFolder(import.meta.url) })
+  const originalCwd = Deno.cwd()
+  try {
+    const counterPath = join(root, 'shared-import-counter.txt')
+    await Deno.writeTextFile(
+      join(root, 'deno.json'),
+      JSON.stringify({ zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS }, null, 2),
+    )
+    await Deno.writeTextFile(
+      join(root, 'space.app.ts'),
+      `import { defineSpaceApp } from '@zanix/space'
+
+export default defineSpaceApp({
+  name: 'test-shared-import-app',
+  routesDir: './src/space/routes',
+})
+`,
+    )
+    const routes = join(root, 'src', 'space', 'routes')
+    await Deno.mkdir(join(routes, 'about'), { recursive: true })
+    await Deno.writeTextFile(
+      join(routes, 'shared-marker.ts'),
+      `const path = ${JSON.stringify(counterPath)}
+const existing = await Deno.readTextFile(path).catch(() => '')
+await Deno.writeTextFile(path, existing + 'x')
+export const marker = true
+`,
+    )
+    await Deno.writeTextFile(
+      join(routes, 'page.tsx'),
+      `import { Page, SpacePageController } from '@zanix/space'
+import './shared-marker.ts'
+
+function HomeView() {
+  return <h1>Home</h1>
+}
+
+@Page()
+export default class HomePage extends SpacePageController {
+  static override head = { title: 'Home' }
+  component = HomeView
+}
+`,
+    )
+    await Deno.writeTextFile(
+      join(routes, 'about', 'page.tsx'),
+      `import { Page, SpacePageController } from '@zanix/space'
+import '../shared-marker.ts'
+
+function AboutView() {
+  return <h1>About</h1>
+}
+
+@Page()
+export default class AboutPage extends SpacePageController {
+  static override head = { title: 'About' }
+  component = AboutView
+}
+`,
+    )
+
+    Deno.chdir(root)
+    await run(root, counterPath)
+  } finally {
+    Deno.chdir(originalCwd)
+    await Deno.remove(root, { recursive: true })
+  }
+}
+
+Deno.test(
+  'zanix space build: a file reached by relative import from more than one page is imported only ' +
+    'once, not once per page (shared ImportBatchContext)',
+  async () => {
+    await withSharedRelativeImportProject(async (_root, counterPath) => {
+      // Same process-wide-state reset as the sitemap test above.
+      const { setGlobalCssPaths, setPwaConfig } = await import('@zanix/space')
+      setGlobalCssPaths(undefined)
+      setPwaConfig(undefined)
+
+      const command = registerCommand()
+      await command.settings.actionHandler({})
+
+      // Exactly one mark: both `page.tsx` and `about/page.tsx` reach `shared-marker.ts`, but its
+      // own top-level code only ran once. Two marks would mean it was rewritten-to-temp-file and
+      // natively imported independently per page — the real, avoidable cost a shared
+      // `ImportBatchContext` exists to prevent (see `action.ts`'s own doc at the `buildSpaceClient`
+      // call site).
+      const marks = await Deno.readTextFile(counterPath)
+      assertEquals(marks, 'x')
     })
   },
 )

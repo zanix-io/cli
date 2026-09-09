@@ -8,6 +8,8 @@ import { assertProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
 import { importProjectDependency } from 'commands/space/shared/import-project-dependency.ts'
 import {
+  cleanupImportBatch,
+  createImportBatchContext,
   importProjectModule,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
@@ -21,7 +23,7 @@ import {
 } from 'commands/space/shared/report-validation.ts'
 import { assertRendererConsistency } from 'commands/space/shared/assert-renderer-consistency.ts'
 import { fixNpmSlashSpecifierPlugin } from 'commands/space/build/lib/plugins/fix-npm-slash-specifier.ts'
-import { obfuscateFile } from 'commands/build/lib/obfuscate.ts'
+import { excludeObfuscationTargets, obfuscateFile } from 'commands/build/lib/obfuscate.ts'
 import { requestForceExit } from 'utils/force-exit.ts'
 import { dirname, resolve } from '@std/path'
 import logger from '@zanix/utils/logger'
@@ -44,7 +46,9 @@ import logger from '@zanix/utils/logger'
  * `.js` file (comet chunks AND the generated service worker) — the exact same
  * `javascript-obfuscator` config `zanix build`'s own `compileAndObfuscate` already uses
  * (`obfuscateFile`, `commands/build/lib/obfuscate.ts`) — one shared obfuscation behavior, not two
- * independently-tuned ones.
+ * independently-tuned ones. `--obfuscate-exclude` filters that file list BEFORE obfuscation runs
+ * (`excludeObfuscationTargets`, same module) — see that function's own doc for why this is a
+ * plain, explicit glob list rather than an automatic "skip vendor code" default.
  *
  * Deliberately does NOT build the SSR/server side — production SSR keeps running directly against
  * source via this project's own `start` task (`deno run mod.ts`), unaffected by this command's own
@@ -210,26 +214,54 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     ? mergeValidationConfig(getValidationConfig(), flags.config)
     : false
 
-  const result = await buildSpaceClient({
-    root,
-    outDir: resolvedOutDir,
-    minify: options.minify,
-    globalCss,
-    pwa,
-    validation,
-    // See `fixNpmSlashSpecifierPlugin`'s own doc: a real, confirmed `@deno/vite-plugin` bug, not
-    // this command's own — worked around here rather than left to break every real consumer's
-    // `--renderer react` (and, less commonly, `preact`) production build.
-    plugins: [fixNpmSlashSpecifierPlugin()],
-    // `zanix space build` runs `buildSpaceClient` (and its own `discoverPages` page-discovery pass)
-    // from inside `@zanix/cli`'s own process, never a freshly spawned one rooted at `root` — without
-    // this, a page/layout importing a project-local import-map alias (declared only in this
-    // project's own `deno.json(c)`) would resolve against `@zanix/cli`'s OWN configuration instead
-    // and fail with "not a dependency and not in import map". See `importProjectModule`'s own doc
-    // for the full mechanism, and `BuildSpaceClientOptions.importModule`'s own doc in `@zanix/space`
-    // for why this gap is real, not hypothetical.
-    importModule: importProjectModule,
-  })
+  // A SHARED batch context for the WHOLE `buildSpaceClient` call below — never one fresh,
+  // per-file context (`importProjectModule`'s own default when `batchContext` is omitted). Without
+  // this, any project file reached indirectly by more than one page/comet through a RELATIVE
+  // import (a shared layout header, a common component two pages both import) gets rewritten to
+  // its own temp file and natively `import()`-ed AGAIN for every top-level entry that reaches it,
+  // instead of once — real, avoidable work that scales with the project's own page count, not its
+  // actual dependency-graph size. `zanix space dev`'s own `src/server/` registration scan
+  // (`dev/action.ts`) already established this exact pattern for the identical reason — see
+  // `ImportBatchContext`'s own doc for the full "why a shared cache, not one per call" account.
+  const importBatch = createImportBatchContext()
+  let result: Awaited<ReturnType<typeof buildSpaceClient>>
+  try {
+    result = await buildSpaceClient({
+      root,
+      outDir: resolvedOutDir,
+      minify: options.minify,
+      globalCss,
+      pwa,
+      validation,
+      // See `fixNpmSlashSpecifierPlugin`'s own doc: a real, confirmed `@deno/vite-plugin` bug, not
+      // this command's own — worked around here rather than left to break every real consumer's
+      // `--renderer react` (and, less commonly, `preact`) production build.
+      plugins: [fixNpmSlashSpecifierPlugin()],
+      // `zanix space build` runs `buildSpaceClient` (and its own `discoverPages` page-discovery pass)
+      // from inside `@zanix/cli`'s own process, never a freshly spawned one rooted at `root` — without
+      // this, a page/layout importing a project-local import-map alias (declared only in this
+      // project's own `deno.json(c)`) would resolve against `@zanix/cli`'s OWN configuration instead
+      // and fail with "not a dependency and not in import map". See `importProjectModule`'s own doc
+      // for the full mechanism, and `BuildSpaceClientOptions.importModule`'s own doc in `@zanix/space`
+      // for why this gap is real, not hypothetical.
+      importModule: (filePath) => importProjectModule(filePath, importBatch),
+    })
+  } catch (error) {
+    // Deliberately NOT cleaned up here. `discoverPages`'s own internal `Promise.all` (this batch's
+    // real caller, inside `@zanix/space`) rejects the instant the FIRST page fails to import —
+    // sibling `importProjectModule` calls sharing `importBatch` may still be genuinely in flight at
+    // that exact moment, so removing their temp files now risks a confusing secondary error
+    // instead of the real one (the same race `dev/action.ts`'s own batch usage avoids by waiting
+    // for every call to SETTLE before cleaning up — not an option here, since `discoverPages`'s own
+    // `Promise.all`, not this function, decides when to reject). A build that's already failing
+    // leaves its orphaned temp files for `sweepStaleGeneratedModules` (run at the top of every
+    // `zanix space dev`/`build`) to sweep on the NEXT invocation — the same self-healing path a
+    // killed process already relies on, not a new failure mode.
+    throw error
+  }
+  // Reached only on success, where `discoverPages`'s own `Promise.all` guarantees every
+  // `importProjectModule` call sharing `importBatch` has already settled — safe to clean up now.
+  await cleanupImportBatch(importBatch)
 
   // Written HERE, after `buildSpaceClient` — see the comment above `compiledMessages` for why.
   // `messagesDir` is re-read (not re-derived) as the exact pairing `compiledMessages` was compiled
@@ -272,8 +304,13 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     const hasSw = await Deno.stat(swPath).then(() => true).catch(() => false)
     if (hasSw) jsFiles.push('sw.js')
 
+    // `--obfuscate-exclude` opts specific chunks (typically vendor/`node_modules`-derived ones)
+    // out of obfuscation entirely — see `excludeObfuscationTargets`'s own doc for why this is an
+    // explicit list rather than a smarter default.
+    const obfuscationTargets = excludeObfuscationTargets(jsFiles, options.obfuscateExclude)
+
     await Promise.all(
-      jsFiles.map((relativePath) => obfuscateFile(`${result.outDir}/${relativePath}`)),
+      obfuscationTargets.map((relativePath) => obfuscateFile(`${result.outDir}/${relativePath}`)),
     )
   }
 

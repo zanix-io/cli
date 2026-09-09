@@ -11,10 +11,10 @@ subcommand's own section below. Running `zanix space` with no subcommand errors 
 zanix space <dev|build>
 ```
 
-| Subcommand   | Command             | Options                                                                                           | Does                                                             |
-| ------------ | ------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--env-file <path>` (default `.env`), `--no-graphql-check` | Runs the project with real file-watching HMR — see [below](#dev) |
-| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--no-messages`, `--no-graphql-check`            | Builds the real, production client bundle — see [below](#build)  |
+| Subcommand   | Command             | Options                                                                                                               | Does                                                             |
+| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--env-file <path>` (default `.env`), `--no-graphql-check`                     | Runs the project with real file-watching HMR — see [below](#dev) |
+| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--obfuscate-exclude <globs>`, `--no-messages`, `--no-graphql-check` | Builds the real, production client bundle — see [below](#build)  |
 
 ## Dev
 
@@ -56,17 +56,18 @@ chunk), CSS, and their manifests — **never** the SSR/server side, which keeps 
 against source via the project's own `start` task (Deno executes `.tsx` natively; no bundle is
 needed for that to work, the same way `zanix space dev` already runs it, just without HMR).
 
-| Option                         | Default          | Description                                                                                                                                                                                                                                                  |
-| ------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--out-dir <dir>`              | `'.dist/client'` | Client output directory, relative to the project root.                                                                                                                                                                                                       |
-| `--no-minify`                  | (minifies)       | Skip minification of the built output.                                                                                                                                                                                                                       |
-| `--obfuscate`                  | `false`          | Obfuscate every built `.js` file (each comet chunk, and `sw.js` if a PWA is configured) — the same shared obfuscation config [`zanix build`](./build.md#zanix-build--compile-and-obfuscate)'s own `--obfuscate` uses, not a second, independently-tuned one. |
-| `--no-messages`                | (compiles)       | Skip compiling `defineSpaceApp({ messagesDir })` ICU catalogs to AST. Has no effect when `messagesDir` isn't configured.                                                                                                                                     |
-| `--no-graphql-check`           | (checks)         | Skip the GraphQL query/mutation check — see [GraphQL check](#graphql-check). Has no effect when the project has no `gql/` directory.                                                                                                                         |
-| `--validation [mode]`          | `static`         | Document validation to run — see [Document validation](#document-validation).                                                                                                                                                                                |
-| `--no-validation`              | (validates)      | Skip document validation entirely.                                                                                                                                                                                                                           |
-| `--validation-strict`          | `false`          | Treat every active warning as an error, failing the build.                                                                                                                                                                                                   |
-| `--validation-category <list>` | (all)            | Restrict validation to these categories, comma-separated.                                                                                                                                                                                                    |
+| Option                         | Default          | Description                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--out-dir <dir>`              | `'.dist/client'` | Client output directory, relative to the project root.                                                                                                                                                                                                                                                                                       |
+| `--no-minify`                  | (minifies)       | Skip minification of the built output.                                                                                                                                                                                                                                                                                                       |
+| `--obfuscate`                  | `false`          | Obfuscate every built `.js` file (each comet chunk, and `sw.js` if a PWA is configured) — the same shared obfuscation config [`zanix build`](./build.md#zanix-build--compile-and-obfuscate)'s own `--obfuscate` uses, not a second, independently-tuned one. **This includes vendor/`node_modules`-derived chunks** — see the warning below. |
+| `--obfuscate-exclude <globs>`  | —                | Comma-separated glob(s), matched against each built `.js` file's path relative to `--out-dir` (e.g. `assets/monaco*.js`, `sw.js`), to skip when obfuscating. Has no effect without `--obfuscate`.                                                                                                                                            |
+| `--no-messages`                | (compiles)       | Skip compiling `defineSpaceApp({ messagesDir })` ICU catalogs to AST. Has no effect when `messagesDir` isn't configured.                                                                                                                                                                                                                     |
+| `--no-graphql-check`           | (checks)         | Skip the GraphQL query/mutation check — see [GraphQL check](#graphql-check). Has no effect when the project has no `gql/` directory.                                                                                                                                                                                                         |
+| `--validation [mode]`          | `static`         | Document validation to run — see [Document validation](#document-validation).                                                                                                                                                                                                                                                                |
+| `--no-validation`              | (validates)      | Skip document validation entirely.                                                                                                                                                                                                                                                                                                           |
+| `--validation-strict`          | `false`          | Treat every active warning as an error, failing the build.                                                                                                                                                                                                                                                                                   |
+| `--validation-category <list>` | (all)            | Restrict validation to these categories, comma-separated.                                                                                                                                                                                                                                                                                    |
 
 Reads back the project's own `space.app.ts` declarations (`globalCss`, `pwa`) automatically —
 nothing needs to be passed on the command line for either. The renderer (`react`/`preact`,
@@ -77,6 +78,21 @@ A project with no comets, no declared `globalCss`, and no PWA configured is a
 valid (if unusual) app state — a page whose entire UI renders server-side with
 nothing client-facing at all — not an error; `--obfuscate` on that kind of
 project is simply a no-op, since there's no `.js` output to obfuscate.
+
+> [!WARNING]
+> `--obfuscate` obfuscates **every** built `.js` file, including chunks bundled straight from
+> vendor libraries (`node_modules`, a remote `jsr:`/`npm:` specifier) — there's no automatic
+> "skip vendor code" default (see `--obfuscate-exclude` above for why: post-build output filenames
+> alone aren't a reliable signal for which chunk is vendor code vs. a project's own, so guessing
+> would risk silently leaving real proprietary chunks unobfuscated instead). `javascript-obfuscator`
+> is not guaranteed to preserve arbitrary third-party code unmodified — a confirmed real case:
+> `monaco-editor`'s own singleton pattern (`class C { static getInstance() { return C._INSTANCE
+> ||= new C() } }`) gets its self-reference renamed to a generated identifier that isn't declared
+> anywhere in the obfuscated output, throwing `TypeError: ... is not a constructor` the first time
+> it runs — in production, with no build-time warning. If a build obfuscates in vendor code, use
+> `--obfuscate-exclude` to skip the offending chunk(s) by glob (e.g.
+> `--obfuscate-exclude 'assets/monaco*.js,assets/mouseTarget*.js'`) — there's no real product
+> reason to obfuscate third-party code anyway, since it was never proprietary to begin with.
 
 ## How `space.app.ts` (and a page, or a GraphQL client/query file) gets its own dependencies
 

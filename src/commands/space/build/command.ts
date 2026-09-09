@@ -10,6 +10,7 @@ export interface SpaceBuildOptions extends SpaceValidationOptions {
   outDir?: string
   minify?: boolean
   obfuscate?: boolean
+  obfuscateExclude?: string
   messages?: boolean
   graphqlCheck?: boolean
 }
@@ -69,6 +70,14 @@ export function registerSpaceBuildCommand(cwd: Commander): void {
     .option(
       '--obfuscate',
       'A flag to obfuscate every built .js file. Defaults to `false`.',
+    )
+    .option(
+      '--obfuscate-exclude <globs:string>',
+      "Comma-separated glob(s), matched against each built .js file's path relative to " +
+        '--out-dir (e.g. `assets/monaco*.js`, `sw.js`), to skip when obfuscating. Use this for ' +
+        'vendor/node_modules-derived chunks known to break under identifier renaming — ' +
+        '`javascript-obfuscator` is not guaranteed to preserve arbitrary third-party code (see ' +
+        'docs/space.md). Has no effect without --obfuscate.',
     )
     .option(
       '--no-messages',
