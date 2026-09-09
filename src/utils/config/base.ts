@@ -283,6 +283,10 @@ export function baseZnxConfig(
     if (renderer === 'react') {
       imports['babel-plugin-react-compiler'] =
         THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler']
+      // React requires `react` and `react-dom` to resolve to the exact same version — declared
+      // as a root import here (not left to resolve transitively through `@zanix/space`'s own
+      // pin) so both always match `imports[renderer]` above instead of drifting independently.
+      imports['react-dom'] = THIRD_PARTY_DEPENDENCY_VERSIONS['react-dom']
     }
   }
 

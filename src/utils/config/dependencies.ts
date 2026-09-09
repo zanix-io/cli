@@ -132,6 +132,13 @@ export const THIRD_PARTY_DEPENDENCY_VERSIONS = {
   // `jsxImportSource: 'react'` means every `.tsx` file has an implicit `react/jsx-runtime` import.
   // Same version `@zanix/space`'s own `deno.json` pins.
   react: 'npm:react@^19.2.0',
+  // `base.ts` writes this ALONGSIDE `react` above, unconditionally whenever `renderer === 'react'`
+  // — React requires `react` and `react-dom` to resolve to the exact same version at runtime
+  // (an internal shared-module check throws otherwise); leaving `react-dom` undeclared here lets
+  // it resolve purely transitively through whatever `@zanix/space` itself pins, which can drift
+  // from this entry's own `react` range the moment either side ships a new patch. Same range as
+  // `react` above so both always resolve in lockstep.
+  'react-dom': 'npm:react-dom@^19.2.0',
   // `base.ts` writes THIS instead, in place of `react` above, under `--renderer=preact` — same
   // reasoning, `jsxImportSource: 'preact'` instead. Same version `@zanix/space`'s own `deno.json`
   // pins. Never both at once — `--renderer` selects the whole project's renderer, never a hybrid.
