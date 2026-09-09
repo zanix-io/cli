@@ -1,5 +1,6 @@
 import { assertEquals } from '@std/assert'
 import { baseZnxConfig, INITIAL_PROJECT_VERSION, RUN_PERMISSIONS } from 'utils/config/base.ts'
+import { THIRD_PARTY_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
 import type { ZanixProjects } from '@zanix/types'
 
 Deno.test(
@@ -121,7 +122,7 @@ Deno.test(
     const explicit = baseZnxConfig('space', 'react')
     assertEquals(omitted, explicit)
     assertEquals(omitted.compilerOptions?.jsxImportSource, 'react')
-    assertEquals(omitted.imports?.react, 'npm:react@^19.2.0')
+    assertEquals(omitted.imports?.react, THIRD_PARTY_DEPENDENCY_VERSIONS.react)
     assertEquals(omitted.imports?.preact, undefined)
   },
 )

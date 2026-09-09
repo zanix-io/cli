@@ -130,15 +130,23 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
 export const THIRD_PARTY_DEPENDENCY_VERSIONS = {
   // `base.ts` writes this for `space`/`space-server` under `--renderer=react` (the default) —
   // `jsxImportSource: 'react'` means every `.tsx` file has an implicit `react/jsx-runtime` import.
-  // Same version `@zanix/space`'s own `deno.json` pins.
-  react: 'npm:react@^19.2.0',
+  //
+  // EXACT version, deliberately never a `^`/`~` range: `react`/`react-dom` are resolved as two
+  // independent npm specifiers (different package names, each its own registry lookup), and a
+  // caret range lets EACH resolve to "whatever satisfies my own range right now" independently —
+  // confirmed, via a real repro, to genuinely diverge (`react` landing on a freshly-published
+  // patch while `react-dom` stayed on an older one, even though both declared the identical
+  // `^19.2.0` range) and trip React's own "must have the exact same version" runtime assertion. An
+  // exact pin removes that computation entirely — there is only one version request can resolve
+  // to, so nothing about live registry state can make the two drift apart. Pinned to the lower of
+  // the two packages' own real latest at the time this was last bumped (never the higher — the
+  // higher one may not exist yet for its sibling package).
+  react: 'npm:react@19.2.8',
   // `base.ts` writes this ALONGSIDE `react` above, unconditionally whenever `renderer === 'react'`
-  // — React requires `react` and `react-dom` to resolve to the exact same version at runtime
-  // (an internal shared-module check throws otherwise); leaving `react-dom` undeclared here lets
-  // it resolve purely transitively through whatever `@zanix/space` itself pins, which can drift
-  // from this entry's own `react` range the moment either side ships a new patch. Same range as
-  // `react` above so both always resolve in lockstep.
-  'react-dom': 'npm:react-dom@^19.2.0',
+  // — React requires `react` and `react-dom` to resolve to the exact same version at runtime (an
+  // internal shared-module check throws otherwise). Same EXACT version as `react` above, always —
+  // see that entry's own comment for why this must be an exact pin, never a range.
+  'react-dom': 'npm:react-dom@19.2.8',
   // `base.ts` writes THIS instead, in place of `react` above, under `--renderer=preact` — same
   // reasoning, `jsxImportSource: 'preact'` instead. Same version `@zanix/space`'s own `deno.json`
   // pins. Never both at once — `--renderer` selects the whole project's renderer, never a hybrid.

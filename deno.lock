@@ -515,6 +515,15 @@
         "npm:vite"
       ]
     },
+    "@zanix/space@1.10.0": {
+      "integrity": "a61ae1cdfa413ebd50634d49fd02bf500cc7264135d0981cbe8b02a6fea926af",
+      "dependencies": [
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0"
+      ]
+    },
     "@zanix/space-ui@2.0.2": {
       "integrity": "6429183879fa93e67d26d081a31bf039d065099022aaee2ba75367f017f502be",
       "dependencies": [

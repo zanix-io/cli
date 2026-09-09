@@ -3,6 +3,7 @@ import { assert, assertEquals, assertFalse } from '@std/assert'
 import { join } from '@std/path'
 import { Commander } from 'cli'
 import newSpaceAction from 'commands/new/actions/space.ts'
+import { THIRD_PARTY_DEPENDENCY_VERSIONS } from 'utils/config/dependencies.ts'
 
 // Real end-to-end proof, one level above `renderer-wiring.test.ts`'s own tree-assembly coverage:
 // runs the REAL `newSpaceAction` (what `zanix new space --renderer=preact` itself calls), writes
@@ -50,7 +51,7 @@ Deno.test(
 
       const config = JSON.parse(await Deno.readTextFile(join(appPath, 'deno.json')))
       assertEquals(config.compilerOptions.jsxImportSource, 'react')
-      assertEquals(config.imports.react, 'npm:react@^19.2.0')
+      assertEquals(config.imports.react, THIRD_PARTY_DEPENDENCY_VERSIONS.react)
       assertEquals(config.imports.preact, undefined)
 
       const spaceApp = await Deno.readTextFile(join(appPath, 'space.app.ts'))

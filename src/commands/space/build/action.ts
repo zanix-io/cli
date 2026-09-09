@@ -108,6 +108,16 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   await guardAgainstTransitiveCollisions(root)
   // Same "before anything else" reasoning, for a separate hazard — see
   // `guardAgainstStaleNativeDependencies`'s own doc.
+  //
+  // Re-enabled after a brief disable — see git history (and this file's own — the same removal/
+  // restore happened in `dev/action.ts`) for the full account: this guard's own re-exec correlated
+  // with two real, still-unexplained CI-only failures (a `react`/`react-dom` version mismatch, and
+  // a separate run where the re-exec'd child printed this command GROUP's own help text instead of
+  // running `space build`). Neither reproduced locally under any condition tried. The `react`/
+  // `react-dom` half is independently closed now (`THIRD_PARTY_DEPENDENCY_VERSIONS`'s own exact-
+  // pin fix, `dependencies.ts`) — the re-exec help-text failure mode itself is NOT explained or
+  // fixed; re-enabling here is a deliberate risk, not a resolved one. If it recurs, the disabled
+  // form this replaced is in git history, ready to restore.
   await guardAgainstStaleNativeDependencies()
   // Before anything else touches this project's own tree — same reasoning as `zanix space dev`'s
   // own identical call: a killed earlier session can leave a `.zanix-import-*.js` temp file
