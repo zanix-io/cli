@@ -81,6 +81,7 @@ Deno.test('baseZnxConfig should return a valid config object for space projects'
       '@zanix/app/runtime': ZANIX_DEPENDENCY_VERSIONS['@zanix/app/runtime'],
       'babel-plugin-react-compiler': THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler'],
       react: THIRD_PARTY_DEPENDENCY_VERSIONS.react,
+      'react-dom': THIRD_PARTY_DEPENDENCY_VERSIONS['react-dom'],
     })
   } finally {
     cwdMock.restore()
@@ -140,6 +141,7 @@ Deno.test('baseZnxConfig should return a valid config object for space-server pr
       '@zanix/core': ZANIX_DEPENDENCY_VERSIONS['@zanix/core'],
       'babel-plugin-react-compiler': THIRD_PARTY_DEPENDENCY_VERSIONS['babel-plugin-react-compiler'],
       react: THIRD_PARTY_DEPENDENCY_VERSIONS.react,
+      'react-dom': THIRD_PARTY_DEPENDENCY_VERSIONS['react-dom'],
     })
   } finally {
     cwdMock.restore()
