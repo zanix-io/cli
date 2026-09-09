@@ -19,6 +19,7 @@ import {
 import { TRANSITIVE_REEXEC_ENV } from 'commands/space/shared/transitive-collision.ts'
 import { guardAgainstTransitiveCollisions } from 'commands/space/shared/transitive-collision-guard.ts'
 import { guardAgainstStaleNativeDependencies } from 'commands/space/shared/native-dependency-freshness-guard.ts'
+import { guardAgainstUnlockedDependencies } from 'commands/space/shared/unlocked-dependencies-guard.ts'
 import { collectFiles } from '@zanix/helpers'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
 import { reportValidation } from 'commands/space/shared/report-validation.ts'
@@ -237,6 +238,14 @@ async function spaceDevAction(
   // separate invocation); this sweep is what actually reclaims it, since nothing else ever revisits
   // an orphan a random UUID names uniquely.
   await sweepStaleGeneratedModules(root)
+  // Same "before anything else" reasoning as the guards above, for a separate hazard — see
+  // `guardAgainstUnlockedDependencies`'s own doc (`zanix space build`'s identical call). Must run
+  // before `importSpaceApp` below: this process's own first resolution of `root`'s npm dependency
+  // graph (`react`/`react-dom` included) needs `root`'s `deno.lock`/`node_modules` already
+  // coherent by then. The generated `dev` task (`getBaseTasks`, `utils/config/base.ts`) already
+  // runs `deno install` before invoking this command — this guard is what protects a direct
+  // `zanix space dev` invocation that bypasses that task instead.
+  await guardAgainstUnlockedDependencies(root)
   const spaceApp = await importSpaceApp(this, root)
 
   // `@zanix/space/dev`/`@zanix/space` resolve against THIS project's own config, never
