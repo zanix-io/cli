@@ -4,6 +4,10 @@ import { join } from '@std/path'
 import { Commander } from 'cli'
 import { registerSpaceDevCommand } from 'commands/space/dev/command.ts'
 import { SPACE_CLIENT_IMPORTS } from '../build/space-client-imports.ts'
+import { disableNativeFreshnessCheckForTests } from '../shared/disable-native-freshness-check.ts'
+
+// See disableNativeFreshnessCheckForTests's own doc for why this is needed here.
+disableNativeFreshnessCheckForTests()
 
 /**
  * `zanix space dev --no-graphql-check` — its own test FILE, deliberately separate from

@@ -1,8 +1,9 @@
-import { assert, assertEquals } from '@std/assert'
+import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import { join } from '@std/path'
 import { stub } from '@std/testing/mock'
 import { getTemporaryFolder } from '@zanix/helpers'
-import { watchSpaceAppFile } from 'commands/space/dev/action.ts'
+import logger from '@zanix/utils/logger'
+import { assertServersStarted, watchSpaceAppFile } from 'commands/space/dev/action.ts'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
@@ -106,6 +107,124 @@ Deno.test(
       commandStub.restore()
       exitStub.restore()
       await Deno.remove(spaceAppPath)
+    }
+  },
+)
+
+Deno.test(
+  'assertServersStarted: a non-empty servers array is the normal case — resolves without ' +
+    'running onEmpty, logging, or exiting',
+  async () => {
+    let onEmptyCalls = 0
+    const errorStub = stub(logger, 'error')
+    const exitStub = stub(Deno, 'exit', () => undefined as never)
+
+    try {
+      await assertServersStarted(
+        ['server-id-1'],
+        { port: 20202, appName: 'my-space-app', routesDir: './src/space/routes' },
+        () => {
+          onEmptyCalls++
+          return Promise.resolve()
+        },
+      )
+
+      assertEquals(onEmptyCalls, 0)
+      assertEquals(errorStub.calls.length, 0)
+      assertEquals(exitStub.calls.length, 0)
+    } finally {
+      errorStub.restore()
+      exitStub.restore()
+    }
+  },
+)
+
+Deno.test(
+  'assertServersStarted: an empty servers array — the real, confirmed `bootstrapServers()` ' +
+    'silent-empty-return case — runs onEmpty, logs a clear error naming the port/app/routesDir, ' +
+    'and exits 1, instead of letting a false "running" success log follow',
+  async () => {
+    let onEmptyCalls = 0
+    const errorStub = stub(logger, 'error')
+    const exitStub = stub(Deno, 'exit', () => undefined as never)
+
+    try {
+      await assertServersStarted(
+        [],
+        { port: 20202, appName: 'my-space-app', routesDir: './src/space/routes' },
+        () => {
+          onEmptyCalls++
+          return Promise.resolve()
+        },
+      )
+
+      assertEquals(onEmptyCalls, 1)
+      assertEquals(errorStub.calls.length, 1)
+      const [message] = errorStub.calls[0].args as [string]
+      assertStringIncludes(message, 'http://localhost:20202')
+      assertStringIncludes(message, '"my-space-app"')
+      assertStringIncludes(message, './src/space/routes')
+      assertEquals(exitStub.calls.length, 1)
+      assertEquals(exitStub.calls[0].args[0], 1)
+    } finally {
+      errorStub.restore()
+      exitStub.restore()
+    }
+  },
+)
+
+Deno.test(
+  'assertServersStarted: an undefined servers value (never actually assigned — a real bind ' +
+    'failure elsewhere) is treated the same as empty, not as "started"',
+  async () => {
+    let onEmptyCalls = 0
+    const errorStub = stub(logger, 'error')
+    const exitStub = stub(Deno, 'exit', () => undefined as never)
+
+    try {
+      await assertServersStarted(
+        undefined,
+        { port: 20202, appName: 'my-space-app', routesDir: './src/space/routes' },
+        () => {
+          onEmptyCalls++
+          return Promise.resolve()
+        },
+      )
+
+      assertEquals(onEmptyCalls, 1)
+      assertEquals(errorStub.calls.length, 1)
+      assertEquals(exitStub.calls.length, 1)
+    } finally {
+      errorStub.restore()
+      exitStub.restore()
+    }
+  },
+)
+
+Deno.test(
+  'assertServersStarted: a multi-entry routesDir (routesDir accepts string | string[], host ' +
+    'composition) is joined into one readable list in the error message, not printed as ' +
+    '"[object Object]" or JSON',
+  async () => {
+    const errorStub = stub(logger, 'error')
+    const exitStub = stub(Deno, 'exit', () => undefined as never)
+
+    try {
+      await assertServersStarted(
+        [],
+        {
+          port: 20202,
+          appName: 'my-space-app',
+          routesDir: ['./src/space/routes', './node_modules/@scope/base-app/routes'],
+        },
+        () => Promise.resolve(),
+      )
+
+      const [message] = errorStub.calls[0].args as [string]
+      assertStringIncludes(message, './src/space/routes, ./node_modules/@scope/base-app/routes')
+    } finally {
+      errorStub.restore()
+      exitStub.restore()
     }
   },
 )

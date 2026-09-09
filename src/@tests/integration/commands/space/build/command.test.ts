@@ -4,6 +4,10 @@ import { join } from '@std/path'
 import { Commander } from 'cli'
 import { registerSpaceBuildCommand } from 'commands/space/build/command.ts'
 import { SPACE_CLIENT_IMPORTS } from './space-client-imports.ts'
+import { disableNativeFreshnessCheckForTests } from '../shared/disable-native-freshness-check.ts'
+
+// See disableNativeFreshnessCheckForTests's own doc for why this is needed here.
+disableNativeFreshnessCheckForTests()
 
 console.error = () => {}
 

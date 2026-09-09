@@ -62,6 +62,7 @@
     "jsr:@zanix/server@4": "4.2.3",
     "jsr:@zanix/server@^4.1.0": "4.2.3",
     "jsr:@zanix/server@^4.2.1": "4.2.3",
+    "jsr:@zanix/server@^4.2.3": "4.2.3",
     "jsr:@zanix/space-ui@2": "2.0.2",
     "jsr:@zanix/space@1": "1.8.0",
     "jsr:@zanix/space@^1.3.0": "1.8.0",
@@ -93,6 +94,7 @@
     "npm:postcss-modules@^9.0.1": "9.0.1_postcss@8.5.28",
     "npm:postcss@^8.5.26": "8.5.28",
     "npm:preact-render-to-string@^6.5.0": "6.7.0_preact@10.29.8",
+    "npm:preact@10.29.8": "10.29.8",
     "npm:preact@^10.29.0": "10.29.8",
     "npm:react-dom@^19.2.0": "19.2.8_react@19.2.8",
     "npm:react@19.2.8": "19.2.8",
@@ -361,6 +363,16 @@
         "npm:redis"
       ]
     },
+    "@zanix/datamaster@1.9.3": {
+      "integrity": "9240d976a44f49bccdd1b673d1d9f725ab88cb03185ec89f492d9002a3b3a2b6",
+      "dependencies": [
+        "jsr:@db/sqlite",
+        "jsr:@zanix/server@^4.2.3",
+        "jsr:@zanix/utils@^4.4.0",
+        "npm:mongoose",
+        "npm:redis"
+      ]
+    },
     "@zanix/notifications@1.2.3": {
       "integrity": "af0fae4f90fe4f1097c974f11e6933e762cf16aec66332941f3389f61c01e42b",
       "dependencies": [
@@ -373,6 +385,14 @@
     },
     "@zanix/server@4.2.3": {
       "integrity": "475a3b19e2bd349900948b36b41ae11d5d23506a9a588f1d5b5d768567d35fc8",
+      "dependencies": [
+        "jsr:@std/http",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/utils@^4.1.0"
+      ]
+    },
+    "@zanix/server@4.2.5": {
+      "integrity": "6348ff73074912c662833e272de8511da49a4e802f46b23a2be31a0952deac2f",
       "dependencies": [
         "jsr:@std/http",
         "jsr:@std/path@0.224",
@@ -424,6 +444,28 @@
         "npm:vite"
       ]
     },
+    "@zanix/space@1.6.2": {
+      "integrity": "a22227ab7898ff5ef0c93c2e818309e3140fa57a29052fadb0788a49be48184f",
+      "dependencies": [
+        "jsr:@deno/loader",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0",
+        "npm:@deno/vite-plugin",
+        "npm:@preact/preset-vite",
+        "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
+        "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
+        "npm:react-dom",
+        "npm:react@^19.2.0",
+        "npm:sharp",
+        "npm:vite"
+      ]
+    },
     "@zanix/space@1.8.0": {
       "integrity": "2fb247acc6d8876745afbeab0cbc50ecb70079c9a87e4e596b0a280a23a5d2d5",
       "dependencies": [
@@ -442,9 +484,32 @@
         "npm:@vitejs/plugin-react",
         "npm:postcss",
         "npm:postcss-modules",
-        "npm:preact",
         "npm:preact-render-to-string",
+        "npm:preact@^10.29.0",
         "npm:react-dom",
+        "npm:react@^19.2.0",
+        "npm:sharp",
+        "npm:vite"
+      ]
+    },
+    "@zanix/space@1.9.0": {
+      "integrity": "c4a64ae3739e10e958887b330555624d51a96981ef04c89793bc6e7f455f43ec",
+      "dependencies": [
+        "jsr:@deno/loader",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0",
+        "npm:@deno/vite-plugin",
+        "npm:@preact/preset-vite",
+        "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
+        "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
+        "npm:preact-render-to-string",
+        "npm:preact@^10.29.0",
         "npm:react@^19.2.0",
         "npm:sharp",
         "npm:vite"
@@ -458,8 +523,37 @@
         "npm:@formatjs/icu-messageformat-parser",
         "npm:@formatjs/intl",
         "npm:@types/react",
+        "npm:preact@^10.29.0",
         "npm:react@^19.2.0",
         "npm:schema-dts"
+      ]
+    },
+    "@zanix/utils@2.0.3-alpha5": {
+      "integrity": "0ad589f32fff4fc8887da1161e03fa2de86c8c4eea16de889535d897bace6fa4",
+      "dependencies": [
+        "jsr:@luca/esbuild-deno-loader",
+        "jsr:@std/fmt@0.224",
+        "jsr:@std/path@0.224",
+        "npm:esbuild",
+        "npm:javascript-obfuscator"
+      ]
+    },
+    "@zanix/utils@2.0.3-alpha9": {
+      "integrity": "3b156754b63f9a7ed8280d30ab091d09e8a5f61fe12b1af06d539b0d06e4a775",
+      "dependencies": [
+        "jsr:@luca/esbuild-deno-loader",
+        "jsr:@std/fmt@0.224",
+        "jsr:@std/path@0.224",
+        "npm:esbuild",
+        "npm:javascript-obfuscator"
+      ]
+    },
+    "@zanix/utils@4.3.0": {
+      "integrity": "95616c78363482ae441571ad6e327b9ccc1b0657d6d8c4fff5cd40337eae4ede",
+      "dependencies": [
+        "jsr:@std/crypto",
+        "jsr:@std/fmt@0.224",
+        "jsr:@std/path@0.224"
       ]
     },
     "@zanix/utils@4.4.0": {

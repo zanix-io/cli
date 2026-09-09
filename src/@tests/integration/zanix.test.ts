@@ -68,6 +68,10 @@ Deno.test('baseZnxConfig should return a valid config object for space projects'
     assertExists(config.compilerOptions)
     assertEquals(config.lint?.exclude?.[0], dist)
     assertEquals(config.fmt?.exclude?.[0], dist)
+    // `space` is JSR-publishable exactly like `library`/`app` now — no longer a bespoke, narrower
+    // type (see `baseZnxConfig`'s own doc for why this is unconditional across every project type).
+    assertEquals(config.exports, { '.': './mod.ts' })
+    assertEquals(config.publish?.exclude, ['.github', 'src/@tests'])
     assertEquals(config.imports, {
       'space/': './src/space/',
       'shared/': './src/shared/',
@@ -90,6 +94,7 @@ Deno.test('baseZnxConfig should return a valid config object for library project
     assert(config.zanix?.project === 'library')
 
     assertEquals(config.lint?.rules?.tags, ['recommended', 'jsr'])
+    assertEquals(config.exports, { '.': './mod.ts' })
     assertEquals(config.publish?.exclude, ['.github', 'src/@tests'])
     assertEquals(config.imports, {
       'modules/': './src/modules/',
@@ -108,7 +113,12 @@ Deno.test('baseZnxConfig should return a valid config object for space-server pr
     const config = baseZnxConfig('space-server')
 
     assert(config.zanix?.project === 'space-server')
-    assert(config.publish?.exclude === undefined)
+    // `space-server` is JSR-publishable exactly like `library`/`app`/`space` now — the whole point
+    // of this fix (see `baseZnxConfig`'s own doc): a freshly scaffolded `space-server` project
+    // (`zanix/iam`'s own real shape) can be `deno publish`ed/run via `jsr:@scope/name` without a
+    // `git clone` first.
+    assertEquals(config.exports, { '.': './mod.ts' })
+    assertEquals(config.publish?.exclude, ['.github', 'src/@tests'])
     assertEquals(config.lint?.rules?.tags, [
       'recommended',
       'jsr',

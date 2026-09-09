@@ -32,6 +32,12 @@ __tmp__/
 *.log
 /.logs/
 
+# `native-dependency-freshness.ts`'s own generated artifacts — written straight into THIS checkout's
+# own directory (never a served project's) whenever `zanix space dev`/`build` runs from a local
+# `cli` checkout, since `locateCliLockPath` resolves to this repo's own `deno.lock` in that shape.
+/.zanix-import-native-freshness-*.lock.json
+/.zanix-native-freshness-cache.json
+
 # Compiled JavaScript files
 tsconfig.tsbuildinfo
 

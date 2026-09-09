@@ -35,7 +35,8 @@ Deno.test('new command server should create some base folders', async () => {
   )
   assert(
     !fileExists(project + '/.github/workflows/publish.yml'),
-    'publish.yml is only written for library/app project types, not server',
+    'publish.yml is off by default for server — a deployed service, not a published package; ' +
+      'opt in via --publish',
   )
 
   assert(folderExists(project + '/src/server'))
@@ -166,7 +167,8 @@ Deno.test('new command space should create some base folders', async () => {
   )
   assert(
     !fileExists(project + '/.github/workflows/publish.yml'),
-    'publish.yml is only written for library/app project types, not space',
+    'publish.yml is off by default for space — a deployed service, not a published package; ' +
+      'opt in via --publish',
   )
 
   assert(!folderExists(project + '/src/server'))
@@ -257,7 +259,8 @@ Deno.test('new command spacecraft should create some base folders', async () => 
   )
   assert(
     !fileExists(project + '/.github/workflows/publish.yml'),
-    'publish.yml is only written for library/app project types, not spacecraft',
+    'publish.yml is off by default for spacecraft (space-server) — a deployed service, not a ' +
+      'published package; opt in via --publish',
   )
 
   assert(folderExists(project + '/src/server'))

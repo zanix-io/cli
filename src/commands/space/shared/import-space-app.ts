@@ -4,10 +4,7 @@ import { resolve } from '@std/path'
 import type { ZanixAppDefinition } from '@zanix/app'
 import type * as ZanixAppModule from '@zanix/app'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
-import {
-  importProjectDependency,
-  importProjectModule,
-} from 'commands/space/shared/import-project-module.ts'
+import { importProjectModule } from 'commands/space/shared/import-project-module.ts'
 
 /**
  * Imports `${root}/space.app.ts`'s default export as a `ZanixAppDefinition` — never
@@ -51,16 +48,17 @@ export async function importSpaceApp(
     throw error
   }
 
-  // Resolved against THIS project's own config, exactly like `imported` above — never `@zanix/cli`'s
-  // own native `@zanix/app`, which would check this `Symbol()` brand against a DIFFERENT `@zanix/app`
-  // instance than whichever one `@zanix/space`'s own `defineSpaceApp` used to build `imported` (a
-  // bare `Symbol()`, never `Symbol.for()`, only `===`-equal to itself within the SAME module
-  // instance) — silently returning `false` here instead of a loud version-mismatch failure. See
-  // `importProjectDependency`'s own doc for the full mechanism this avoids.
-  const { isZanixAppDefinition } = await importProjectDependency(
-    root,
-    '@zanix/app',
-  ) as typeof ZanixAppModule
+  // A plain NATIVE `import()`, deliberately NOT resolved against `root`'s own project config —
+  // `space.app.ts` itself never declares `@zanix/app` (only `@zanix/space`), so there is no
+  // project-declared version to anchor against here. The brand check below only ever matches the
+  // SAME `@zanix/app` instance (a bare `Symbol()`, never `Symbol.for()`, only `===`-equal to
+  // itself within the SAME module instance) `@zanix/space`'s own `defineSpaceApp` used to build
+  // `imported` — and `@zanix/space`'s own internal `import '@zanix/app'` statement, once its
+  // module code actually runs, is resolved by Deno's real runtime mechanism, governed by
+  // `@zanix/cli`'s own config/lockfile (the one thing that governs this whole running process, in
+  // every install shape). A native `import('@zanix/app')` right here resolves through that exact
+  // same mechanism, landing on the identical module instance.
+  const { isZanixAppDefinition } = await import('@zanix/app') as typeof ZanixAppModule
 
   if (!isZanixAppDefinition(imported)) {
     const error = new Error(

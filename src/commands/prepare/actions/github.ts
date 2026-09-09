@@ -9,7 +9,9 @@ import { assertValidProjectType } from 'commands/prepare/shared/project-type.ts'
  * default, or `'framework'`) onto `prepareGithub`'s own `usePrecommit` option: `'framework'` sets
  * `usePrecommit`, which switches which hook mechanism Git actually runs (see `prepareGithub`'s own
  * doc for the "both files exist, only one gets linked" detail); any other value throws through
- * `this.throw`.
+ * `this.throw`. `--publish` (left as `undefined` when omitted) is forwarded straight through to
+ * `createGitWorkflows`'s own `publish` option, unresolved — that function owns the actual
+ * `projectType`-based default, not this action.
  */
 function prepareGithubAction(
   this: Commander,
@@ -18,6 +20,7 @@ function prepareGithubAction(
     fmtFiles?: string
     lintFiles?: string
     hooksEngine?: unknown
+    publish?: boolean
   },
   root?: string,
 ) {
@@ -55,7 +58,7 @@ function prepareGithubAction(
       },
       prePush: { baseRoot: root },
     },
-    publishWorkflow: { projectType, baseRoot: root },
+    publishWorkflow: { projectType, publish: options.publish, baseRoot: root },
     gitIgnoreBase: { baseRoot: root },
   }).catch((e) => {
     this.throw(e)

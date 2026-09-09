@@ -9,15 +9,16 @@ import { dirname, resolve } from '@std/path'
 import { parse as parseEnvFile } from '@std/dotenv'
 import { assertProjectType, getCurrentProjectType } from 'commands/generate/shared/project.ts'
 import { importSpaceApp } from 'commands/space/shared/import-space-app.ts'
+import { importProjectDependency } from 'commands/space/shared/import-project-dependency.ts'
 import {
   cleanupImportBatch,
   createImportBatchContext,
-  importProjectDependency,
   importProjectModule,
   sweepStaleGeneratedModules,
-  TRANSITIVE_REEXEC_ENV,
 } from 'commands/space/shared/import-project-module.ts'
+import { TRANSITIVE_REEXEC_ENV } from 'commands/space/shared/transitive-collision.ts'
 import { guardAgainstTransitiveCollisions } from 'commands/space/shared/transitive-collision-guard.ts'
+import { guardAgainstStaleNativeDependencies } from 'commands/space/shared/native-dependency-freshness-guard.ts'
 import { collectFiles } from '@zanix/helpers'
 import { SPACE_APP_MODULE } from 'commands/new/lib/tree/projects/space.ts'
 import { reportValidation } from 'commands/space/shared/report-validation.ts'
@@ -171,6 +172,39 @@ async function loadEnvFileVars(envPath: string): Promise<void> {
   }
 }
 
+/**
+ * Turns a `bootstrapServers()` result that started NOTHING into a real, actionable failure instead
+ * of letting `spaceDevAction` fall through to its own unconditional "running" log — see that
+ * function's own call site for why an empty result is possible at all (`@zanix/server`'s
+ * `bootstrapServersImpl`, `serve`/`Object.values(serve).some(Boolean)`) despite every call here
+ * always naming `rest`/`ssr`/`socket`. A non-empty `servers` is the normal case and this resolves
+ * immediately; only the empty case runs `onEmpty` (the caller's own dev-engine cleanup — this
+ * function owns no engine of its own) before reporting and exiting.
+ *
+ * A separate, exported function — not inlined into `spaceDevAction` — specifically so it can be
+ * unit-tested directly with a synthetic empty `servers` array, the same way `watchSpaceAppFile`
+ * (above) is: constructing a REAL `hasRoutesForScope`-empty boot through the full CLI scaffold is
+ * not straightforward, since `defineSpaceApp`'s own `setup()` always registers `POST /api/log`
+ * (`@zanix/space`, "Always on", no config disables it) before `bootstrapServers` is ever called —
+ * so `rest` alone already has a route in every normal boot, empty or not.
+ */
+export async function assertServersStarted(
+  servers: unknown[] | undefined,
+  details: { port: number; appName: string; routesDir: string | string[] },
+  onEmpty: () => Promise<void>,
+): Promise<void> {
+  if (servers?.length) return
+  await onEmpty()
+  const { port, appName, routesDir } = details
+  logger.error(
+    `Zanix space dev found nothing to serve at http://localhost:${port} — no page, REST route, ` +
+      `or socket handler was registered for "${appName}" under ${
+        Array.isArray(routesDir) ? routesDir.join(', ') : routesDir
+      }. Add at least one route and try again.`,
+  )
+  Deno.exit(1)
+}
+
 async function spaceDevAction(
   this: Commander,
   options: SpaceDevOptions,
@@ -182,6 +216,11 @@ async function spaceDevAction(
   // doc) needs the WHOLE process restarted under a shared configuration; every resolution below
   // this line runs either already fixed up that way, or has nothing to fix at all.
   await guardAgainstTransitiveCollisions(root)
+  // Same "before anything else" reasoning, for a separate hazard — see
+  // `guardAgainstStaleNativeDependencies`'s own doc. Independent of `root` entirely (a served
+  // project's own config never factors into this check), so its own order relative to the guard
+  // above doesn't matter — kept second only for a natural reading order.
+  await guardAgainstStaleNativeDependencies()
   // `start`/`worker` (`getBaseTasks`, `utils/config/base.ts`) get `.env` for free from their own
   // `deno run --env-file=.env ...` task string, degrading gracefully (a Deno warning, never an
   // error) when `.env` doesn't exist yet. `zanix space dev` has no equivalent task-level flag to
@@ -200,18 +239,33 @@ async function spaceDevAction(
   await sweepStaleGeneratedModules(root)
   const spaceApp = await importSpaceApp(this, root)
 
-  // Resolved against THIS project's own config, never `@zanix/cli`'s own native imports — see
-  // `importProjectDependency`'s own doc for the real, reported bug this avoids: `@zanix/cli`
-  // natively needs `bootstrapServers`/`ProgramModule`/`webServerManager`/`ZANIX_SERVER_MODULES`
-  // (`@zanix/server`) and `createSpaceDevEngine`/`getActiveRenderer`/`SpaceDevSocket`'s own
-  // registration (`@zanix/space/dev`, imported as a side effect of this resolution)/`getRoutesDir`
-  // (`@zanix/space`) to be the SAME module instances `space.app.ts` (imported just above) reads
-  // and writes through — a separately resolved instance of any of these would either silently
-  // read back nothing the project declared, or register `SpaceDevSocket`'s dev-socket route
-  // twice, throwing "already defined" the moment a served project's own `@zanix/space` version
-  // diverges from whatever `@zanix/cli` itself would otherwise have resolved natively.
+  // `@zanix/space/dev`/`@zanix/space` resolve against THIS project's own config, never
+  // `@zanix/cli`'s own native imports — see `importProjectDependency`'s own doc for the real,
+  // reported bug this avoids: `@zanix/cli` natively needs `createSpaceDevEngine`/
+  // `getActiveRenderer`/`SpaceDevSocket`'s own registration (`@zanix/space/dev`, imported as a
+  // side effect of this resolution)/`getRoutesDir` (`@zanix/space`) to be the SAME module
+  // instances `space.app.ts` (imported just above) reads and writes through — a separately
+  // resolved instance of either would either silently read back nothing the project declared, or
+  // register `SpaceDevSocket`'s dev-socket route twice, throwing "already defined" the moment a
+  // served project's own `@zanix/space` version diverges from whatever `@zanix/cli` itself would
+  // otherwise have resolved natively.
+  //
+  // `@zanix/server` resolves through a plain NATIVE `import()` instead — the opposite mechanism,
+  // for the opposite reason. `bootstrapServers`/`ProgramModule`/`webServerManager`/
+  // `ZANIX_SERVER_MODULES` need to be the SAME module instance `@zanix/space`'s own internal
+  // `@Page`/`@Route` decorators write their route registrations into — but `space.app.ts` never
+  // imports `@zanix/server` directly (only `@zanix/space`), so there is no project-declared
+  // version to anchor against in the first place, and `@zanix/space`'s own internal
+  // `import '@zanix/server'` statement (once its module code actually runs) is resolved by Deno's
+  // real runtime mechanism, governed by whichever config/lockfile governs this whole process —
+  // `@zanix/cli`'s own, in every install shape, local checkout or global. A plain native
+  // `import('@zanix/server')` right here resolves through that exact same mechanism, so it always
+  // lands on the identical module instance `@zanix/space`'s own internal import does — a
+  // guarantee a STATIC resolver computation reasoning only about declared version RANGES cannot
+  // give, since Deno's real per-process module cache is keyed by the fully resolved URL, not by
+  // which range specifier led there.
   const [zanixServer, zanixSpaceDev, zanixSpace] = await Promise.all([
-    importProjectDependency(root, '@zanix/server'),
+    import('@zanix/server'),
     importProjectDependency(root, '@zanix/space/dev'),
     importProjectDependency(root, '@zanix/space'),
   ]) as [typeof ZanixServerModule, typeof ZanixSpaceDevModule, typeof ZanixSpaceModule]
@@ -440,14 +494,13 @@ async function spaceDevAction(
       })
     }
 
-    // Same project-anchored reasoning as the `@zanix/server`/`@zanix/space/dev`/`@zanix/space`
-    // resolution above — `activateApps` internally checks `isZanixAppDefinition(spaceApp)` against
-    // a bare `Symbol()` brand, which only ever matches the SAME `@zanix/app` instance
-    // `@zanix/space`'s own `defineSpaceApp` used to build `spaceApp` in the first place.
-    const { activateApps } = await importProjectDependency(
-      root,
-      '@zanix/app/runtime',
-    ) as typeof ZanixAppRuntimeModule
+    // Same native-resolution reasoning as `@zanix/server` above — `activateApps` internally
+    // checks `isZanixAppDefinition(spaceApp)` against a bare `Symbol()` brand, which only ever
+    // matches the SAME `@zanix/app` instance `@zanix/space`'s own `defineSpaceApp` used to build
+    // `spaceApp` in the first place, and `space.app.ts` never imports `@zanix/app` itself to
+    // anchor a project resolution against — only `@zanix/space`'s own internal, natively-resolved
+    // import of it does.
+    const { activateApps } = await import('@zanix/app/runtime') as typeof ZanixAppRuntimeModule
     await activateApps([spaceApp])
 
     // AFTER activation, deliberately. Activation is what runs `loadRoutes()` and — for a
@@ -590,6 +643,16 @@ async function spaceDevAction(
     await engine.close()
     throw error
   }
+
+  // See `assertServersStarted`'s own doc for why an empty `servers` here is possible at all, and
+  // why this must run before the unconditional "running" log below — `webServerManager.stop`/
+  // `watchSpaceAppFile` further down are skipped too on the empty path (this exits the process),
+  // since there is no live server for a later file change to ever refresh.
+  await assertServersStarted(
+    servers,
+    { port, appName, routesDir: getRoutesDir() },
+    () => engine.close(),
+  )
 
   self.addEventListener('unload', () => {
     engine.close()

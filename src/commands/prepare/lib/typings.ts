@@ -35,21 +35,24 @@ export type PreCommitHookOptions = HookOptions & {
  * The workflow template types, each backing exactly one `.yml` file `createWorkflow` can write.
  * `'ci'` (checkout, `Setup Deno`, `deno fmt --check`, `deno lint`, `zanix check-cycles` — no
  * `deno test`, no `deno publish`; also declares `workflow_call`, so it doubles as a reusable
- * workflow) is written for every real
- * {@link ZanixProjects} type. `'publish'` (checkout, `Setup Deno`, `deno test`, `deno publish` —
- * no `check-cycles` of its own; its own `ci` job instead `uses: ./.github/workflows/ci.yml`, and
- * its `publish` job declares `needs: ci`) is written ADDITIONALLY, only for `'library'`/`'app'` —
- * see {@link createGitWorkflows} for the orchestration that decides which template(s) a given
- * project type gets. `null` stays part of the type for robustness against a future caller that
- * hasn't resolved a concrete template yet, even though every real call today passes a concrete
- * string.
+ * workflow) is written unconditionally, for every real {@link ZanixProjects} type. `'publish'`
+ * (checkout, `Setup Deno`, `deno test`, `deno publish` — no `check-cycles` of its own; its own
+ * `ci` job instead `uses: ./.github/workflows/ci.yml`, and its `publish` job declares
+ * `needs: ci`) is written for `'library'`/`'app'` by default, and for `'server'`/`'space'`/
+ * `'space-server'` only when explicitly opted into — see {@link createGitWorkflows}'s own
+ * `publish` option for the full default/override rule. `null` stays part of the type for
+ * robustness against a future caller that hasn't resolved a concrete template yet, even though
+ * every real call today passes a concrete string.
  */
 export type WorkFlowTypes = 'publish' | 'ci' | null
 
 /** Options accepted by {@link createGitWorkflows}. */
 export type WorkflowOptions = BaseGithubHelperOptions & {
   /**
-   * The Zanix project type the workflow should be generated for. Defaults to `'library'`.
+   * Validated by the `-p --project-type` CLI flag (shared with {@link DockerfileOptions}, which
+   * ALSO branches on it) and forwarded here. Decides `publish.yml`'s own DEFAULT — see
+   * {@link createGitWorkflows}'s own doc — when `publish` itself is left unset. Defaults to
+   * `'library'`.
    */
   projectType?: ZanixProjects
   /**
@@ -58,6 +61,13 @@ export type WorkflowOptions = BaseGithubHelperOptions & {
    * Defaults to `master`
    */
   mainBranch?: string
+  /**
+   * Explicit override for whether `publish.yml` gets written, regardless of `projectType`'s own
+   * default (`true` for `'library'`/`'app'`, `false` otherwise) — see
+   * {@link createGitWorkflows}'s own doc for the full rule and the `zanix/iam` case this exists
+   * for (a `'space-server'` that DOES want zero-clone JSR distribution, opting in explicitly).
+   */
+  publish?: boolean
 }
 
 /** Options accepted by {@link prepareGithub}. */
@@ -90,8 +100,10 @@ export type PrepareGithubOptions = {
    * createGitWorkflows options
    *   - `baseFolder`: The directory where the workflow file(s) should be created.
    *   - `mainBranch`: The main branch that will trigger the workflow(s) when publishing a new version.
-   *   - `projectType`: Optional ZanixProject type to define which workflow(s) are written — `ci.yml`
-   *     always, `publish.yml` additionally for `'library'`/`'app'`. Defaults to `library`
+   *   - `projectType`: Optional ZanixProject type — decides `publish.yml`'s own default
+   *     (`'library'`/`'app'` → on) unless `publish` itself is set explicitly.
+   *   - `publish`: Explicit override for whether `publish.yml` gets written — see
+   *     `createGitWorkflows`'s own doc.
    */
   publishWorkflow?: WorkflowOptions
   /**

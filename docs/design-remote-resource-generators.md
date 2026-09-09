@@ -3,8 +3,21 @@
 **Status: proposal, not implemented.** No command described here exists in `registry.ts` yet. This
 follows `cli-artifact-generators`'s own standing workflow (Evidence → Decisions → Plan) up through
 the Plan step, ready for `cli-generator-expert` to implement. Written after a real design session
-that added `getBearerRelayHeaders`/`createSessionClientFactory` to `@zanix/console-kit` (see that
-repo's own `README.md`/`CHANGELOG.md` once released) — this proposal assumes those exist.
+that added `getBearerRelayHeaders`/`createSessionClientFactory` to a `@zanix/console-kit` package —
+this proposal assumed that package existed and would publish to JSR.
+
+**Premise update: `@zanix/console-kit` no longer exists.** It was extracted from `@zanix/console`
+speculatively, before a second real, independent consumer of the shape existed; that second
+consumer never materialized, and the extraction was reverted — `AdminResource`,
+`createHubClientFactory`, `getBearerRelayHeaders`, `createHubServiceAuthClient`, and the rest all
+moved back into `@zanix/console`'s own `src/admin-resources/`/`src/clients/`/`src/auth/` as
+internal modules (see `zanix-remote-api-app-pattern`'s own current intro). Every
+`import ... from '@zanix/console-kit...'` line below is now stale — a real implementation of this
+proposal would generate code that copies the equivalent shape inline (or from a shared internal
+module within the target project) rather than depending on a package that doesn't exist. The
+`ensureZanixDependency(root, '@zanix/console-kit')` step (Decisions, below) no longer applies at
+all. If a second real, independent consumer of `console-kit`'s shape ever does show up, THAT is the
+point to re-extract it into a real package and revisit this proposal against it — not before.
 
 ## Evidence (what's real today)
 

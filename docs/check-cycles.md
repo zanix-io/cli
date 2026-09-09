@@ -50,8 +50,10 @@ is a real hazard.
 
 `zanix prepare -g` scaffolds a `Check for circular-import hazards` step
 (`deno run -A jsr:@zanix/cli check-cycles`) into `.github/workflows/ci.yml`
-— generated for every real project type. `ci.yml` also declares
-`workflow_call`, so `'library'`/`'app'`'s ADDITIONAL `.github/workflows/publish.yml`
+— generated for every real project type, alongside `.github/workflows/publish.yml`
+(on by default for `'library'`/`'app'`, opt-in via `--publish` for
+`'server'`/`'space'`/`'space-server'` — see `docs/prepare.md`). Whenever
+`publish.yml` IS present, `ci.yml`'s own `workflow_call` declaration means it
 doesn't duplicate the check or run unrelated to it in parallel: its own
 `ci` job invokes `ci.yml` as a reusable workflow, and its `publish` job
 declares `needs: ci` — a confirmed `check-cycles` finding fails `ci.yml`'s

@@ -3,10 +3,8 @@ import type { ValidationReport } from 'commands/space/shared/report-validation.t
 import type * as ZanixSpaceModule from '@zanix/space'
 import type * as ZanixSpaceViteModule from '@zanix/space/vite'
 import { toValidationFlags } from 'commands/space/shared/validation-flags.ts'
-import {
-  importProjectDependency,
-  importProjectModule,
-} from 'commands/space/shared/import-project-module.ts'
+import { importProjectDependency } from 'commands/space/shared/import-project-dependency.ts'
+import { importProjectModule } from 'commands/space/shared/import-project-module.ts'
 
 /**
  * Runs document validation for `zanix space dev`.

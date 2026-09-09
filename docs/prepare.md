@@ -10,15 +10,16 @@ three errors out.
 zanix prepare -g -e
 ```
 
-| Option                      | Description                                                                                                                                                                                                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-g, --github`              | Initialize Git (if needed) and set up GitHub-related configuration — see below.                                                                                                                                                                                             |
-| `-e, --editor [editor]`     | Set up editor configuration. Only `'vscode'` is supported today (also the default when the flag is passed with no value).                                                                                                                                                   |
-| `-d, --docker`              | Generate a `Dockerfile` and `.dockerignore` for containerized deployment — see below.                                                                                                                                                                                       |
-| `-p, --project-type <type>` | `'library'`, `'space-server'`, `'space'`, `'server'`, or `'app'` — used when generating the GitHub Actions workflow(s) AND the Dockerfile (every type gets `ci.yml`; `'library'`/`'app'` ADDITIONALLY get `publish.yml`; every type but `'library'` produces a Dockerfile). |
-| `--lint-files <extensions>` | Comma-separated file extensions the pre-commit hook's linter step targets (e.g. `js,ts,tsx`).                                                                                                                                                                               |
-| `--fmt-files <extensions>`  | Comma-separated file extensions the pre-commit hook's formatter step targets (e.g. `js,md,ts,json`).                                                                                                                                                                        |
-| `--hooks-engine <engine>`   | Which engine manages the Git hooks: `'native'` (this repo's own shell scripts, default) or `'framework'` (the [pre-commit](https://pre-commit.com/) framework). Any other value errors out.                                                                                 |
+| Option                      | Description                                                                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-g, --github`              | Initialize Git (if needed) and set up GitHub-related configuration — see below.                                                                                                                                                                                                      |
+| `-e, --editor [editor]`     | Set up editor configuration. Only `'vscode'` is supported today (also the default when the flag is passed with no value).                                                                                                                                                            |
+| `-d, --docker`              | Generate a `Dockerfile` and `.dockerignore` for containerized deployment — see below.                                                                                                                                                                                                |
+| `-p, --project-type <type>` | `'library'`, `'space-server'`, `'space'`, `'server'`, or `'app'` — used when generating the GitHub Actions workflow(s) AND the Dockerfile (every type gets `ci.yml`; decides `publish.yml`'s own default — see `--publish` below; every type but `'library'` produces a Dockerfile). |
+| `--publish [bool]`          | Explicit override for whether `-g` also writes `publish.yml`, regardless of `--project-type`'s own default. Defaults to `true` for `'library'`/`'app'`, `false` otherwise — see `-g, --github` below.                                                                                |
+| `--lint-files <extensions>` | Comma-separated file extensions the pre-commit hook's linter step targets (e.g. `js,ts,tsx`).                                                                                                                                                                                        |
+| `--fmt-files <extensions>`  | Comma-separated file extensions the pre-commit hook's formatter step targets (e.g. `js,md,ts,json`).                                                                                                                                                                                 |
+| `--hooks-engine <engine>`   | Which engine manages the Git hooks: `'native'` (this repo's own shell scripts, default) or `'framework'` (the [pre-commit](https://pre-commit.com/) framework). Any other value errors out.                                                                                          |
 
 ## `-g, --github`
 
@@ -42,14 +43,22 @@ Sets up, in order:
   EVERY project type. Also declares
   `workflow_call`, so it doubles as a reusable workflow, not just a
   standalone one.
-- **`.github/workflows/publish.yml`** — generated ADDITIONALLY, only for
-  `'library'`/`'app'`. Two jobs, not two independent runs: a `ci` job
-  invokes `ci.yml` as a reusable workflow (`uses:
-  ./.github/workflows/ci.yml`), and the `publish` job declares `needs: ci`
-  — `deno test` plus `deno publish` (run on an actual push, never on an
-  open PR) only start once `ci.yml`'s own `deno fmt --check`/`deno lint`/
-  `check-cycles`/`check-duplicates` steps have actually succeeded, not in
-  parallel with them.
+- **`.github/workflows/publish.yml`** — generated alongside `ci.yml` by
+  DEFAULT for `'library'`/`'app'` (those two exist specifically to be
+  published) and OMITTED by default for `'server'`/`'space'`/`'space-server'`
+  (usually a deployed service, not a published package — defaulting this on
+  would mean `deno publish` running, and failing, on every push to a repo
+  never registered on JSR). Pass `--publish` explicitly (`--publish` or
+  `--publish=false`) to override either default — e.g. a `'space-server'`
+  that DOES want zero-clone JSR distribution (`zanix/iam`'s own real shape:
+  `deno.json` always gets a real `exports`/`publish` shape regardless of
+  type — see `baseZnxConfig` — only the CI _automation_ is type-gated here).
+  Two jobs, not two independent runs: a `ci` job invokes `ci.yml` as a
+  reusable workflow (`uses: ./.github/workflows/ci.yml`), and the `publish`
+  job declares `needs: ci` — `deno test` plus `deno publish` (run on an
+  actual push, never on an open PR) only start once `ci.yml`'s own
+  `deno fmt --check`/`deno lint`/`check-cycles`/`check-duplicates` steps
+  have actually succeeded, not in parallel with them.
 - **`.gitignore`** — a base ignore file for a Deno project.
 
 Passing `--hooks-engine framework` installs the

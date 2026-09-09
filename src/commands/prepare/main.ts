@@ -15,6 +15,17 @@ export default function prepareCommand(this: Commander) {
       "Specifies the type of project ('library', 'space-server', 'space', 'server', and 'app')",
     )
     .option(
+      '--publish [publish:boolean]',
+      "Whether '-g/--github' also writes .github/workflows/publish.yml (deno publish, gated on " +
+        "ci.yml passing) alongside ci.yml. Defaults to 'true' for --project-type library/app " +
+        "(the common case: those two exist specifically to be published) and 'false' for " +
+        'server/space/space-server (usually a deployed service, not a published package — ' +
+        'defaulting this on would mean deno publish running, and failing, on every push to a ' +
+        "repo never registered on JSR). Pass explicitly ('--publish' or '--publish=false') to " +
+        'override the default either way — e.g. a space-server that DOES want zero-clone JSR ' +
+        "distribution, matching zanix/iam's own real shape.",
+    )
+    .option(
       '--lint-files <lint-files:string>',
       'Specifies the file extensions to include for Git hooks that run a linter. Use file modular extensions (e.g., js,ts,tsx) to target specific file types.',
     )

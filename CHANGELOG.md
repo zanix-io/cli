@@ -8,6 +8,92 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-08
+
+### Added
+
+- **`zanix prepare -g`/`zanix new` now scaffold a real, publishable `deno.json` (`exports`/
+  `publish`) for every project type, not only `library`/`app`.** `utils/config/base.ts`'s
+  `baseZnxConfig` used to gate `exports`/`publish` on `type === 'library' | 'app'` — a `server`/
+  `space`/`space-server` project got `exports: {}`, unpublishable even once its own team decided it
+  should be (the motivating case: `@zanix/iam`, a `space-server` meant to run zero-clone straight
+  from JSR). Now unconditional across all five project types.
+- **New `--publish [publish:boolean]` flag on `zanix prepare -g`** (`commands/prepare/main.ts`),
+  forwarded through `prepareGithubAction`/`createGitWorkflows`
+  (`commands/prepare/lib/github/workflows/workflow.ts`) to decide whether
+  `.github/workflows/publish.yml` (real `deno publish` CI, gated on `ci.yml` passing) gets written
+  alongside `ci.yml`. Defaults by `--project-type`: `true` for `library`/`app` (the common case —
+  those exist specifically to publish), `false` for `server`/`space`/`space-server` (usually a
+  deployed service, not a JSR package — defaulting this on would mean `deno publish` running, and
+  failing, on every push to a repo never registered on JSR). Pass `--publish`/`--publish=false`
+  explicitly to override either direction — e.g. a `space-server` that DOES want zero-clone JSR
+  distribution, matching `@zanix/iam`'s own real shape.
+- **`zanix space dev`/`build` now automatically pick up a newer `@zanix/server`/`@zanix/app` than
+  what `@zanix/cli`'s own committed lock has pinned — never falling behind silently, and never
+  needing a manual `@zanix/cli` reinstall to notice.** Resolving these two packages natively (see
+  the "zero routes" fix below) converges correctly with `@zanix/space`'s own internal imports of
+  them, but ties their version to whatever `@zanix/cli`'s own lock happened to have pinned the last
+  time it was generated — frozen indefinitely otherwise, with no signal that anything newer exists.
+  Before every real run, `native-dependency-freshness.ts` re-resolves each range `@zanix/cli`'s own
+  lock already tracks for these two packages, fresh and in total isolation; when a genuinely newer
+  release comes back (a caret/tilde/major-only range can never resolve outside its own major, so
+  this never silently crosses one `@zanix/cli` itself hasn't been tested against), the whole
+  `zanix` process restarts once under a real, merged copy of that lock — `@zanix/server`'s/
+  `@zanix/app`'s native resolution and `@zanix/space`'s own internal one still converge, now on the
+  fresher version. A 24h cache (mirroring Deno's own `minimumDependencyAge` convention) means this
+  costs a real network check only once a day, not on every `zanix space dev` restart. A `scopes`
+  import-map override was tried first for this and confirmed, via a real repro, to have no effect
+  on a package resolved purely from JSR — only an entry in the LOCK a process's native resolution
+  actually consults does. No network access at all (offline, a registry outage) degrades cleanly —
+  the check fails silently and `dev`/`build` proceed on whatever's already resolved, exactly as
+  before this existed — and that failure is never written to the 24h cache in its own right, so the
+  very next invocation genuinely retries instead of silently trusting a result that was never really
+  checked.
+
+### Fixed
+
+- **`zanix space dev` could log `Zanix space dev running at http://localhost:<port>` while nothing
+  was actually listening on that port, with no error at all.** `@zanix/server`'s own
+  `bootstrapServers()` silently returns an empty array (no `Deno.serve()` ever runs) when none of
+  the named server types (`rest`/`ssr`/`socket`, always all three here) has a matching route/
+  resolver for the project's own Application — a real, confirmed symptom hit in a live consumer
+  project. `spaceDevAction` now checks that result (`assertServersStarted`,
+  `commands/space/dev/action.ts`) before its own success log: an empty result closes the dev
+  engine, logs a clear error naming the port/app/`routesDir`, and exits `1` instead.
+- **A bare specifier reached through a project file's own relative-import chain (`importProjectModule`,
+  used by `zanix space dev`'s document-validation render probe) could resolve against `@zanix/cli`'s
+  OWN configuration instead of the served project's, even when the two genuinely disagree.**
+  `resolveReplacement` (`commands/space/shared/import-project-module.ts`) tried `cli`'s own config
+  FIRST for any specifier outside `@zanix/space`/`@zanix/app`/`@zanix/server`, falling back to the
+  project's own config only when `cli`'s had no answer at all — so a project pinning a version `cli`
+  also happens to declare (for its own, unrelated internal reasons) got `cli`'s version instead of
+  its own, with no way to override it. A real, confirmed case: a project pinning a prerelease
+  version of a dependency saw `cli`'s own, older stable range win instead, crashing the render probe
+  on a component the pinned prerelease exports but the substituted version doesn't. The project's
+  own config is now tried first, with `cli`'s own config as the fallback for a specifier the project
+  never declares at all (the scenario this fallback actually exists for) — `@zanix/space`/
+  `@zanix/app`/`@zanix/server` are unaffected either way, already excluded from this fallback
+  entirely for their own, separate identity-sharing reasons.
+- **`zanix space dev` could register zero real routes for a served project — the SSR route table
+  came back empty even though the project's own pages exist and are discovered correctly.**
+  `@zanix/server`/`@zanix/app`/`@zanix/app/runtime` were resolved through `importProjectDependency`
+  (`commands/space/shared/import-project-dependency.ts`), a STATIC `@deno/loader` computation
+  approximating what `@zanix/space` itself transitively needs — but `@zanix/space`'s own internal
+  `import '@zanix/server'`/`import '@zanix/app'` statements, once its module code actually runs,
+  resolve through Deno's real NATIVE runtime mechanism instead, governed by whatever config/lockfile
+  governs the whole `zanix` process. These two computations can genuinely diverge: a real, confirmed
+  case had `@zanix/cli`'s own committed lock resolve `@zanix/space`'s internal `@zanix/server`
+  dependency to one version natively, while the static computation resolved a served project's own
+  fresher pin to a different one — two different resolved URLs, two separate Deno module-cache
+  entries, two separate route registries, with `@zanix/space`'s own routes registered into
+  whichever instance `spaceDevAction` never reads from. `@zanix/server`/`@zanix/app`/
+  `@zanix/app/runtime` now resolve through a plain native `import()` instead (`dev/action.ts`,
+  `import-space-app.ts`) — the same mechanism `@zanix/space`'s own internal imports of them already
+  use, so both always land on the identical module instance, in every install shape.
+  `importProjectDependency`'s own `TRANSITIVE_ONLY_PACKAGES`/config-augmentation machinery — the
+  static approximation this replaces — is removed; the function now only ever resolves
+  `@zanix/space` (and its own subpaths), which `space.app.ts` genuinely declares itself.
+
 ## [2.0.10] - 2026-09-07
 
 ### Fixed

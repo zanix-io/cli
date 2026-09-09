@@ -77,7 +77,8 @@ Deno.test('prepareGithubAction creates a publish workflow for app', async () => 
 })
 
 Deno.test(
-  'prepareGithubAction creates a CI workflow (no publish step) for server/space/space-server',
+  'prepareGithubAction creates a CI workflow (no publish step) for server/space/space-server, ' +
+    'by default — a deployed service, not a published package, unless --publish opts in',
   async () => {
     const projectTypes = ['server', 'space', 'space-server']
 
@@ -103,6 +104,49 @@ Deno.test(
       // deno-lint-ignore no-await-in-loop
       await Deno.remove(root, { recursive: true })
     }
+  },
+)
+
+Deno.test(
+  'prepareGithubAction: --publish opts a normally-excluded type into publish.yml too — the ' +
+    'zanix/iam case (a space-server that DOES want zero-clone JSR distribution)',
+  async () => {
+    const root = `${temporaryFolder}/with-space-server-publish`
+    await Deno.mkdir(root, { recursive: true })
+
+    const fakeCommander = { throw: () => {} }
+
+    await prepareGithubAction.call(
+      fakeCommander as never,
+      { projectType: 'space-server', publish: true },
+      root,
+    )
+
+    assert(await fileExistsAt(`${root}/.github/workflows/ci.yml`))
+    assert(await fileExistsAt(`${root}/.github/workflows/publish.yml`))
+
+    await Deno.remove(root, { recursive: true })
+  },
+)
+
+Deno.test(
+  'prepareGithubAction: --publish=false opts a normally-included type OUT of publish.yml',
+  async () => {
+    const root = `${temporaryFolder}/with-library-no-publish`
+    await Deno.mkdir(root, { recursive: true })
+
+    const fakeCommander = { throw: () => {} }
+
+    await prepareGithubAction.call(
+      fakeCommander as never,
+      { projectType: 'library', publish: false },
+      root,
+    )
+
+    assert(await fileExistsAt(`${root}/.github/workflows/ci.yml`))
+    assertFalse(await fileExistsAt(`${root}/.github/workflows/publish.yml`))
+
+    await Deno.remove(root, { recursive: true })
   },
 )
 
