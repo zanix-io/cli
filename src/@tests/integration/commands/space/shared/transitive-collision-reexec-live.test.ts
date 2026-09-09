@@ -4,7 +4,7 @@ import { getTemporaryFolder } from '@zanix/helpers'
 import {
   detectTransitiveCollisionPackages,
   prepareTransitiveCollisionReexec,
-} from 'commands/space/shared/import-project-module.ts'
+} from 'commands/space/shared/transitive-collision.ts'
 
 const TMP_ROOT = getTemporaryFolder(import.meta.url)
 

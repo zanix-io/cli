@@ -1,7 +1,7 @@
 import {
   prepareTransitiveCollisionReexec,
   TRANSITIVE_REEXEC_ENV,
-} from 'commands/space/shared/import-project-module.ts'
+} from 'commands/space/shared/transitive-collision.ts'
 import { readLockfileSpecifiers } from 'commands/check-duplicates/lib/lockfile.ts'
 import { findDuplicateZanixDeps } from 'commands/check-duplicates/lib/analyze.ts'
 import { formatReport } from 'commands/check-duplicates/lib/report.ts'

@@ -5,6 +5,10 @@ import { Commander } from 'cli'
 import { registerSpaceBuildCommand } from 'commands/space/build/command.ts'
 import { getActiveRenderer } from '@zanix/space'
 import { SPACE_CLIENT_IMPORTS } from './space-client-imports.ts'
+import { disableNativeFreshnessCheckForTests } from '../shared/disable-native-freshness-check.ts'
+
+// See disableNativeFreshnessCheckForTests's own doc for why this is needed here.
+disableNativeFreshnessCheckForTests()
 
 // Deliberately its OWN test file, not folded into `command.test.ts` — Deno gives each test FILE
 // its own module registry/worker, so a real, back-to-back `preact()` build here never shares

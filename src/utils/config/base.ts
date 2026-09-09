@@ -98,7 +98,13 @@ export function baseZnxConfig(
   type: ZanixProjects,
   renderer: 'react' | 'preact' = 'react',
   root: string | undefined = undefined,
-): ConfigFile & { compilerOptions?: ConfigFile['compilerOptions'] & { lib?: string[] } } {
+): ConfigFile & {
+  compilerOptions?: ConfigFile['compilerOptions'] & { lib?: string[] }
+  // `exports` isn't in `@zanix/types`'s own `ConfigFile` shape yet, same gap `lib` above already
+  // has — every project type writes it now (see `libraryOpts`'s own doc, below), not just
+  // `library`/`app`.
+  exports?: Record<string, string>
+} {
   const paths = getZanixPaths(type)
   const znxMainFolders = paths.subfolders
   const dist = znxMainFolders['.dist'].NAME
@@ -125,12 +131,23 @@ export function baseZnxConfig(
     noImplicitAny: true,
     types: [`./${getRelativePath(typingsPath.FOLDER)}/index.d.ts`],
   }
+  const tests = testsPaths.FOLDER.replace(paths.FOLDER, '')
+  // Every real project type is JSR-publishable, not only `library`/`app` — a
+  // `defineZanixApp()`/`Zanix.start()`-based package (`server`/`space`/`space-server`) is
+  // published/consumed exactly like any other Deno/JSR library (see `@zanix/app`'s own
+  // `docs/publishing.md`), so it gets the same real `exports`/`publish` shape unconditionally, not
+  // a bespoke per-type one — same reasoning `INITIAL_PROJECT_VERSION`'s own doc gives for writing
+  // `version` unconditionally: a consistent default beats a per-type inconsistency. Without this, a
+  // freshly scaffolded `server`/`space`/`space-server` project can never be `deno publish`ed/run via
+  // `jsr:@scope/name` without a `git clone` first — see `createGitWorkflows`'s own `isPublishable`
+  // for the parallel decision on scaffolding a `publish.yml` CI workflow for these same types.
   const libraryOpts: Record<string, unknown> = {
-    exports: {},
+    exports: { '.': `./${MAIN_MODULE}` },
+    publish: {
+      exclude: ['.github', tests],
+    },
     nodeModulesDir: 'auto',
   }
-
-  const tests = testsPaths.FOLDER.replace(paths.FOLDER, '')
 
   // Only project types whose `mod.ts` actually starts a running process (`Zanix.start()` for
   // `server`/`space-server`, `activateApps()`+`bootstrapServers()` for `space`) get a `dev`/`start`
@@ -228,15 +245,6 @@ export function baseZnxConfig(
     // invocation shape — `@zanix/space-ui`'s own `deno.jsonc` declares the identical entry for the
     // same reason.
     compilerOptions.lib = ['deno.window', 'dom', 'dom.iterable']
-  }
-  if (type === 'library' || type === 'app') {
-    // A `defineZanixApp()`-based package is published/consumed exactly like any other Deno/JSR
-    // library — see `@zanix/app`'s own `docs/publishing.md` — so it gets the same `exports`/
-    // `publish` shape `library` already does, not a bespoke one.
-    libraryOpts.exports = { '.': `./${MAIN_MODULE}` }
-    libraryOpts.publish = {
-      exclude: ['.github', tests],
-    }
   }
   // Declares exactly the `@zanix/*` packages this project type's own scaffold imports — verified
   // per-type, not assumed (see `PROJECT_TYPE_DEPENDENCIES`'s own doc). Without this, a freshly

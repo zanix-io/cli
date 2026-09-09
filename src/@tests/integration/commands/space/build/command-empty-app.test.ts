@@ -3,6 +3,10 @@ import { Commander } from 'cli'
 import { join } from '@std/path'
 import { registerSpaceBuildCommand } from 'commands/space/build/command.ts'
 import { SPACE_CLIENT_IMPORTS } from './space-client-imports.ts'
+import { disableNativeFreshnessCheckForTests } from '../shared/disable-native-freshness-check.ts'
+
+// See disableNativeFreshnessCheckForTests's own doc for why this is needed here.
+disableNativeFreshnessCheckForTests()
 
 // Own file — `@zanix/space`'s `getGlobalCssPaths()` accumulates across every `defineSpaceApp()`
 // call in the SAME process (`addGlobalCssPaths`, appending, never resetting), and Deno gives each

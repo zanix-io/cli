@@ -1,13 +1,13 @@
 import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import { join } from '@std/path'
+import { readNewestDependencyDate } from 'commands/space/shared/deno-config-discovery.ts'
+import { cliLoaderHasNoRealLocalAnswer } from 'commands/space/shared/cli-loader.ts'
+import { reconstructNpmSpecifierFromResolvedPath } from 'commands/space/shared/specifier-reconstruction.ts'
+import { detectTransitiveCollisionPackages } from 'commands/space/shared/transitive-collision.ts'
 import {
   cleanupImportBatch,
-  cliLoaderHasNoRealLocalAnswer,
   createImportBatchContext,
-  detectTransitiveCollisionPackages,
   importProjectModule,
-  readNewestDependencyDate,
-  reconstructNpmSpecifierFromResolvedPath,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
 
@@ -242,7 +242,7 @@ Deno.test(
     // `prepareTransitiveCollisionReexec` both now share this lazily-computed value through) is
     // ever called without a preceding scheme guard.
     const source = await Deno.readTextFile(
-      new URL('../../../../../commands/space/shared/import-project-module.ts', import.meta.url),
+      new URL('../../../../../commands/space/shared/cli-loader.ts', import.meta.url),
     )
     const fnMatch = source.match(
       /export function getCliConfigPath\(\)[\s\S]*?\n\}/,
@@ -311,6 +311,108 @@ Deno.test(
           'the rewritten temp file should still reference @zanix/utils somewhere, via its ' +
             'resolved absolute URL (@zanix/helpers is a subpath of @zanix/utils on JSR), not have ' +
             'dropped the import entirely',
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  "importProjectModule: a bare specifier the PROJECT's own config pins to a version that " +
+    "genuinely differs from cli's own config resolves to the PROJECT's version, never cli's",
+  async () => {
+    // `resolveReplacement` tries the PROJECT's own config first — `cli`'s own config (this repo's
+    // own `deno.jsonc` declares `@zanix/helpers` as `jsr:@zanix/utils@^4.2.1/helpers`, resolving
+    // to the latest matching stable release, `4.4.0` as of this test) only ever answers as a
+    // fallback, for a specifier the project's own config has no answer for at all — never as a way
+    // to override what the project itself declares. This is the exact shape of a real incident: a
+    // project pinning a dependency `cli` also happens to declare, for its own, unrelated reasons,
+    // at a genuinely different version.
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({ imports: { '@zanix/helpers': 'jsr:@zanix/utils@4.3.0/helpers' } }),
+      )
+      const entryPath = join(root, 'entry.ts')
+      await Deno.writeTextFile(
+        entryPath,
+        "import { isPlainObject } from '@zanix/helpers'\nexport const value = isPlainObject({})\n",
+      )
+
+      const batchContext = createImportBatchContext()
+      try {
+        const mod = await importProjectModule(entryPath, batchContext)
+        assertEquals(
+          mod.value,
+          true,
+          "the project's own pinned @zanix/utils@4.3.0/helpers must actually resolve and run",
+        )
+
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        assertStringIncludes(
+          rewritten,
+          '@zanix/utils/4.3.0/',
+          "the rewritten temp file must reference the project's own pinned 4.3.0 — " +
+            "resolveReplacement regressed back to letting cli's own, different @zanix/utils range " +
+            'win instead.',
+        )
+        assert(
+          !rewritten.includes('/4.4.0/') && !rewritten.includes('@zanix/utils@^4.2.1'),
+          "the rewritten temp file must not reference cli's own resolved version " +
+            '(4.4.0, or the unexpanded ^4.2.1 range) at all.',
+        )
+      } finally {
+        await cleanupImportBatch(batchContext)
+      }
+    } finally {
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  "importProjectModule: a bare specifier the PROJECT's own config pins to an EXACT PRERELEASE " +
+    "version resolves to that prerelease, never to cli's own broader, stable-only range",
+  async () => {
+    // Same guarantee as the previous test, for the shape that actually motivated it: a real
+    // consumer project pinning a prerelease of a dependency (e.g. `2.1.0-rc.1`) `cli` also happens
+    // to declare, at a range that — per ordinary semver — resolves to the latest matching STABLE
+    // release only, silently excluding any prerelease. `@zanix/utils@2.0.3-alpha9` is a real,
+    // published prerelease, used here in place of an internal test-only package specifically so
+    // this exercises the genuine "does a real registry prerelease pin survive" question, not a
+    // synthetic stand-in for one.
+    const root = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({ imports: { '@zanix/helpers': 'jsr:@zanix/utils@2.0.3-alpha9/helpers' } }),
+      )
+      const entryPath = join(root, 'entry.ts')
+      // A side-effect-only import — never a named one: which exports `2.0.3-alpha9`'s own
+      // `helpers/mod.ts` carries is irrelevant to what this test checks (that the specifier
+      // resolves to THIS exact prerelease, not to a stable substitute); asserting on a named
+      // export here would couple this test to that old prerelease's own API surface for no reason.
+      await Deno.writeTextFile(entryPath, "import '@zanix/helpers'\nexport const value = true\n")
+
+      const batchContext = createImportBatchContext()
+      try {
+        const mod = await importProjectModule(entryPath, batchContext)
+        assertEquals(mod.value, true, "the project's own pinned prerelease must actually resolve")
+
+        assertEquals(batchContext.tempFiles.length, 1)
+        const rewritten = await Deno.readTextFile(batchContext.tempFiles[0])
+        assertStringIncludes(
+          rewritten,
+          '@zanix/utils/2.0.3-alpha9/',
+          "the rewritten temp file must reference the project's own pinned prerelease — " +
+            "resolveReplacement regressed back to letting cli's own, stable-only @zanix/utils " +
+            'range win instead.',
         )
       } finally {
         await cleanupImportBatch(batchContext)
@@ -801,6 +903,45 @@ Deno.test(
       )
     } finally {
       await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'detectTransitiveCollisionPackages: reads the WORKSPACE MEMBER own imports, never the ' +
+    "workspace root's — a real, confirmed shape (a workspace root's own config commonly carries " +
+    "only `scopes`, leaving each member to declare its own direct imports), where the root's own " +
+    '(import-less) config is not a usable answer for what a specific member directly declares',
+  async () => {
+    const workspaceRoot = await Deno.makeTempDir()
+    try {
+      await Deno.writeTextFile(
+        join(workspaceRoot, 'deno.json'),
+        JSON.stringify({ workspace: ['./packages/web'] }),
+      )
+      const memberRoot = join(workspaceRoot, 'packages', 'web')
+      await Deno.mkdir(memberRoot, { recursive: true })
+      await Deno.writeTextFile(
+        join(memberRoot, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/server': 'jsr:@zanix/server@^4.0.0',
+            '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.0',
+          },
+        }),
+      )
+
+      const collisions = await detectTransitiveCollisionPackages(memberRoot)
+      assert(
+        collisions.has('@zanix/server'),
+        "expected '@zanix/server' to still be flagged from the WORKSPACE MEMBER's own root — " +
+          `found: ${
+            [...collisions].join(', ') || '(none)'
+          } — detection regressed back to reading the workspace root's own (import-less) config ` +
+          "instead of the member's.",
+      )
+    } finally {
+      await Deno.remove(workspaceRoot, { recursive: true })
     }
   },
 )

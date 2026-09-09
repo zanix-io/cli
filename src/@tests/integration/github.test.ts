@@ -201,11 +201,12 @@ Deno.test('createWorkflow defaults to the identity callback', async () => {
 })
 
 Deno.test(
-  "Github creates ONLY 'ci.yml' (check-cycles, no tests, no publish) for non-publishable project types",
+  "Github creates ONLY 'ci.yml' (no tests/publish step of its own, no publish.yml) BY DEFAULT " +
+    'for non-publishable project types',
   async () => {
-    // Sequential on purpose, not `Promise.all` — both iterations write/read the same
+    // Sequential on purpose, not `Promise.all` — every iteration writes/reads the same
     // `defaultFolder`, matching `github.test.ts` (unit)'s own identical reasoning for its
-    // `server`/`space`/`space-server` loop.
+    // per-type loop.
     for (const projectType of ['server', 'space', 'space-server'] as const) {
       // deno-lint-ignore no-await-in-loop
       await gitInitialization(defaultFolder)
@@ -231,7 +232,11 @@ Deno.test(
         content.includes('Publish to Deno'),
         `'ci.yml' must not contain a publish step for projectType '${projectType}'`,
       )
-      assertFalse(fileExists(defaultFolder + '/publish.yml'))
+      assertFalse(
+        fileExists(defaultFolder + '/publish.yml'),
+        `expected NO 'publish.yml' by default for projectType '${projectType}' — a deployed ` +
+          'service, not a published package, by default; opt in via publish: true',
+      )
 
       // deno-lint-ignore no-await-in-loop
       await Deno.remove(defaultFolder, { recursive: true })
@@ -240,9 +245,10 @@ Deno.test(
 )
 
 Deno.test(
-  "Github creates BOTH 'ci.yml' and 'publish.yml' for 'library'/'app', neither duplicating the other's step",
+  "Github creates BOTH 'ci.yml' and 'publish.yml' BY DEFAULT for 'library'/'app', neither " +
+    "duplicating the other's step",
   async () => {
-    // Sequential on purpose — same reasoning as the non-publishable-type test right above.
+    // Sequential on purpose — same reasoning as the 'ci.yml' test right above.
     for (const projectType of ['library', 'app'] as const) {
       // deno-lint-ignore no-await-in-loop
       await gitInitialization(defaultFolder)
@@ -283,6 +289,39 @@ Deno.test(
       // deno-lint-ignore no-await-in-loop
       await Deno.remove(defaultFolder, { recursive: true })
     }
+  },
+)
+
+Deno.test(
+  "Github: publish: true forces 'publish.yml' on for a normally-excluded project type " +
+    "(the zanix/iam case — a 'space-server' that DOES want zero-clone JSR distribution)",
+  async () => {
+    await gitInitialization(defaultFolder)
+    const response = await createGitWorkflows({
+      baseFolder: defaultFolder,
+      baseRoot: '',
+      projectType: 'space-server',
+      publish: true,
+    })
+    assert(response)
+    assert(fileExists(defaultFolder + '/publish.yml'))
+    await Deno.remove(defaultFolder, { recursive: true })
+  },
+)
+
+Deno.test(
+  "Github: publish: false forces 'publish.yml' off even for a normally-included project type",
+  async () => {
+    await gitInitialization(defaultFolder)
+    const response = await createGitWorkflows({
+      baseFolder: defaultFolder,
+      baseRoot: '',
+      projectType: 'library',
+      publish: false,
+    })
+    assert(response)
+    assertFalse(fileExists(defaultFolder + '/publish.yml'))
+    await Deno.remove(defaultFolder, { recursive: true })
   },
 )
 

@@ -85,15 +85,16 @@ Deno.test('prepare command should be correctly defined', () => {
   assertExists(command.settings.description)
   assertEquals(command.settings.name, 'prepare')
 
-  assert(command.builder.options.length === 7)
+  assert(command.builder.options.length === 8)
 
   assertEquals(command.builder.options[0].name, 'project-type')
-  assertEquals(command.builder.options[1].name, 'lint-files')
-  assertEquals(command.builder.options[2].name, 'fmt-files')
-  assertEquals(command.builder.options[3].name, 'hooks-engine')
-  assertEquals(command.builder.options[4].name, 'github')
-  assertEquals(command.builder.options[5].name, 'editor')
-  assertEquals(command.builder.options[6].name, 'docker')
+  assertEquals(command.builder.options[1].name, 'publish')
+  assertEquals(command.builder.options[2].name, 'lint-files')
+  assertEquals(command.builder.options[3].name, 'fmt-files')
+  assertEquals(command.builder.options[4].name, 'hooks-engine')
+  assertEquals(command.builder.options[5].name, 'github')
+  assertEquals(command.builder.options[6].name, 'editor')
+  assertEquals(command.builder.options[7].name, 'docker')
 })
 
 Deno.test('report-issue command should be correctly defined', () => {
