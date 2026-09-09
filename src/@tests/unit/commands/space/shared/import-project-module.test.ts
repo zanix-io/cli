@@ -240,7 +240,8 @@ Deno.test(
     // `lazy-command-specifiers-relative.test.ts` uses for the sibling bug class) and fails loud if
     // `fromFileUrl(import.meta.url)` (inside `getCliConfigPath`, the function `getCliLoader` and
     // `prepareTransitiveCollisionReexec` both now share this lazily-computed value through) is
-    // ever called without a preceding scheme guard.
+    // ever called without a preceding scheme guard — `isFileUrl` (`@zanix/helpers`), a real `new
+    // URL(...)` parse, not a hand-rolled `.startsWith('file://')` check.
     const source = await Deno.readTextFile(
       new URL('../../../../../commands/space/shared/cli-loader.ts', import.meta.url),
     )
@@ -254,10 +255,10 @@ Deno.test(
 
     const body = fnMatch[0]
     assert(
-      /import\.meta\.url\.startsWith\(\s*(['"])file:\/\/\1\s*\)/.test(body),
-      'getCliConfigPath() no longer guards its fromFileUrl(import.meta.url) call with a ' +
-        "file:// scheme check — this regresses back to throwing 'Must be a file URL' the moment " +
-        "@zanix/cli loads via jsr: (see this test's own doc for the full account).",
+      /isFileUrl\(\s*import\.meta\.url\s*\)/.test(body),
+      'getCliConfigPath() no longer guards its fromFileUrl(import.meta.url) call with an ' +
+        "isFileUrl() scheme check — this regresses back to throwing 'Must be a file URL' the " +
+        "moment @zanix/cli loads via jsr: (see this test's own doc for the full account).",
     )
   },
 )
