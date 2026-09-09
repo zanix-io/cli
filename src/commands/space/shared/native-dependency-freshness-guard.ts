@@ -21,6 +21,14 @@ import logger from '@zanix/utils/logger'
  * immediately, before any code after it (a `finally` included) ever runs, so there is no point this
  * function could reliably delete it itself. `sweepStaleGeneratedModules`'s own next-run sweep of
  * `native-dependency-freshness.ts`'s own directory is what actually reclaims it.
+ *
+ * Known gap: this re-exec has an observed, CI-only failure mode — the re-exec'd child running
+ * `deno run --lock <mergedLockPath> <mainModule> space build` printing the `space` command
+ * group's own help text instead of actually running `build`. Unreproduced outside CI despite
+ * direct reconstruction of the exact re-exec command line, an isolated shared-cache repro across
+ * this package's own sibling live tests, and a real end-to-end run through this exact function.
+ * Both `build/action.ts`'s and `dev/action.ts`'s own call sites keep calling this regardless: the
+ * staleness risk it closes is worse than a failure mode this rare and this far from understood.
  */
 export async function guardAgainstStaleNativeDependencies(): Promise<void> {
   const mergedLockPath = await prepareNativeFreshnessReexec()

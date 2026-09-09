@@ -218,19 +218,10 @@ async function spaceDevAction(
   // this line runs either already fixed up that way, or has nothing to fix at all.
   await guardAgainstTransitiveCollisions(root)
   // Same "before anything else" reasoning, for a separate hazard — see
-  // `guardAgainstStaleNativeDependencies`'s own doc. Independent of `root` entirely (a served
-  // project's own config never factors into this check), so its own order relative to the guard
-  // above doesn't matter — kept second only for a natural reading order.
-  //
-  // Re-enabled after a brief disable — see `build/action.ts`'s own identical call site (and git
-  // history) for the full account: this guard's own re-exec correlated with two real, still-
-  // unexplained CI-only failures in `zanix space build` (never observed here in `dev`, but the
-  // re-exec mechanism is IDENTICAL between the two commands, so there was no reason to trust it
-  // here while distrusting it there — hence the identical disable, now identically reverted). The
-  // `react`/`react-dom` half of those failures is independently closed now
-  // (`THIRD_PARTY_DEPENDENCY_VERSIONS`'s own exact-pin fix, `dependencies.ts`) — the re-exec help-
-  // text failure mode itself is NOT explained or fixed; re-enabling here is a deliberate risk, not
-  // a resolved one.
+  // `guardAgainstStaleNativeDependencies`'s own doc, including its own known CI-only re-exec gap.
+  // Independent of `root` entirely (a served project's own config never factors into this check),
+  // so its own order relative to the guard above doesn't matter — kept second only for a natural
+  // reading order.
   await guardAgainstStaleNativeDependencies()
   // `start`/`worker` (`getBaseTasks`, `utils/config/base.ts`) get `.env` for free from their own
   // `deno run --env-file=.env ...` task string, degrading gracefully (a Deno warning, never an
