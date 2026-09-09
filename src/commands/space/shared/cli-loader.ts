@@ -1,5 +1,6 @@
 import { type Loader, Workspace } from '@deno/loader'
 import { dirname, fromFileUrl } from '@std/path'
+import { isFileUrl } from '@zanix/helpers'
 import {
   findDenoConfigPath,
   readNewestDependencyDate,
@@ -75,7 +76,7 @@ export let cliConfigPath: string | undefined
  * this computation. */
 export function getCliConfigPath(): string | undefined {
   if (!cliConfigPathComputed) {
-    cliConfigPath = import.meta.url.startsWith('file://')
+    cliConfigPath = isFileUrl(import.meta.url)
       ? findDenoConfigPath(dirname(fromFileUrl(import.meta.url)))
       : undefined
     cliConfigPathComputed = true
@@ -107,7 +108,7 @@ export function getCliLoader(): Promise<Loader> {
  * silently resolving against `cli`'s own `src/utils/constants.ts` instead of its own surfaces
  * loudly, with a stack trace pointing at `cli`'s own file path, the moment the two diverge. */
 export function resolvesIntoCliOwnSourceTree(resolvedUrl: string): boolean {
-  if (!cliConfigPath || !resolvedUrl.startsWith('file://')) return false
+  if (!cliConfigPath || !isFileUrl(resolvedUrl)) return false
   const cliRoot = dirname(cliConfigPath)
   const resolvedPath = fromFileUrl(resolvedUrl)
   return (resolvedPath === cliRoot || resolvedPath.startsWith(`${cliRoot}/`)) &&
@@ -135,5 +136,5 @@ export function cliLoaderHasNoRealLocalAnswer(
   configPath: string | undefined,
   resolvedUrl: string,
 ): boolean {
-  return !configPath && resolvedUrl.startsWith('file://') && !resolvedUrl.includes('/node_modules/')
+  return !configPath && isFileUrl(resolvedUrl) && !resolvedUrl.includes('/node_modules/')
 }

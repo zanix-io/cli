@@ -1,6 +1,7 @@
 import { type Loader, MediaType, RequestedModuleType, ResolutionMode } from '@deno/loader'
 import { dirname, fromFileUrl, join, resolve as resolvePath, toFileUrl } from '@std/path'
 import { walk } from '@std/fs'
+import { isFileUrl } from '@zanix/helpers'
 import { init as esModuleLexerInit, parse as parseEsModule } from 'es-module-lexer'
 import {
   findDenoConfigPath,
@@ -285,7 +286,7 @@ export async function importProjectModule(
     // qualifies (`isRecursable`), the same as ever.
     if (specifier.startsWith('.') || specifier.startsWith('/')) {
       const resolved = new URL(specifier, referrerUrl).href
-      if (!resolved.startsWith('file://') || !isRecursable(fromFileUrl(resolved))) return resolved
+      if (!isFileUrl(resolved) || !isRecursable(fromFileUrl(resolved))) return resolved
       return await process(resolved)
     }
 
@@ -353,7 +354,7 @@ export async function importProjectModule(
     }
 
     if (resolved !== undefined) {
-      if (!resolved.startsWith('file://')) return resolved
+      if (!isFileUrl(resolved)) return resolved
       const resolvedPath = fromFileUrl(resolved)
 
       if (resolvedPath.includes('/node_modules/')) {
@@ -474,7 +475,7 @@ export async function importProjectModule(
           // `reconstructNpmSpecifierFromResolvedPath` is the real fallback for exactly that case: it
           // needs no config file at all, parsing the version straight out of `cliResolved` itself via
           // Deno's own npm-cache directory convention.
-          if (cliResolved.startsWith('file://') && cliResolved.includes('/node_modules/')) {
+          if (isFileUrl(cliResolved) && cliResolved.includes('/node_modules/')) {
             const reconstructed =
               (cliConfigPath && reconstructSchemeSpecifier(cliConfigPath, specifier)) ??
                 reconstructNpmSpecifierFromResolvedPath(cliResolved, specifier)

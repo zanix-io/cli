@@ -1,5 +1,6 @@
 import { type Loader, ResolutionMode } from '@deno/loader'
 import { resolve as resolvePath, toFileUrl } from '@std/path'
+import { isFileUrl } from '@zanix/helpers'
 import { findDenoConfigPath } from 'commands/space/shared/deno-config-discovery.ts'
 import { getLoaderFor } from 'commands/space/shared/cli-loader.ts'
 import {
@@ -108,7 +109,7 @@ async function resolveProjectSpecifier(
     return literal
   }
 
-  if (resolved.startsWith('file://') && resolved.includes('/node_modules/')) {
+  if (isFileUrl(resolved) && resolved.includes('/node_modules/')) {
     const reconstructed = (configPath && reconstructSchemeSpecifier(configPath, specifier)) ??
       reconstructNpmSpecifierFromResolvedPath(resolved, specifier)
     return reconstructed ?? resolved
