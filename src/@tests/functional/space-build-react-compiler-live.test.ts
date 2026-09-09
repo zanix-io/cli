@@ -115,7 +115,16 @@ Deno.test(
       }).output()
       assert(
         buildResult.success,
-        `zanix space build failed:\n${new TextDecoder().decode(buildResult.stderr)}`,
+        // `stdout` included on top of `stderr` — deliberately, unlike every other assertion in
+        // this file: `guardAgainstUnlockedDependencies`'s own `deno install` (this project's
+        // pre-build dependency-resolution guard) writes ONLY to this subprocess's `stdout`
+        // (`Dependencies:`/`Initialize ...` lines), never `stderr` — so a `react`/`react-dom`
+        // version-mismatch failure with no visibility into what that install step actually
+        // resolved (already-cached vs freshly-fetched, and for which package) is undiagnosable
+        // from `stderr` alone. See this test's own git history for the real, still-unexplained CI-
+        // only recurrence this is meant to gather evidence for, should it happen again.
+        `zanix space build failed:\nSTDOUT:\n${new TextDecoder().decode(buildResult.stdout)}\n` +
+          `STDERR:\n${new TextDecoder().decode(buildResult.stderr)}`,
       )
 
       const assetsDir = join(project, '.dist/client/assets')
