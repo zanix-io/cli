@@ -10,6 +10,40 @@ and this project adheres to
 
 ### Fixed
 
+- **`zanix space build --obfuscate` no longer breaks content-addressed immutable caching.**
+  Obfuscation used to run as a POST-BUILD pass (`obfuscateFile`) that read each already-written,
+  already content-hashed chunk back off disk and overwrote it in place — the hash Vite/Rollup mint
+  for `assets/<name>-<hash>.js` is computed from the bundle's PRE-obfuscation content, so it never
+  reflected the obfuscated bytes actually being served. Combined with `@zanix/space`'s own
+  `AssetsRoute`, which serves every such file with `Cache-Control: public, max-age=31536000,
+  immutable`, two builds that genuinely differ (a changed `--obfuscate-exclude`, a bumped
+  `javascript-obfuscator` version) could serve DIFFERENT bytes under the EXACT SAME immutable URL
+  — a browser that already cached the old bytes trusts "immutable" and never refetches, silently
+  stranding it on stale code indefinitely. A real, reported, and reproduced case: a comet chunk
+  obfuscated in one deploy, then added to `--obfuscate-exclude` in the next to fix a genuine
+  `javascript-obfuscator`-caused runtime crash, kept the IDENTICAL output filename across both
+  deploys — clients that had loaded the page before the fix kept executing the OLD, broken,
+  obfuscated bytes under that same URL indefinitely after the "fixed" build went live. Fixed by
+  `createObfuscationPlugin` (`commands/build/lib/obfuscate.ts`), a real Vite/Rollup build plugin
+  now included in `buildSpaceClient`'s own `plugins` array (`commands/space/build/action.ts`)
+  whenever `--obfuscate` is set: chunks are obfuscated via `renderChunk`, BEFORE Rollup substitutes
+  each chunk's `[hash]` placeholder in its own filename (confirmed empirically that this hook's
+  output feeds the final hash, no extra `augmentChunkHash` needed), and the generated `sw.js`
+  service worker (a fixed-name `generateBundle`-emitted asset, never a hashed chunk) via a
+  `generateBundle` hook ordered after `pwaPlugin`'s own. The emitted hash now always reflects the
+  actual served bytes, by construction, regardless of future obfuscation config or
+  `javascript-obfuscator` version changes. Also fixed a smaller, adjacent correctness gap while
+  obfuscation was already being restructured: `javascript-obfuscator`'s default
+  `Math.random()`-backed string-array shuffling made its output non-deterministic run to run, which
+  — now that obfuscation feeds the content hash directly — would have minted a brand-new hash (and
+  busted every client's cache) on every rebuild, even one that changes nothing at all;
+  `buildObfuscatorOptions` now passes a deterministic `seed` derived from the pre-obfuscation code
+  itself, so identical source + config + obfuscator version reliably produce the identical hash.
+  `zanix build`'s single-file esbuild path (`build-runner.ts`) is unaffected — its `outputFile` is a
+  fixed, author-chosen path with no content hash to invalidate in the first place, so it keeps
+  obfuscating via the original post-build `obfuscateFile` helper, now shared internally with the
+  new plugin rather than duplicated.
+
 - **`zanix space build` shares one `ImportBatchContext` across the whole `buildSpaceClient` call**
   (`commands/space/build/action.ts`), instead of letting `importProjectModule` build a fresh,
   private one per page/layout (its own default when no batch context is passed). Any project file

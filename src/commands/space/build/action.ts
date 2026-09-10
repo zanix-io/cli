@@ -23,7 +23,7 @@ import {
 } from 'commands/space/shared/report-validation.ts'
 import { assertRendererConsistency } from 'commands/space/shared/assert-renderer-consistency.ts'
 import { fixNpmSlashSpecifierPlugin } from 'commands/space/build/lib/plugins/fix-npm-slash-specifier.ts'
-import { excludeObfuscationTargets, obfuscateFile } from 'commands/build/lib/obfuscate.ts'
+import { createObfuscationPlugin } from 'commands/build/lib/obfuscate.ts'
 import { requestForceExit } from 'utils/force-exit.ts'
 import { dirname, resolve } from '@std/path'
 import logger from '@zanix/utils/logger'
@@ -42,13 +42,15 @@ import logger from '@zanix/utils/logger'
  * `getActiveRenderer()`/`getRoutesDir()` internally (the same eager flags `defineSpaceApp({
  * renderer, routesDir })` populate), so this command gets the right renderer's Vite plugin and
  * locates the project's own pages automatically, purely from having already imported
- * `space.app.ts` above. Obfuscation (`--obfuscate`) runs as a separate post-processing pass over every built
- * `.js` file (comet chunks AND the generated service worker) — the exact same
- * `javascript-obfuscator` config `zanix build`'s own `compileAndObfuscate` already uses
- * (`obfuscateFile`, `commands/build/lib/obfuscate.ts`) — one shared obfuscation behavior, not two
- * independently-tuned ones. `--obfuscate-exclude` filters that file list BEFORE obfuscation runs
- * (`excludeObfuscationTargets`, same module) — see that function's own doc for why this is a
- * plain, explicit glob list rather than an automatic "skip vendor code" default.
+ * `space.app.ts` above. Obfuscation (`--obfuscate`) runs as a REAL Vite/Rollup build transform —
+ * `createObfuscationPlugin` (`commands/build/lib/obfuscate.ts`), included in `buildSpaceClient`'s
+ * own `plugins` array below — obfuscating every comet/CSS/client-entry chunk and the generated
+ * service worker BEFORE Rollup computes each hashed output filename, not a post-build pass that
+ * rewrites an already-hashed path in place. See that plugin's own doc for the real, reported
+ * cache-poisoning bug this avoids (obfuscating after the hash is minted lets two builds serve
+ * different bytes under the identical immutable URL). `--obfuscate-exclude` is forwarded straight
+ * through to it, unchanged — see `excludeObfuscationTargets`'s own doc for why this is a plain,
+ * explicit glob list rather than an automatic "skip vendor code" default.
  *
  * Deliberately does NOT build the SSR/server side — production SSR keeps running directly against
  * source via this project's own `start` task (`deno run mod.ts`), unaffected by this command's own
@@ -236,7 +238,15 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
       // See `fixNpmSlashSpecifierPlugin`'s own doc: a real, confirmed `@deno/vite-plugin` bug, not
       // this command's own — worked around here rather than left to break every real consumer's
       // `--renderer react` (and, less commonly, `preact`) production build.
-      plugins: [fixNpmSlashSpecifierPlugin()],
+      //
+      // `createObfuscationPlugin` is included ONLY when `--obfuscate` is set — see that plugin's
+      // own doc for why obfuscating as a build transform here (rather than a post-build pass over
+      // `result.outDir` below) is what keeps each chunk's emitted hash honest about its own
+      // obfuscated content.
+      plugins: [
+        fixNpmSlashSpecifierPlugin(),
+        ...(options.obfuscate ? [createObfuscationPlugin(options.obfuscateExclude)] : []),
+      ],
       // `zanix space build` runs `buildSpaceClient` (and its own `discoverPages` page-discovery pass)
       // from inside `@zanix/cli`'s own process, never a freshly spawned one rooted at `root` — without
       // this, a page/layout importing a project-local import-map alias (declared only in this
@@ -280,37 +290,6 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     await Deno.writeTextFile(
       `${result.outDir}/sitemap-manifest.json`,
       JSON.stringify(result.sitemapEntries),
-    )
-  }
-
-  if (options.obfuscate) {
-    const jsFiles: string[] = []
-    // `outDir/assets` never gets created at all for a valid-but-empty app (zero comets, no
-    // globalCss, no pwa, no assetsDir — see `buildSpaceClient`'s own doc for why that's a real,
-    // unusual-but-valid state, not an error) — `Deno.readDir` on a path that was never created
-    // throws `NotFound`, which just means there's nothing here to obfuscate.
-    try {
-      for await (const entry of Deno.readDir(`${result.outDir}/assets`)) {
-        if (entry.isFile && entry.name.endsWith('.js')) {
-          jsFiles.push(`assets/${entry.name}`)
-        }
-      }
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error
-    }
-    // `sw.js` (when `pwa` is configured) lives directly under `outDir`, not `outDir/assets` — a
-    // real, meaningful piece of client-facing logic, obfuscated the same as any comet chunk.
-    const swPath = `${result.outDir}/sw.js`
-    const hasSw = await Deno.stat(swPath).then(() => true).catch(() => false)
-    if (hasSw) jsFiles.push('sw.js')
-
-    // `--obfuscate-exclude` opts specific chunks (typically vendor/`node_modules`-derived ones)
-    // out of obfuscation entirely — see `excludeObfuscationTargets`'s own doc for why this is an
-    // explicit list rather than a smarter default.
-    const obfuscationTargets = excludeObfuscationTargets(jsFiles, options.obfuscateExclude)
-
-    await Promise.all(
-      obfuscationTargets.map((relativePath) => obfuscateFile(`${result.outDir}/${relativePath}`)),
     )
   }
 

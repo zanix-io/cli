@@ -28,10 +28,19 @@ import logger from '@zanix/utils/logger'
  * start), while this only needs `root`'s own `deno.lock`/`node_modules` written to disk before
  * THIS SAME process's own `importSpaceApp` call resolves the project's dependencies for the first
  * time — no restart needed for that.
+ *
+ * TEMPORARY: `--min-dep-age=60` (minutes, `deno install`'s own flag) — Deno's default 24h
+ * minimum-dependency-age policy otherwise refuses to install a `@zanix/*` package published very
+ * recently, which real, first-party ecosystem releases (this repo's own `2.2.0-rc.2`, needing
+ * `@zanix/space@^1.10.2` for `getActivePreactDevTools`) can hit immediately after publishing. A
+ * short, non-zero window (not `0`) keeps SOME real protection against a genuinely
+ * just-published/compromised package, unlike disabling the policy outright. Revert once
+ * `@zanix/space@1.10.2` (and any other floor bumped alongside it) is safely past 24h old — this
+ * is a workaround for this release's own timing, not a permanent policy call for every consumer.
  */
 export async function guardAgainstUnlockedDependencies(root: string): Promise<void> {
   const install = new Deno.Command(Deno.execPath(), {
-    args: ['install'],
+    args: ['install', '--min-dep-age=10'],
     cwd: root,
     stdin: 'inherit',
     stdout: 'inherit',

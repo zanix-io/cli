@@ -193,40 +193,83 @@ Deno.test(
   },
 )
 
+/** Builds the scaffolded fixture with the given options and returns its comet chunk's own code
+ * (and `sw.js`'s, when `pwa` produced one — always true for `withScaffoldedProject`'s own fixture)
+ * — shared by the test below and its own non-obfuscated baseline build, so the obfuscated output
+ * can be compared against what THE SAME source/config produces with `--obfuscate` off, rather than
+ * asserting on any one obfuscator-internal naming detail (see the test's own doc for why). */
+async function buildCometChunk(
+  options: Record<string, unknown>,
+): Promise<{ code: string; swCode: string }> {
+  let code: string | undefined
+  let swCode: string | undefined
+  await withScaffoldedProject(async (root) => {
+    const command = registerCommand()
+    await command.settings.actionHandler(options)
+
+    const outDir = join(root, '.dist', 'client')
+    for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
+      if (entry.name.endsWith('.js') && !entry.name.startsWith('client-entry')) {
+        code = await Deno.readTextFile(join(outDir, 'assets', entry.name))
+      }
+    }
+    swCode = await Deno.readTextFile(join(outDir, 'sw.js'))
+  })
+  if (code === undefined) throw new Error('expected a comet chunk in the build output')
+  if (swCode === undefined) throw new Error('expected a sw.js in the build output')
+  return { code, swCode }
+}
+
 Deno.test(
   'zanix space build: --obfuscate obfuscates real output (comet chunk AND sw.js)',
   async () => {
-    await withScaffoldedProject(async (root) => {
-      const command = registerCommand()
-      await command.settings.actionHandler({ obfuscate: true })
+    const { code, swCode } = await buildCometChunk({ obfuscate: true })
+    // Real evidence of obfuscation — the same shape of check `build.test.ts`'s own
+    // `compileAndObfuscate` obfuscation test already uses: the original, readable function
+    // structure is gone. Not asserting the marker STRING is absent —
+    // `stringArrayThreshold: 0.75` is probabilistic, not absolute, so a short literal
+    // surviving untouched is expected behavior, not a sign obfuscation didn't run (confirmed
+    // empirically: it still doesn't).
+    assert(
+      !code.includes("function Counter() { return 'counter-marker' }"),
+      code,
+    )
+    // NOT `code.includes('_0x')`: this comet chunk is obfuscated INSIDE the Vite/Rollup pipeline
+    // now (`createObfuscationPlugin`'s own `renderChunk`, see that plugin's own doc for why),
+    // which runs BEFORE Vite's own built-in minifier's `renderChunk` — confirmed empirically,
+    // Vite's minifier plugin is unconditionally ordered after any plugin without
+    // `enforce: 'post'`, `createObfuscationPlugin` included. That minifier then renames
+    // `identifierNamesGenerator: 'hexadecimal'`'s own `_0x...` names down to short single-letter
+    // ones, same as it would any other identifier — so no single naming convention reliably
+    // survives to assert on for a CHUNK (unlike `sw.js` below, a plain asset the minifier never
+    // touches at all).
+    //
+    // Two INDEPENDENT, minification-proof signals instead, both required, so this can't pass on a
+    // coincidence:
+    // 1. `parseInt(` — never appears anywhere in this fixture's own trivial source (`return
+    //    'counter-marker'` parses no numbers at all), so its presence can only come from
+    //    `stringArrayRotate`/`stringArrayIndexShift`'s own self-verifying array-rotation check.
+    // 2. The obfuscated build is genuinely, substantially BIGGER than the SAME fixture built with
+    //    `--obfuscate` off (same source, same minifier) — real evidence obfuscation added actual
+    //    defensive bulk (the string array itself, decoy entries, the rotation/dispatch wrapper),
+    //    not just a cosmetic difference a minifier alone could produce. `3x` is a conservative
+    //    floor: a real run of this exact fixture obfuscates a ~30-byte minified body into several
+    //    hundred bytes, comfortably clearing it without being so tight a harmless upstream
+    //    minifier tweak could make this test flaky.
+    assert(code.includes('parseInt('), code)
+    const plain = await buildCometChunk({})
+    assert(
+      code.length >= plain.code.length * 3,
+      `expected the obfuscated chunk (${code.length}B) to be at least 3x the plain one ` +
+        `(${plain.code.length}B)\nobfuscated: ${code}\nplain: ${plain.code}`,
+    )
 
-      const outDir = join(root, '.dist', 'client')
-      // Excludes the client-entry chunk — see the previous test's own comment.
-      const jsAssets = []
-      for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
-        if (entry.name.endsWith('.js') && !entry.name.startsWith('client-entry')) {
-          jsAssets.push(entry.name)
-        }
-      }
-      assertEquals(jsAssets.length, 1)
-      const code = await Deno.readTextFile(join(outDir, 'assets', jsAssets[0]))
-      // Real evidence of obfuscation — the same shape of check `build.test.ts`'s own
-      // `compileAndObfuscate` obfuscation test already uses: the original, readable function
-      // structure is gone. Not asserting the marker STRING is absent —
-      // `stringArrayThreshold: 0.75` is probabilistic, not absolute, so a short literal
-      // surviving untouched is expected behavior, not a sign obfuscation didn't run (confirmed
-      // empirically: it still doesn't).
-      assert(
-        !code.includes("function Counter() { return 'counter-marker' }"),
-        code,
-      )
-      assert(code.includes('_0x'), code)
-
-      // `sw.js` lives directly under `outDir`, not `outDir/assets` — obfuscated separately,
-      // real client-facing logic just like a comet chunk (see `spaceBuildAction`'s own doc).
-      const swCode = await Deno.readTextFile(join(outDir, 'sw.js'))
-      assert(swCode.includes('_0x'), swCode)
-    })
+    // `sw.js` lives directly under `outDir`, not `outDir/assets` — obfuscated separately, real
+    // client-facing logic just like a comet chunk (see `spaceBuildAction`'s own doc). Unlike the
+    // chunk above, it's a plain Rollup `asset` (`pwaPlugin`'s own `emitFile`), never handed to
+    // Vite's minifier at all — so its `identifierNamesGenerator: 'hexadecimal'` names survive
+    // untouched, and `_0x` is a reliable, direct signal here.
+    assert(swCode.includes('_0x'), swCode)
   },
 )
 
@@ -252,16 +295,75 @@ Deno.test(
       assertEquals(jsAssets.length, 1)
       // Excluded: Vite's own minifier still runs (unrelated to --obfuscate-exclude), but
       // `javascript-obfuscator` never touched this chunk — the marker string survives readably,
-      // and none of `obfuscateFile`'s own tells (the `_0x...` identifiers/string-array wrapper the
-      // previous test asserts ARE present) show up here.
+      // and none of `createObfuscationPlugin`'s own tells (the `parseInt(`-based string-array
+      // rotation check the previous test asserts IS present) show up here.
       const code = await Deno.readTextFile(join(outDir, 'assets', jsAssets[0]))
       assert(code.includes('counter-marker'), code)
-      assert(!code.includes('_0x'), code)
+      assert(!code.includes('parseInt('), code)
 
       // NOT excluded: `sw.js` is obfuscated exactly as it is without --obfuscate-exclude.
       const swCode = await Deno.readTextFile(join(outDir, 'sw.js'))
       assert(swCode.includes('_0x'), swCode)
     })
+  },
+)
+
+/** Runs `--obfuscate` against a fresh scaffold and returns the built comet chunk's own filename
+ * (the hash-bearing part) and content — used by the two tests below to compare two INDEPENDENT
+ * `zanix space build` runs against each other, the same way two real, separate deploys would be. */
+async function buildObfuscatedComet(
+  options: Record<string, unknown>,
+): Promise<{ fileName: string; code: string }> {
+  let captured: { fileName: string; code: string } | undefined
+  await withScaffoldedProject(async (root) => {
+    const command = registerCommand()
+    await command.settings.actionHandler({ obfuscate: true, ...options })
+
+    const outDir = join(root, '.dist', 'client')
+    for await (const entry of Deno.readDir(join(outDir, 'assets'))) {
+      if (entry.name.endsWith('.js') && !entry.name.startsWith('client-entry')) {
+        captured = {
+          fileName: entry.name,
+          code: await Deno.readTextFile(join(outDir, 'assets', entry.name)),
+        }
+      }
+    }
+  })
+  if (!captured) throw new Error('expected a comet chunk in the build output')
+  return captured
+}
+
+Deno.test(
+  'zanix space build: --obfuscate mints the SAME hash (and byte-identical output) across ' +
+    'two independent builds of unchanged source — a rebuild must not bust already-cached ' +
+    'clients for no reason',
+  async () => {
+    const first = await buildObfuscatedComet({})
+    const second = await buildObfuscatedComet({})
+
+    // Same content hash — `buildObfuscatorOptions`'s own deterministic `seed` (derived from the
+    // pre-obfuscation code) is what makes this hold: without it, `javascript-obfuscator`'s default
+    // `Math.random()`-backed string-array shuffling would mint a different hash on every single
+    // build, even one that changes nothing.
+    assertEquals(second.fileName, first.fileName)
+    assertEquals(second.code, first.code)
+  },
+)
+
+Deno.test(
+  'zanix space build: --obfuscate mints a DIFFERENT hash when --obfuscate-exclude ' +
+    'toggles this SAME chunk out of obfuscation — the exact bug this plugin fixes: two builds ' +
+    'that genuinely differ must never share a hash, or a browser trusting Cache-Control: ' +
+    'immutable would keep serving the stale bytes forever',
+  async () => {
+    const obfuscated = await buildObfuscatedComet({})
+    const excluded = await buildObfuscatedComet({ obfuscateExclude: 'assets/comets-counter*.js' })
+
+    assert(
+      obfuscated.fileName !== excluded.fileName,
+      `expected obfuscated (${obfuscated.fileName}) and excluded (${excluded.fileName}) builds ` +
+        'to mint different hashes for the same source, since they serve different bytes',
+    )
   },
 )
 

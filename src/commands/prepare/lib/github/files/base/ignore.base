@@ -29,6 +29,7 @@ dist-ssr/
 # deleted the instant the import that created it resolves. Only ever survives on disk at all if
 # the process was killed mid-import; carries its own "safe to delete" header when it does.
 **/.zanix-import-*.js
+**/.zanix-import-*.json
 
 # Environment & config files
 .env

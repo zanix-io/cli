@@ -51,7 +51,9 @@ export const mainBuilderFunction = async (
       ...options,
     }).finally(stop)
 
-    // Obfuscate the built file in place — same shared helper `zanix space build` uses.
+    // Obfuscate the built file in place — `outputFile` is a fixed, author-chosen path with no
+    // content hash to invalidate, unlike `zanix space build`'s own hashed Vite/Rollup chunks (see
+    // `obfuscateFile`'s own doc for why that path obfuscates as a build transform instead).
     if (obfuscate) await obfuscateFile(outputFile)
 
     logger.success(

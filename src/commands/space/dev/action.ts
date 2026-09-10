@@ -295,6 +295,7 @@ async function spaceDevAction(
     createDevAssetHandler,
     createSpaceDevEngine,
     createViteHotClientHandler,
+    getActivePreactDevTools,
     getActiveRenderer,
     getBootstrapSpaceAppConfig,
     getDevRoutesReloader,
@@ -333,17 +334,32 @@ async function spaceDevAction(
 
   const engine = await createSpaceDevEngine({
     root,
-    // `getActiveRenderer()` is already populated by now — `importSpaceApp()` above imports
-    // `space.app.ts`, which runs `defineSpaceApp({ renderer })`'s own EAGER `setActiveRenderer`
-    // call (see that function's own doc in `@zanix/space`) as soon as the module evaluates, well
-    // before `activateApps()` below ever runs. Without this, a project declaring
-    // `renderer: 'preact'` would silently get React's Vite plugin here regardless.
+    // `getActiveRenderer()`/`getActivePreactDevTools()` are already populated by now —
+    // `importSpaceApp()` above imports `space.app.ts`, which runs `defineSpaceApp({ renderer,
+    // preactDevTools })`'s own EAGER `setActiveRenderer`/`setActivePreactDevTools` calls (see that
+    // function's own doc in `@zanix/space`) as soon as the module evaluates, well before
+    // `activateApps()` below ever runs. Without the former, a project declaring
+    // `renderer: 'preact'` would silently get React's Vite plugin here regardless; without the
+    // latter, a project that set `preactDevTools: false` to work around a real devtools-resolution
+    // gap would keep hitting it under `zanix space dev` regardless of that setting.
+    //
+    // `getActivePreactDevTools?.()`, not a bare call: `zanixSpace` is resolved against the SERVED
+    // PROJECT's own `@zanix/space` (`importProjectDependency`), which has no reason to match
+    // `cli`'s own floor — a project genuinely pinned to an older version that predates this export
+    // entirely gets `undefined` for the destructured binding itself (see this function's own
+    // import above), not a missing property on an object. `spacePlugin`'s own `preactDevTools` is
+    // optional and passes `undefined` straight through unchanged (see its own doc) — the exact
+    // same "no override" behavior a project on that older version already got before this export
+    // existed at all, never a crash.
     // `clientEntryPlugin`'s own `enforce: 'pre'` is what lets it answer the auto-generated client
     // entry's virtual id ahead of `deno()`'s own resolver (which otherwise claims it first, and
     // fails "not found" — confirmed empirically, see that plugin's own doc); without this, every
     // full-document response's own bootstrap `<script>` 500s the moment a real browser requests it.
     plugins: [
-      ...spacePlugin({ renderer: getActiveRenderer() }),
+      ...spacePlugin({
+        renderer: getActiveRenderer(),
+        preactDevTools: getActivePreactDevTools?.(),
+      }),
       clientEntryPlugin({ renderer: getActiveRenderer() }),
       // See `fixNpmSlashSpecifierPlugin`'s own doc: a real, confirmed `@deno/vite-plugin` bug
       // (an HTTPS-referrer-resolved bare npm import gets serialized with an erroneous leading
