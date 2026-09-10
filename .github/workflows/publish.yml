@@ -76,7 +76,7 @@ jobs:
         run: pip install pre-commit
 
       - name: Run tests
-        run: deno test --allow-all --ignore=src/@tests/integration/commands/space/dev
+        run: deno test --allow-all --min-dep-age=0 --ignore=src/@tests/integration/commands/space/dev
 
       # `src/@tests/integration/commands/space/dev/`'s own "-live"/"-boot"/"-conflict" files each
       # boot a REAL `zanix space dev` engine (a real Vite dev server, native esbuild/Rollup
@@ -94,7 +94,7 @@ jobs:
       # process — this contains the blast radius; it does not fix the underlying race (still open,
       # most likely inside `@zanix/space`'s own Vite dev-engine teardown, not `cli`'s own code).
       - name: Run space-dev live-engine tests (isolated — see comment above)
-        run: deno test --allow-all src/@tests/integration/commands/space/dev
+        run: deno test --allow-all --min-dep-age=0 src/@tests/integration/commands/space/dev
 
       - name: Publish to Deno
         # `needs.ci.result == 'success'` is explicit, not just relying on the default `needs:`

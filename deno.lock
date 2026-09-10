@@ -392,9 +392,36 @@
         "npm:@deno/vite-plugin",
         "npm:@preact/preset-vite",
         "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
         "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
         "npm:react-dom",
         "npm:react@^19.2.0",
+        "npm:sharp",
+        "npm:vite"
+      ]
+    },
+    "@zanix/space@1.9.0": {
+      "integrity": "c4a64ae3739e10e958887b330555624d51a96981ef04c89793bc6e7f455f43ec",
+      "dependencies": [
+        "jsr:@deno/loader",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0",
+        "npm:@deno/vite-plugin",
+        "npm:@preact/preset-vite",
+        "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
+        "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
+        "npm:react-dom",
+        "npm:react@^19.2.0",
+        "npm:sharp",
         "npm:vite"
       ]
     },
