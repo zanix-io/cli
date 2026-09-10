@@ -392,9 +392,14 @@
         "npm:@deno/vite-plugin",
         "npm:@preact/preset-vite",
         "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
         "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
         "npm:react-dom",
         "npm:react@^19.2.0",
+        "npm:sharp",
         "npm:vite"
       ]
     },
