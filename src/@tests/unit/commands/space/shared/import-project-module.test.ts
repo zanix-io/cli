@@ -5,10 +5,14 @@ import { cliLoaderHasNoRealLocalAnswer } from 'commands/space/shared/cli-loader.
 import { reconstructNpmSpecifierFromResolvedPath } from 'commands/space/shared/specifier-reconstruction.ts'
 import { detectTransitiveCollisionPackages } from 'commands/space/shared/transitive-collision.ts'
 import {
+  defaultGeneratedModuleDirsManifestPath,
+  readGeneratedModuleDirsManifest,
+  recordGeneratedModuleDir,
+} from 'commands/space/shared/generated-module-dirs-manifest.ts'
+import {
   cleanupImportBatch,
   createImportBatchContext,
   importProjectModule,
-  recordGeneratedModuleDir,
   sweepRegisteredGeneratedModuleDirs,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
@@ -987,6 +991,37 @@ Deno.test(
       )
     } finally {
       await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  "detectTransitiveCollisionPackages: records its own collision-check temp file's directory in " +
+    "the global manifest — the same directory a LINKED sibling's own config could sit in, which " +
+    "sweepStaleGeneratedModules' structural scan alone would never reach",
+  async () => {
+    const root = await Deno.makeTempDir()
+    const manifestPath = defaultGeneratedModuleDirsManifestPath()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({
+          imports: {
+            '@zanix/server': 'jsr:@zanix/server@^4.0.0',
+            '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.0',
+          },
+        }),
+      )
+      await detectTransitiveCollisionPackages(root)
+
+      const dirs = await readGeneratedModuleDirsManifest(manifestPath)
+      assert(dirs.includes(root), `expected ${root} to be recorded in ${manifestPath}`)
+    } finally {
+      await Deno.remove(root, { recursive: true })
+      // Only ever removes THIS test's own entry — the manifest is real, global, shared state (see
+      // recordGeneratedModuleDir's own doc), not a fixture this test owns outright.
+      const dirs = (await readGeneratedModuleDirsManifest(manifestPath)).filter((d) => d !== root)
+      await Deno.writeTextFile(manifestPath, JSON.stringify(dirs)).catch(() => {})
     }
   },
 )

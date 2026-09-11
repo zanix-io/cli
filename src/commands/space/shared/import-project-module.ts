@@ -10,7 +10,6 @@ import {
 import {
   cliConfigPath,
   cliLoaderHasNoRealLocalAnswer,
-  getCliConfigPath,
   getCliLoader,
   getLoaderFor,
   resolvesIntoCliOwnSourceTree,
@@ -25,6 +24,11 @@ import {
   splitPackageSpecifier,
 } from 'commands/space/shared/specifier-reconstruction.ts'
 import { detectTransitiveCollisionPackages } from 'commands/space/shared/transitive-collision.ts'
+import {
+  defaultGeneratedModuleDirsManifestPath,
+  readGeneratedModuleDirsManifest,
+  recordGeneratedModuleDir,
+} from 'commands/space/shared/generated-module-dirs-manifest.ts'
 
 // A real, purpose-built JS/TS-aware lexer, not a hand-rolled regex/comment scanner — it correctly
 // tells a real import/export specifier apart from example code inside a comment or a plain string
@@ -706,80 +710,6 @@ async function removeGeneratedModulesUnder(dir: string, recursive: boolean): Pro
   } catch {
     // `dir` doesn't exist (no `src/` at all is a real, valid project shape) or is genuinely
     // unreadable — not this function's own concern to surface either way.
-  }
-}
-
-/** Filename of the global generated-module-directory manifest — see
- * {@linkcode recordGeneratedModuleDir}. */
-const GENERATED_MODULE_DIRS_MANIFEST = 'generated-module-dirs.json'
-
-/** Directory `@zanix/cli`'s own global shim (`deno install -g`) writes its own state under — same
- * formula `locateCliLockPath` uses for its own lock file. A local checkout uses `cliConfigPath`'s
- * own directory instead. */
-function globalCliStateDir(): string {
-  const configPath = getCliConfigPath()
-  if (configPath) return dirname(configPath)
-  const installRoot = Deno.env.get('DENO_INSTALL_ROOT') ??
-    `${Deno.env.get('HOME') ?? Deno.env.get('USERPROFILE')}/.deno`
-  return `${installRoot}/bin/.zanix`
-}
-
-/** The manifest's real production path, computed fresh per call (`globalCliStateDir()` depends on
- * a lazily-computed result). Both {@linkcode recordGeneratedModuleDir} and
- * {@linkcode sweepRegisteredGeneratedModuleDirs} accept an override instead of always calling
- * this, so a test can point at an isolated temp file — a real `zanix space dev`/`build` run never
- * passes one. */
-function defaultGeneratedModuleDirsManifestPath(): string {
-  return join(globalCliStateDir(), GENERATED_MODULE_DIRS_MANIFEST)
-}
-
-/** Every directory the manifest lists, or `[]` if it doesn't exist yet or is unreadable/corrupt —
- * never thrown. */
-async function readGeneratedModuleDirsManifest(manifestPath: string): Promise<string[]> {
-  try {
-    const parsed = JSON.parse(await Deno.readTextFile(manifestPath))
-    return Array.isArray(parsed)
-      ? parsed.filter((entry): entry is string => typeof entry === 'string')
-      : []
-  } catch {
-    return []
-  }
-}
-
-/** Directories already recorded THIS PROCESS — avoids re-reading/rewriting the manifest on every
- * {@linkcode writeGeneratedModule} call from the same directory. */
-const recordedGeneratedModuleDirs = new Set<string>()
-
-/**
- * Records `dir` — an absolute directory {@linkcode writeGeneratedModule} just wrote a real
- * `.zanix-import-*.js` temp file into — in a small, persistent, GLOBAL manifest (never scoped to
- * the served project's own `root`).
- *
- * This is what lets {@linkcode sweepStaleGeneratedModules} reach a LINKED/workspace sibling's own
- * directory (a raw relative-path `deno.json` override, e.g. `@zanix/space-ui` mapped to a local
- * `../space-ui` checkout — see `deno-workspace-link-pitfalls`), which sits outside `root`/`root/src`
- * entirely. Confirmed real: such orphans, once written, were never reached by any later
- * `zanix space dev`/`build` run of either project.
- *
- * Best-effort and silent throughout, same contract as the rest of this module.
- *
- * @param manifestPathOverride - Test-only; a real run never passes this. */
-export async function recordGeneratedModuleDir(
-  dir: string,
-  manifestPathOverride?: string,
-): Promise<void> {
-  if (recordedGeneratedModuleDirs.has(dir)) return
-  recordedGeneratedModuleDirs.add(dir)
-  try {
-    const manifestPath = manifestPathOverride ?? defaultGeneratedModuleDirsManifestPath()
-    await Deno.mkdir(dirname(manifestPath), { recursive: true })
-    const dirs = new Set(await readGeneratedModuleDirsManifest(manifestPath))
-    if (dirs.has(dir)) return
-    dirs.add(dir)
-    await Deno.writeTextFile(manifestPath, JSON.stringify([...dirs]))
-  } catch {
-    // Best-effort — worst case, this orphan (if any) waits for the structural scan instead; only a
-    // LINKED SIBLING's directory genuinely depends on this manifest succeeding.
   }
 }
 

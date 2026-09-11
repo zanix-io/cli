@@ -6,6 +6,7 @@ import {
   GENERATED_MODULE_PREFIX,
   splitPackageSpecifier,
 } from 'commands/space/shared/specifier-reconstruction.ts'
+import { recordGeneratedModuleDir } from 'commands/space/shared/generated-module-dirs-manifest.ts'
 
 /**
  * Detects, and repairs, a real `@zanix/*` module-identity hazard: a served project importing a
@@ -110,6 +111,11 @@ export function detectTransitiveCollisionPackages(root: string): Promise<Set<str
         entryPath,
         directBases.map((base) => `import ${JSON.stringify(base)}`).join('\n'),
       )
+      // Awaited before the `deno info` subprocess below — a kill right after the write still
+      // leaves `configDir` recorded. See `recordGeneratedModuleDir`'s own doc: `configDir` can be a
+      // LINKED sibling's own directory, entirely outside the served project's structural sweep
+      // scope, the same gap `import-project-module.ts`'s own `writeGeneratedModule` has.
+      await recordGeneratedModuleDir(configDir)
 
       let info: DenoInfoOutput
       let entryUrl: string

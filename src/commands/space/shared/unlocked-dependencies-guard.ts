@@ -31,7 +31,7 @@ import logger from '@zanix/utils/logger'
  */
 export async function guardAgainstUnlockedDependencies(root: string): Promise<void> {
   const install = new Deno.Command(Deno.execPath(), {
-    args: ['install'],
+    args: ['install', '--min-dep-age=10'],
     cwd: root,
     stdin: 'inherit',
     stdout: 'inherit',
