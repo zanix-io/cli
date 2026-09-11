@@ -10,6 +10,7 @@ import {
 import {
   cliConfigPath,
   cliLoaderHasNoRealLocalAnswer,
+  getCliConfigPath,
   getCliLoader,
   getLoaderFor,
   resolvesIntoCliOwnSourceTree,
@@ -541,6 +542,9 @@ export async function importProjectModule(
         code
       await Deno.writeTextFile(tempPath, annotated)
       tempFiles.push(tempPath)
+      // Awaited, not fire-and-forget — a kill right after this still leaves the directory recorded.
+      // See `recordGeneratedModuleDir`'s own doc.
+      await recordGeneratedModuleDir(dirname(originalPath))
       return toFileUrl(tempPath).href
     } catch {
       // The original file's own directory isn't writable (a read-only mount, for instance) — falls
@@ -705,6 +709,108 @@ async function removeGeneratedModulesUnder(dir: string, recursive: boolean): Pro
   }
 }
 
+/** Filename of the global generated-module-directory manifest — see
+ * {@linkcode recordGeneratedModuleDir}. */
+const GENERATED_MODULE_DIRS_MANIFEST = 'generated-module-dirs.json'
+
+/** Directory `@zanix/cli`'s own global shim (`deno install -g`) writes its own state under — same
+ * formula `locateCliLockPath` uses for its own lock file. A local checkout uses `cliConfigPath`'s
+ * own directory instead. */
+function globalCliStateDir(): string {
+  const configPath = getCliConfigPath()
+  if (configPath) return dirname(configPath)
+  const installRoot = Deno.env.get('DENO_INSTALL_ROOT') ??
+    `${Deno.env.get('HOME') ?? Deno.env.get('USERPROFILE')}/.deno`
+  return `${installRoot}/bin/.zanix`
+}
+
+/** The manifest's real production path, computed fresh per call (`globalCliStateDir()` depends on
+ * a lazily-computed result). Both {@linkcode recordGeneratedModuleDir} and
+ * {@linkcode sweepRegisteredGeneratedModuleDirs} accept an override instead of always calling
+ * this, so a test can point at an isolated temp file — a real `zanix space dev`/`build` run never
+ * passes one. */
+function defaultGeneratedModuleDirsManifestPath(): string {
+  return join(globalCliStateDir(), GENERATED_MODULE_DIRS_MANIFEST)
+}
+
+/** Every directory the manifest lists, or `[]` if it doesn't exist yet or is unreadable/corrupt —
+ * never thrown. */
+async function readGeneratedModuleDirsManifest(manifestPath: string): Promise<string[]> {
+  try {
+    const parsed = JSON.parse(await Deno.readTextFile(manifestPath))
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+/** Directories already recorded THIS PROCESS — avoids re-reading/rewriting the manifest on every
+ * {@linkcode writeGeneratedModule} call from the same directory. */
+const recordedGeneratedModuleDirs = new Set<string>()
+
+/**
+ * Records `dir` — an absolute directory {@linkcode writeGeneratedModule} just wrote a real
+ * `.zanix-import-*.js` temp file into — in a small, persistent, GLOBAL manifest (never scoped to
+ * the served project's own `root`).
+ *
+ * This is what lets {@linkcode sweepStaleGeneratedModules} reach a LINKED/workspace sibling's own
+ * directory (a raw relative-path `deno.json` override, e.g. `@zanix/space-ui` mapped to a local
+ * `../space-ui` checkout — see `deno-workspace-link-pitfalls`), which sits outside `root`/`root/src`
+ * entirely. Confirmed real: such orphans, once written, were never reached by any later
+ * `zanix space dev`/`build` run of either project.
+ *
+ * Best-effort and silent throughout, same contract as the rest of this module.
+ *
+ * @param manifestPathOverride - Test-only; a real run never passes this. */
+export async function recordGeneratedModuleDir(
+  dir: string,
+  manifestPathOverride?: string,
+): Promise<void> {
+  if (recordedGeneratedModuleDirs.has(dir)) return
+  recordedGeneratedModuleDirs.add(dir)
+  try {
+    const manifestPath = manifestPathOverride ?? defaultGeneratedModuleDirsManifestPath()
+    await Deno.mkdir(dirname(manifestPath), { recursive: true })
+    const dirs = new Set(await readGeneratedModuleDirsManifest(manifestPath))
+    if (dirs.has(dir)) return
+    dirs.add(dir)
+    await Deno.writeTextFile(manifestPath, JSON.stringify([...dirs]))
+  } catch {
+    // Best-effort — worst case, this orphan (if any) waits for the structural scan instead; only a
+    // LINKED SIBLING's directory genuinely depends on this manifest succeeding.
+  }
+}
+
+/** Sweeps every directory the global manifest currently lists — the cross-project reach
+ * {@linkcode sweepStaleGeneratedModules}'s own structural scan can't provide alone. A directory
+ * that no longer exists is dropped from the manifest; one that still exists is re-swept and stays
+ * listed. Best-effort throughout, same contract as {@linkcode removeGeneratedModulesUnder}.
+ *
+ * @param manifestPathOverride - Test-only, same as {@linkcode recordGeneratedModuleDir}'s own. */
+export async function sweepRegisteredGeneratedModuleDirs(
+  manifestPathOverride?: string,
+): Promise<void> {
+  const manifestPath = manifestPathOverride ?? defaultGeneratedModuleDirsManifestPath()
+  const dirs = await readGeneratedModuleDirsManifest(manifestPath)
+  if (dirs.length === 0) return
+
+  const survivors: string[] = []
+  for (const dir of dirs) {
+    // A handful of directories at most — not worth a Promise.all here.
+    // deno-lint-ignore no-await-in-loop
+    const exists = await Deno.stat(dir).then((stat) => stat.isDirectory).catch(() => false)
+    if (!exists) continue
+    // deno-lint-ignore no-await-in-loop
+    await removeGeneratedModulesUnder(dir, false)
+    survivors.push(dir)
+  }
+  if (survivors.length !== dirs.length) {
+    await Deno.writeTextFile(manifestPath, JSON.stringify(survivors)).catch(() => {})
+  }
+}
+
 /**
  * Removes every `.zanix-import-*.js` file sitting where one could ACTUALLY be — garbage a KILLED
  * earlier `zanix space dev`/`build` process leaves behind (Ctrl+C, a crash, a force-quit), never
@@ -748,6 +854,15 @@ async function removeGeneratedModulesUnder(dir: string, recursive: boolean): Pro
  * fail `zanix space dev`/`build` itself over a stray file this project doesn't even need removed
  * right now (a permissions issue, a concurrent second `zanix` process sweeping the same tree).
  *
+ * A FIFTH place, structurally different from the four above: every directory
+ * {@linkcode recordGeneratedModuleDir}'s own global manifest lists, via
+ * {@linkcode sweepRegisteredGeneratedModuleDirs}. The four scopes above are all computed FROM
+ * `root`, so they can never reach a LINKED/workspace sibling's own directory (e.g. `@zanix/space-ui`
+ * mapped to a local `../space-ui` checkout) — `importProjectModule` still recurses into and writes
+ * temp files there. Confirmed real: such orphans were never reachable by any later
+ * `zanix space dev`/`build` run of either project. The manifest closes that gap, independent of
+ * `root`.
+ *
  * @param root - The project's own root directory — the same `root` `zanix space dev`/`build`
  * already resolves from `Deno.cwd()`.
  */
@@ -767,4 +882,6 @@ export async function sweepStaleGeneratedModules(root: string): Promise<void> {
     // deno-lint-ignore no-await-in-loop -- at most two entries, never worth a Promise.all for it
     await removeGeneratedModulesUnder(dir, false)
   }
+
+  await sweepRegisteredGeneratedModuleDirs()
 }

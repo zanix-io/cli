@@ -3,7 +3,11 @@ import { join } from '@std/path'
 import { stub } from '@std/testing/mock'
 import { getTemporaryFolder } from '@zanix/helpers'
 import logger from '@zanix/utils/logger'
-import { assertServersStarted, watchSpaceAppFile } from 'commands/space/dev/action.ts'
+import {
+  assertServersStarted,
+  createGracefulShutdown,
+  watchSpaceAppFile,
+} from 'commands/space/dev/action.ts'
 
 const temporaryFolder = getTemporaryFolder(import.meta.url)
 
@@ -226,5 +230,60 @@ Deno.test(
       errorStub.restore()
       exitStub.restore()
     }
+  },
+)
+
+Deno.test(
+  'createGracefulShutdown: stops the current servers, closes the engine, then exits — in that ' +
+    'order, and fully awaited, never fire-and-forget',
+  async () => {
+    const calls: string[] = []
+    const shutdown = createGracefulShutdown(
+      { stop: (servers) => (calls.push(`stop:${servers.join(',')}`), Promise.resolve()) },
+      () => ['ssr', 'rest'],
+      { close: () => (calls.push('close'), Promise.resolve()) },
+      (code) => calls.push(`exit:${code}`),
+    )
+
+    await shutdown()
+
+    assertEquals(calls, ['stop:ssr,rest', 'close', 'exit:0'])
+  },
+)
+
+Deno.test(
+  'createGracefulShutdown: getServers() returning undefined (a signal delivered before ' +
+    'bootstrapServers() ever resolved) skips stop entirely, but still closes the engine and exits',
+  async () => {
+    const calls: string[] = []
+    const shutdown = createGracefulShutdown(
+      { stop: () => (calls.push('stop'), Promise.resolve()) },
+      () => undefined,
+      { close: () => (calls.push('close'), Promise.resolve()) },
+      (code) => calls.push(`exit:${code}`),
+    )
+
+    await shutdown()
+
+    assertEquals(calls, ['close', 'exit:0'])
+  },
+)
+
+Deno.test(
+  'createGracefulShutdown: a second call while the first is still running (an impatient double ' +
+    'Ctrl+C) is a safe no-op — stop/close/exit each run exactly once, never twice',
+  async () => {
+    const calls: string[] = []
+    const shutdown = createGracefulShutdown(
+      { stop: () => (calls.push('stop'), Promise.resolve()) },
+      () => ['ssr'],
+      { close: () => (calls.push('close'), Promise.resolve()) },
+      (code) => calls.push(`exit:${code}`),
+    )
+
+    await Promise.all([shutdown(), shutdown()])
+    await shutdown()
+
+    assertEquals(calls, ['stop', 'close', 'exit:0'])
   },
 )

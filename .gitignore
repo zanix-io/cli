@@ -38,6 +38,12 @@ __tmp__/
 /.zanix-import-native-freshness-*.lock.json
 /.zanix-native-freshness-cache.json
 
+# `import-project-module.ts`'s own global generated-module-directory manifest
+# (`recordGeneratedModuleDir`) — same "written straight into THIS checkout's own directory for a
+# local `cli` checkout" shape as the two entries above, since `globalCliStateDir` resolves to this
+# repo's own directory in that case.
+/generated-module-dirs.json
+
 # Compiled JavaScript files
 tsconfig.tsbuildinfo
 

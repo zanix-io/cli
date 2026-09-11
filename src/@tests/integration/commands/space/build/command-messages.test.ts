@@ -157,6 +157,86 @@ Deno.test(
 )
 
 Deno.test(
+  'zanix space build: compiles EVERY segment file under {lang}/, not just index.json — a ' +
+    'segmented base catalog (index.json + iam.json + profile.json) all land under their own ' +
+    'relative path in {outDir}/messages/0/{lang}/...',
+  async () => {
+    const root = await Deno.makeTempDir({ dir: temporaryFolder })
+    const originalCwd = Deno.cwd()
+    try {
+      await Deno.writeTextFile(
+        join(root, 'deno.json'),
+        JSON.stringify({ zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS }, null, 2),
+      )
+      await Deno.writeTextFile(
+        join(root, 'space.app.ts'),
+        `import { defineSpaceApp } from '@zanix/space'
+
+export default defineSpaceApp({
+  name: 'test-app',
+  routesDir: './routes',
+  messagesDir: './messages',
+})
+`,
+      )
+      await Deno.mkdir(join(root, 'routes'), { recursive: true })
+      await Deno.writeTextFile(
+        join(root, 'routes', 'page.tsx'),
+        `import { Page, SpacePageController } from '@zanix/space'
+
+function HomeView() { return <h1>Home</h1> }
+
+@Page()
+export default class HomePage extends SpacePageController {
+  static head = { title: 'Home' }
+  component = HomeView
+}
+`,
+      )
+      // A real segmented base catalog — `@zanix/space`'s own `loadMessages()` merges these three
+      // files back together at read time; this test only proves the COMPILE side handles every
+      // one of them, not just the conventional `index.json`.
+      await Deno.mkdir(join(root, 'messages', 'en'), { recursive: true })
+      await Deno.writeTextFile(
+        join(root, 'messages', 'en', 'index.json'),
+        JSON.stringify({ 'home/title': 'Welcome' }),
+      )
+      await Deno.writeTextFile(
+        join(root, 'messages', 'en', 'iam.json'),
+        JSON.stringify({ 'login/submit': 'Sign in, {name}!' }),
+      )
+      await Deno.writeTextFile(
+        join(root, 'messages', 'en', 'profile.json'),
+        JSON.stringify({ 'profile/name': 'Name' }),
+      )
+
+      Deno.chdir(root)
+      const command = registerCommand()
+      await command.settings.actionHandler({})
+
+      const base = join(root, '.dist', 'client', 'messages', '0', 'en')
+      const index = JSON.parse(await Deno.readTextFile(join(base, 'index.json')))
+      const iam = JSON.parse(await Deno.readTextFile(join(base, 'iam.json')))
+      const profile = JSON.parse(await Deno.readTextFile(join(base, 'profile.json')))
+
+      assertEquals(index, { 'home/title': [{ type: 0, value: 'Welcome' }] })
+      assert(Array.isArray(iam['login/submit']), 'expected AST, not a raw ICU string')
+      assertEquals(profile, { 'profile/name': [{ type: 0, value: 'Name' }] })
+
+      // The hand-authored ICU source for every segment stays untouched — same "compiled output
+      // lives in its own directory" contract the single-file case already proves above.
+      const sourceIam = JSON.parse(
+        await Deno.readTextFile(join(root, 'messages', 'en', 'iam.json')),
+      )
+      assertEquals(sourceIam, { 'login/submit': 'Sign in, {name}!' })
+    } finally {
+      Deno.chdir(originalCwd)
+      await Deno.remove(root, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
   'zanix space build: --no-messages leaves both messagesDir and the compiled output untouched',
   async () => {
     await withMessagesProject({ home: { title: 'Welcome' } }, async (root) => {

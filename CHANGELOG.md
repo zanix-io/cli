@@ -10,6 +10,50 @@ and this project adheres to
 
 ### Fixed
 
+- **`sweepStaleGeneratedModules` never reached a `.zanix-import-*.js` orphan left inside a LINKED
+  sibling package's own directory** (e.g. `@zanix/space-ui` mapped to a local `../space-ui`
+  checkout via a raw relative-path `deno.json` override) — `importProjectModule` recurses into and
+  writes temp files there too, entirely outside the served project's own `root`/`root/src` scope,
+  so no later `zanix space dev`/`build` run of either project ever swept it; orphans accumulated
+  indefinitely. `recordGeneratedModuleDir`/`sweepRegisteredGeneratedModuleDirs`
+  (`import-project-module.ts`) fix this with a small, persistent, machine-global manifest of every
+  directory a generated module was ever written into, swept unconditionally at the top of every
+  `zanix space dev`/`build` run, from any project on the machine.
+
+- **A plain Ctrl+C could leave Vite's standalone HMR WebSocket server (port `24678` —
+  `zanix space dev`'s `middlewareMode` never wires a real `server.hmr.server`) bound but abandoned,
+  colliding with the next `zanix space dev` start.** Cleanup ran from
+  `self.addEventListener('unload', ...)`, which fires synchronously and never awaits —
+  `engine.close()`'s own async WebSocket teardown could still be mid-flight when the process
+  exited, and Vite only logs the resulting `EADDRINUSE` (`WebSocket server error: Port 24678 is
+  already in use`), never retries. `spaceDevAction` (`commands/space/dev/action.ts`) now registers
+  `Deno.addSignalListener('SIGINT'/'SIGTERM', ...)` via the new `createGracefulShutdown`, which
+  awaits the full stop-servers-then-close-engine sequence before the process actually exits.
+
+- **A guarded page's `401` under `zanix space dev` could fall through to a raw JSON body instead
+  of a login redirect — never in production, only in dev.** `native-runtime-modules.ts`'s own
+  (`@zanix/space`) ambient-fallback path — used whenever a served project's own `resolveDenoAt`-based
+  resolution can't answer a route/guard file's bare `@zanix/auth`/`@zanix/datamaster`/
+  `@zanix/notifications`/`@zanix/utils` import (a real, confirmed gap for a Deno WORKSPACE MEMBER
+  project with no `deno.lock` of its own, the lock living at the workspace root instead) — resolves
+  against THIS package's own `deno.jsonc`, not the served project's. Those pins had gone stale
+  (`@zanix/auth@^1.2.1`, `@zanix/utils@^4.2.1`, `@zanix/datamaster@^1.9.1`,
+  `@zanix/notifications@^1.1.0`) relative to what a real project declares today, so `@zanix/auth`'s
+  own `redirectUnauthenticatedPageVisit` (loaded via this stale, ambient copy) held a genuinely
+  different `HttpError` class than the one a project's own guard actually threw with — its
+  `error instanceof HttpError` check silently declined every time, with no error, no warning.
+  Reproduced live serving a consumer project: `chat`/`profile` (both `@Guard(requireSession(...))`-
+  protected) returned a raw `{"name":"HttpError",...}` JSON body instead of a `302` to `/login`
+  under `zanix space dev`, while the identical guard/error/redirect chain worked correctly under a
+  plain production boot (`deno run mod.ts`, no ambient-fallback path to diverge through at all).
+  Bumped these pins to the served-project-realistic versions in use today
+  (`@zanix/auth@^1.4.1`, `@zanix/utils@^4.5.0`, `@zanix/datamaster@^1.9.3`,
+  `@zanix/notifications@^1.2.3`) — this mitigates the currently-reproduced case, but the underlying
+  gap (`resolveDenoAt` not always avoiding the ambient fallback for a lockless workspace-member
+  project) stays open; these pins need to be kept current, not just refreshed once, or the same
+  class of silent divergence reopens the moment a served project's own `@zanix/auth`/
+  `@zanix/datamaster`/`@zanix/notifications` pin moves past whatever this file declares.
+
 - **`zanix space build --obfuscate` no longer breaks content-addressed immutable caching.**
   Obfuscation used to run as a POST-BUILD pass (`obfuscateFile`) that read each already-written,
   already content-hashed chunk back off disk and overwrote it in place — the hash Vite/Rollup mint

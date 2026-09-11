@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.2.0-rc.3",
+  "version": "2.2.0-rc.4",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -83,14 +83,37 @@
     "@std/assert": "jsr:@std/assert@0.224",
     "@std/testing": "jsr:@std/testing@1.0.9",
     "@cliffy/command": "jsr:@cliffy/command@1.2.1",
-    "@zanix/utils": "jsr:@zanix/utils@^4.2.1",
-    "@zanix/logger": "jsr:@zanix/utils@^4.2.1/logger",
-    "@zanix/logger/client": "jsr:@zanix/utils@^4.2.1/logger/client",
-    "@zanix/helpers": "jsr:@zanix/utils@^4.2.1/helpers",
-    "@zanix/types": "jsr:@zanix/utils@^4.2.1/types",
-    "@zanix/errors": "jsr:@zanix/utils@^4.2.1/errors",
-    "@zanix/utils/workers": "jsr:@zanix/utils@^4.2.1/workers",
-    "@zanix/utils/regex": "jsr:@zanix/utils@^4.2.1/regex",
+    // `@zanix/utils`-derived entries (this block) and `@zanix/auth`/`@zanix/datamaster`/
+    // `@zanix/notifications` further below are the AMBIENT-fallback pins `native-runtime-
+    // modules.ts`'s own `runExternalModule` (`@zanix/space`) falls back to whenever `resolveDenoAt`
+    // can't resolve a served project's own bare `@zanix/*` import against that project's config —
+    // a real, confirmed gap, not a theoretical one: reproduced live serving a consumer project (a
+    // Deno WORKSPACE MEMBER with no `deno.lock` of its own — the lock lives at the workspace root) under
+    // `zanix space dev`. That project's own `require-session.ts` (reached from a route's `@Guard`,
+    // through this exact ambient path) throws a real `HttpError('UNAUTHORIZED')`; `@zanix/auth`'s
+    // own `redirectUnauthenticatedPageVisit` — loaded via THIS shim's stale `@zanix/auth@^1.2.1`/
+    // `@zanix/utils@^4.2.1` pins instead of the served project's own newer `^1.4.1`/`^4.5.0` — held
+    // a genuinely different `HttpError` class than the one the project's own code threw with, so its
+    // `error instanceof HttpError` check silently declined every time: a guarded page's `401` fell
+    // through to a raw JSON body instead of a login redirect, under `zanix space dev` ONLY (never in
+    // production, where a plain `deno run mod.ts` has no ambient-fallback path to diverge through at
+    // all). Confirmed the same repro redirects correctly once these entries are bumped to match, and
+    // breaks again reverted to the stale ones. These pins going stale relative to a real served
+    // project's own (newer) versions is the ENTIRE failure mode — keep them current, not just at
+    // publish time: a served project bumping `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications`
+    // past whatever this file happens to declare silently reopens this exact class of bug for
+    // anything reached through the ambient fallback, with no error, no warning, just a class that
+    // quietly stops matching. See `native-runtime-modules.ts`'s own doc for why `resolveDenoAt`
+    // doesn't always avoid this fallback for a workspace-member project with no lockfile of its own —
+    // a real, currently-unresolved structural gap this pin bump only mitigates, not closes.
+    "@zanix/utils": "jsr:@zanix/utils@^4.5.0",
+    "@zanix/logger": "jsr:@zanix/utils@^4.5.0/logger",
+    "@zanix/logger/client": "jsr:@zanix/utils@^4.5.0/logger/client",
+    "@zanix/helpers": "jsr:@zanix/utils@^4.5.0/helpers",
+    "@zanix/types": "jsr:@zanix/utils@^4.5.0/types",
+    "@zanix/errors": "jsr:@zanix/utils@^4.5.0/errors",
+    "@zanix/utils/workers": "jsr:@zanix/utils@^4.5.0/workers",
+    "@zanix/utils/regex": "jsr:@zanix/utils@^4.5.0/regex",
     "@zanix/server": "jsr:@zanix/server@^4.2.1",
     "@zanix/server/graphql": "jsr:@zanix/server@^4.2.1/graphql",
     // Powers `import-project-module.ts`'s own resolution of a CONSUMING project's own bare
@@ -227,7 +250,7 @@
     // `preact`/`preact/hooks` reasoning above): without this entry, it fails outright with "not a
     // dependency and not in import map", turning the identity fix into a hard resolution failure
     // instead.
-    "@zanix/auth": "jsr:@zanix/auth@^1.2.1",
+    "@zanix/auth": "jsr:@zanix/auth@^1.4.1",
     // `@zanix/datamaster` and `@zanix/notifications` need the identical entry, for the identical
     // reason as `@zanix/auth` immediately above — `native-runtime-modules.ts` (`@zanix/space`)
     // documents all three as sharing the exact same DI-container identity split (each package
@@ -239,8 +262,8 @@
     // reached through `zanix space dev`'s SSR pipeline that bare-imports either package fails
     // outright with "not a dependency and not in import map" the moment it does — a hard crash, not
     // the SAME-but-silent wrong-copy split `@zanix/auth`'s own entry above already prevents.
-    "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.1",
-    "@zanix/notifications": "jsr:@zanix/notifications@^1.1.0",
+    "@zanix/datamaster": "jsr:@zanix/datamaster@^1.9.3",
+    "@zanix/notifications": "jsr:@zanix/notifications@^1.2.3",
     // `@zanix/asyncmq` above (`imports` block, alongside `@zanix/asyncmq/jobs`) already closes this
     // identical gap for that package — declared for the same native-runtime-module identity reason
     // as `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` here.

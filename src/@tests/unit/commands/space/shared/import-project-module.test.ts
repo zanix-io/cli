@@ -8,6 +8,8 @@ import {
   cleanupImportBatch,
   createImportBatchContext,
   importProjectModule,
+  recordGeneratedModuleDir,
+  sweepRegisteredGeneratedModuleDirs,
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
 
@@ -223,6 +225,87 @@ Deno.test(
     // A root that never existed at all — the walk itself fails outright, not just an individual
     // file's own removal.
     await sweepStaleGeneratedModules('/this/path/genuinely/does/not/exist/anywhere')
+  },
+)
+
+Deno.test(
+  'recordGeneratedModuleDir + sweepRegisteredGeneratedModuleDirs: reaches a directory entirely ' +
+    "outside any served project's own root/src scope — the real gap a linked/workspace sibling's " +
+    'own directory falls into (e.g. a raw relative-path deno.json override pointing a package at ' +
+    "a local checkout), which sweepStaleGeneratedModules' own structural scan can never see on " +
+    "its own, since it only ever looks at paths computed FROM the served project's own root",
+  async () => {
+    const manifestDir = await Deno.makeTempDir()
+    const siblingDir = await Deno.makeTempDir()
+    try {
+      const manifestPath = join(manifestDir, 'generated-module-dirs.json')
+      const orphan = join(siblingDir, '.zanix-import-99999999-9999-9999-9999-999999999999.js')
+      await Deno.writeTextFile(orphan, 'export default {}\n')
+
+      await recordGeneratedModuleDir(siblingDir, manifestPath)
+      assert(await exists(orphan), 'the fixture itself must exist before sweeping')
+
+      await sweepRegisteredGeneratedModuleDirs(manifestPath)
+
+      assertEquals(await exists(orphan), false)
+    } finally {
+      await Deno.remove(manifestDir, { recursive: true })
+      await Deno.remove(siblingDir, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'sweepRegisteredGeneratedModuleDirs: a recorded directory that no longer exists at all is ' +
+    'dropped from the manifest — nothing left to ever sweep there again',
+  async () => {
+    const manifestDir = await Deno.makeTempDir()
+    const goneDir = await Deno.makeTempDir()
+    try {
+      const manifestPath = join(manifestDir, 'generated-module-dirs.json')
+      await recordGeneratedModuleDir(goneDir, manifestPath)
+      await Deno.remove(goneDir, { recursive: true })
+
+      await sweepRegisteredGeneratedModuleDirs(manifestPath)
+
+      assertEquals(JSON.parse(await Deno.readTextFile(manifestPath)), [])
+    } finally {
+      await Deno.remove(manifestDir, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'sweepRegisteredGeneratedModuleDirs: a recorded directory that still exists stays listed after ' +
+    'a sweep — a project that keeps getting killed mid-import keeps getting cleaned up on every ' +
+    'later zanix space dev/build run, not just the first one after it was recorded',
+  async () => {
+    const manifestDir = await Deno.makeTempDir()
+    const stillHereDir = await Deno.makeTempDir()
+    try {
+      const manifestPath = join(manifestDir, 'generated-module-dirs.json')
+      await recordGeneratedModuleDir(stillHereDir, manifestPath)
+
+      await sweepRegisteredGeneratedModuleDirs(manifestPath)
+
+      assertEquals(JSON.parse(await Deno.readTextFile(manifestPath)), [stillHereDir])
+    } finally {
+      await Deno.remove(manifestDir, { recursive: true })
+      await Deno.remove(stillHereDir, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'sweepRegisteredGeneratedModuleDirs: no manifest file at all yet is a harmless no-op, never a ' +
+    'throw — the real shape on the very first zanix space dev/build run this machine has ever done',
+  async () => {
+    const manifestDir = await Deno.makeTempDir()
+    try {
+      await sweepRegisteredGeneratedModuleDirs(join(manifestDir, 'does-not-exist.json'))
+    } finally {
+      await Deno.remove(manifestDir, { recursive: true })
+    }
   },
 )
 

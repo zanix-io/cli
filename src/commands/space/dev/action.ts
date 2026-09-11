@@ -97,6 +97,44 @@ export function watchSpaceAppFile(spaceAppPath: string, onRestart: () => Promise
 }
 
 /**
+ * Builds the stop-`servers`-then-close-`engine`-then-exit handler `spaceDevAction` registers for
+ * `SIGINT`/`SIGTERM`. Replaces a plain `self.addEventListener('unload', ...)`, which fires
+ * synchronously and is never awaited — a fire-and-forget `engine.close()` there could still be
+ * mid-flight (a real async round trip through Vite's own HMR WebSocket teardown) when the process
+ * actually exits. Left mid-flight, that leaves Vite's standalone HMR WS listener bound but
+ * abandoned: `createSpaceDevEngine` never wires `server.hmr.server` to this command's own real HTTP
+ * server, so Vite falls back to its own hardcoded port `24678`. The next `zanix space dev` start
+ * then hits `EADDRINUSE` there — which Vite only logs, never retries — silently breaking that
+ * session's auto-reload recovery. `Deno.addSignalListener` fixes it: registering a listener
+ * suppresses Deno's default immediate-exit, so `await engine.close()` genuinely finishes first.
+ *
+ * A separate, exported function (not inlined) so the stop-close-exit logic itself is unit-testable
+ * by just calling it — real signal delivery can't be driven from a test without risking the whole
+ * `deno test` run.
+ *
+ * @param getServers - A thunk: `servers` is only assigned once `bootstrapServers()` resolves, after
+ * this is called — a plain value here would freeze at `undefined`.
+ * @param exit - Defaults to `Deno.exit`; overridable so a test can observe the exit code.
+ */
+export function createGracefulShutdown(
+  webServerManager: { stop: (servers: string[]) => Promise<void> },
+  getServers: () => string[] | undefined,
+  engine: { close: () => Promise<void> },
+  exit: (code: number) => void = Deno.exit,
+): () => Promise<void> {
+  let shuttingDown = false
+  return async () => {
+    // A second signal while the first is still closing must never re-enter this.
+    if (shuttingDown) return
+    shuttingDown = true
+    const servers = getServers()
+    if (servers) await webServerManager.stop(servers)
+    await engine.close()
+    exit(0)
+  }
+}
+
+/**
  * `zanix space dev`'s real orchestration: imports the project's own `space.app.ts` manifest,
  * activates it under a `SpaceDevEngine` (real-time SSR module invalidation + browser-asset
  * transform — see `@zanix/space`'s own `modules/dev/mod.ts`), and serves it with the dev client
@@ -435,7 +473,8 @@ async function spaceDevAction(
   // Closes the already-created dev engine (Vite dev server + file watcher) if any step below
   // fails — without this, a failure here (e.g. a user `setup()` throwing, or the port already in
   // use) would leak the engine: nothing else ever calls `engine.close()` before this point, since
-  // the `unload` listener that normally does is only registered once every step below succeeds.
+  // the graceful-shutdown signal listener that normally does is only registered once every step
+  // below succeeds.
   try {
     // A `space-server` project's real `mod.ts` calls `Zanix.start({ apps })` (`@zanix/core`),
     // which — BEFORE `activateApps` — always runs `defineCoreMetadata()` (registers
@@ -676,9 +715,14 @@ async function spaceDevAction(
     () => engine.close(),
   )
 
-  self.addEventListener('unload', () => {
-    engine.close()
-  })
+  // Ctrl+C (`SIGINT`)/`SIGTERM` — see `createGracefulShutdown`'s own doc for why this replaces the
+  // `self.addEventListener('unload', ...)` that used to run here, and the port-24678 collision bug
+  // that caused. ONE shared handler for both signals — a process manager that sends both must hit
+  // the same `shuttingDown` guard, not double-run the stop-close-exit sequence.
+  const gracefulShutdown = createGracefulShutdown(webServerManager, () => servers, engine)
+  Deno.addSignalListener('SIGINT', gracefulShutdown)
+  // Windows only supports SIGINT/SIGBREAK — `addSignalListener` throws for anything else there.
+  if (Deno.build.os !== 'windows') Deno.addSignalListener('SIGTERM', gracefulShutdown)
 
   // See `watchSpaceAppFile`'s own doc for why this is a full-process restart, entirely separate
   // from Vite's own HMR above.
