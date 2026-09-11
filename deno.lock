@@ -432,6 +432,29 @@
         "npm:vite"
       ]
     },
+    "@zanix/space@1.10.1": {
+      "integrity": "71b281aa2a4bbaf04117192a11817d6ed79ba14088991c631b6b7b846eea10f1",
+      "dependencies": [
+        "jsr:@deno/loader",
+        "jsr:@std/jsonc@1",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0",
+        "npm:@deno/vite-plugin",
+        "npm:@preact/preset-vite",
+        "npm:@rolldown/plugin-babel",
+        "npm:@tailwindcss/vite",
+        "npm:@vanilla-extract/vite-plugin",
+        "npm:@vitejs/plugin-react",
+        "npm:postcss",
+        "npm:postcss-modules",
+        "npm:react-dom",
+        "npm:react@^19.2.0",
+        "npm:sharp",
+        "npm:vite"
+      ]
+    },
     "@zanix/space@1.10.2": {
       "integrity": "2f9d82e77904d6b0c965c6a7056d00445855200d0aafe833e8ec7391af5d0be1",
       "dependencies": [
