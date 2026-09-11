@@ -336,6 +336,13 @@
         "jsr:@zanix/utils@4"
       ]
     },
+    "@zanix/auth@1.3.1": {
+      "integrity": "8fc2602b983ca2ea87d96d54c7788f095a0a13c8a521acb976885bbe433a2a9d",
+      "dependencies": [
+        "jsr:@zanix/server@4",
+        "jsr:@zanix/utils@4"
+      ]
+    },
     "@zanix/cli@2.0.8": {
       "integrity": "73537ddc338be450e8bdfd309e8e8354846bdc6949f034923711c386d83e2fa9"
     },
@@ -407,29 +414,6 @@
       "integrity": "c4a64ae3739e10e958887b330555624d51a96981ef04c89793bc6e7f455f43ec",
       "dependencies": [
         "jsr:@deno/loader",
-        "jsr:@std/path@0.224",
-        "jsr:@zanix/app@1",
-        "jsr:@zanix/server@^4.1.0",
-        "jsr:@zanix/utils@^4.1.0",
-        "npm:@deno/vite-plugin",
-        "npm:@preact/preset-vite",
-        "npm:@rolldown/plugin-babel",
-        "npm:@tailwindcss/vite",
-        "npm:@vanilla-extract/vite-plugin",
-        "npm:@vitejs/plugin-react",
-        "npm:postcss",
-        "npm:postcss-modules",
-        "npm:react-dom",
-        "npm:react@^19.2.0",
-        "npm:sharp",
-        "npm:vite"
-      ]
-    },
-    "@zanix/space@1.10.1": {
-      "integrity": "71b281aa2a4bbaf04117192a11817d6ed79ba14088991c631b6b7b846eea10f1",
-      "dependencies": [
-        "jsr:@deno/loader",
-        "jsr:@std/jsonc@1",
         "jsr:@std/path@0.224",
         "jsr:@zanix/app@1",
         "jsr:@zanix/server@^4.1.0",
