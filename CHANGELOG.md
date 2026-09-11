@@ -59,6 +59,24 @@ and this project adheres to
   `sweepStaleGeneratedModules` (already run at the top of every `zanix space dev`/`build`) to sweep
   on the next invocation, the same self-healing path a killed process already relies on.
 
+- **`detectTransitiveCollisionPackages` (`commands/space/shared/transitive-collision.ts`) now
+  catches a project that declares its own direct edge into a colliding package only under a
+  subpath alias, never the package's own bare name.** It used to compare each direct import's raw,
+  as-declared `imports` key against the real published package name a resolved `jsr.io` URL
+  reports — a project declaring `"@zanix/errors": "jsr:@zanix/utils@^X/errors"` (a real, common
+  convention several `@zanix/*` packages themselves use internally) rather than a literal
+  `"@zanix/utils"` key never matched, silently missing a genuine dual-module-instance risk whenever
+  every direct edge into the colliding package happened to be alias-only. A reported, reproduced
+  real case: a project importing `@zanix/auth` directly, with its own `@zanix/errors` alias
+  pointing at a different `@zanix/utils` version than `@zanix/auth`'s own internal manifest
+  resolves under `zanix space dev`'s governing process config — two separate `HttpError` classes,
+  so `error instanceof HttpError` failed inside `@zanix/auth`'s own composed
+  `redirectUnauthenticatedPageVisit`, silently declining a real, matched `401` instead of
+  redirecting it. Detection now resolves each direct import back to its own real package identity
+  before comparing, and flags every alias sharing a colliding identity — not just whichever one
+  is checked first — since `importProjectModule`/`importProjectDependency` both look up the
+  result by whatever alias a project file actually imports.
+
 ### Added
 
 - **New `--obfuscate-exclude <globs>` flag for `zanix space build`**

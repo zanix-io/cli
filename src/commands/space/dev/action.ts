@@ -611,17 +611,13 @@ async function spaceDevAction(
       //
       // `onError`/`attachRequestToErrors` duplicated here from `bootstrapConfig.server?.ssr` (never
       // moved OUT of `ssr` below — a consumer registering them there must keep working when ports
-      // AREN'T forced to share, e.g. a future non-dev-mode caller of this same config): `@zanix/server`
-      // registers server types in a fixed order (`rest` → `socket` → `graphql` → `ssr`) and, when
-      // multiple types share one port, only the FIRST to bind it actually calls `Deno.serve()` —
-      // every later type sharing that port just reuses the address, and NONE of its own `opts`
-      // (`onError` included) ever reach the real listener. `rest` always wins the shared `port` this
-      // block forces below, so `rest`'s own `onError` is the one that actually answers EVERY
-      // request on it, `ssr`'s pages included — without this duplication, a registered
-      // `onError: createNotFoundHandler()` (every generated `space.app.ts` sets this, see
-      // `getSpaceAppTemplate`'s own doc) would be silently never invoked for an unmatched SSR route
-      // under `zanix space dev`, even though the exact same registration works in production (where
-      // `ssr` never shares a port with anything, so this ordering quirk never applies).
+      // AREN'T forced to share, e.g. a future non-dev-mode caller of this same config): `@zanix/server`'s
+      // `WebServerManager.create()` gives each server type sharing a port its own `onError` (keyed by
+      // its own route prefix — `rest`'s `'api'`, `ssr`'s `''` catch-all), so `ssr`'s own `onError`
+      // already answers its own requests correctly on its own — this duplication is not a required
+      // workaround for the shared `port` this block forces below. It stays as harmless, redundant
+      // defense-in-depth: `rest` ends up with the same handler `ssr` already carries, which only
+      // matters if `rest` itself ever mismatches a request `ssr` should have handled.
       rest: {
         ...bootstrapConfig.server?.rest,
         onError: bootstrapConfig.server?.rest?.onError ?? bootstrapConfig.server?.ssr?.onError,

@@ -172,20 +172,50 @@ export function detectTransitiveCollisionPackages(root: string): Promise<Set<str
       }
       if (directRootByBase.size !== directBases.length) return empty // resolution failed for one
 
+      // Grouped by each base's own REAL resolved package identity — never by the raw declared key
+      // name alone. A project frequently declares a package only under a SUBPATH ALIAS
+      // (`"@zanix/errors": "jsr:@zanix/utils@^X/errors"`, `"@zanix/validator": ".../validator"`,
+      // `"@zanix/helpers": ".../helpers"` — a real, confirmed, widely-used convention), never its
+      // own bare name (`@zanix/utils` itself might not appear as a literal top-level key at all).
+      // Comparing the walk below against the raw alias key directly would never match
+      // `jsrPackageBaseFromResolvedUrl`'s own output, which always reports the REAL published
+      // package name from a resolved `jsr.io` URL — silently missing a genuine collision whenever
+      // every direct edge into a colliding package happens to be alias-only. Resolving each base's
+      // own root back to its real identity first (falling back to the base itself for a `npm:`/
+      // local-path root, which `jsrPackageBaseFromResolvedUrl` doesn't recognize anyway) closes that
+      // gap, and also correctly treats two aliases of the SAME real package
+      // (`@zanix/errors`/`@zanix/validator`, both `@zanix/utils`) as NOT colliding with each other —
+      // they already share one instance by construction, nothing to converge.
+      const basesByRealIdentity = new Map<string, string[]>()
+      for (const [base, root] of directRootByBase) {
+        const realIdentity = jsrPackageBaseFromResolvedUrl(root) ?? base
+        const group = basesByRealIdentity.get(realIdentity)
+        if (group) group.push(base)
+        else basesByRealIdentity.set(realIdentity, [base])
+      }
+
       const collisions = new Set<string>()
-      for (const [base] of directRootByBase) {
+      for (const [realIdentity, aliasBases] of basesByRealIdentity) {
         for (const [otherBase, otherRoot] of directRootByBase) {
-          if (otherBase === base || collisions.has(base)) continue
-          // BFS from `otherBase`'s OWN root, looking for an edge whose package base is `base` —
-          // i.e. `base` reachable transitively FROM a DIFFERENT direct import, not from itself.
+          if (aliasBases.includes(otherBase) || aliasBases.some((base) => collisions.has(base))) {
+            continue
+          }
+          // BFS from `otherBase`'s OWN root, looking for an edge whose REAL package identity is
+          // `realIdentity` — i.e. this package reachable transitively FROM a DIFFERENT direct
+          // import, not from itself (or from another alias of the same real package).
           const seen = new Set<string>()
           const queue = [otherRoot]
           while (queue.length > 0) {
             const current = queue.shift() as string
             if (seen.has(current)) continue
             seen.add(current)
-            if (jsrPackageBaseFromResolvedUrl(current) === base) {
-              collisions.add(base)
+            if (jsrPackageBaseFromResolvedUrl(current) === realIdentity) {
+              // Every alias sharing this real identity is an equally valid answer to "is THIS
+              // specifier a collision risk" for `import-project-module.ts`/
+              // `import-project-dependency.ts`'s own per-specifier lookups (`collisions.has(base)`,
+              // matched against whatever alias a project file actually imports) — flag them all,
+              // not just whichever alias happened to be checked first.
+              for (const base of aliasBases) collisions.add(base)
               break
             }
             for (const dep of dependenciesBySpecifier.get(current) ?? []) queue.push(dep)
