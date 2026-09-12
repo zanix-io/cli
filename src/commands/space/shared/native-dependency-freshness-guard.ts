@@ -1,7 +1,9 @@
+import { dirname, join } from '@std/path'
 import {
   NATIVE_FRESHNESS_REEXEC_ENV,
   prepareNativeFreshnessReexec,
 } from 'commands/space/shared/native-dependency-freshness.ts'
+import { getCliConfigPath } from 'commands/space/shared/cli-loader.ts'
 import logger from '@zanix/utils/logger'
 
 /**
@@ -22,24 +24,48 @@ import logger from '@zanix/utils/logger'
  * function could reliably delete it itself. `sweepStaleGeneratedModules`'s own next-run sweep of
  * `native-dependency-freshness.ts`'s own directory is what actually reclaims it.
  *
- * Known gap: this re-exec has an observed, CI-only failure mode — the re-exec'd child running
- * `deno run --lock <mergedLockPath> <mainModule> space build` printing the `space` command
- * group's own help text instead of actually running `build`. Unreproduced outside CI despite
- * direct reconstruction of the exact re-exec command line, an isolated shared-cache repro across
- * this package's own sibling live tests, and a real end-to-end run through this exact function.
- * Both `build/action.ts`'s and `dev/action.ts`'s own call sites keep calling this regardless: the
- * staleness risk it closes is worse than a failure mode this rare and this far from understood.
+ * **The re-exec'd child ALSO gets `--config`, not just `--lock`.** Without it, the child does its
+ * own config-file auto-discovery from `Deno.cwd()` — the SERVED PROJECT's own directory during a
+ * real `zanix space dev`/`build` run, never `@zanix/cli`'s own — so the child loses every one of
+ * `@zanix/cli`'s own internal path aliases (`commands/`, `typings/`, `shared/`, `utils/`) its own
+ * source needs to resolve itself at all. Confirmed via a real repro, not the "unreproduced outside
+ * CI" gap an earlier version of this doc described: the child printed `zanix space`'s own group
+ * help text instead of running the command, then threw `Module not found
+ * "https://jsr.io/@zanix/space/.../bundler/preact/debug"` — both symptoms of `@zanix/cli`'s own
+ * command-registration graph failing to resolve itself, not anything specific to `space`/`dev`.
+ * `getCliConfigPath()` gives the real answer for a local checkout; a genuine global install (that
+ * function returns `undefined` there, by design — see its own doc) has no local config of its own
+ * to point at, so this falls back to the shim's own generated `deno.json`, the guaranteed sibling of
+ * `cliLockPath` in every install shape (`native-dependency-freshness.ts`'s own `locateCliLockPath`
+ * doc) — the exact file `mergedLockPath` (just resolved) is itself already a sibling of.
+ *
+ * @param noCache - Forwarded to {@linkcode prepareNativeFreshnessReexec} — `--no-cache` (`dev`/
+ * `build`'s own `command.ts`), for a maintainer actively publishing `@zanix/server`/`@zanix/app`
+ * who wants this run to actually notice, rather than trusting an earlier check's cached result for
+ * the rest of that function's own cache TTL (`native-dependency-freshness.ts`'s own
+ * `FRESHNESS_CACHE_TTL_MS`).
  */
-export async function guardAgainstStaleNativeDependencies(): Promise<void> {
-  const mergedLockPath = await prepareNativeFreshnessReexec()
+export async function guardAgainstStaleNativeDependencies(noCache = false): Promise<void> {
+  const mergedLockPath = await prepareNativeFreshnessReexec(noCache)
   if (mergedLockPath === undefined) return
+
+  const configPath = getCliConfigPath() ?? join(dirname(mergedLockPath), 'deno.json')
 
   logger.info(
     "A newer @zanix/server/@zanix/app is available than @zanix/cli's own committed lock — " +
       'restarting under a refreshed lock to pick it up...',
   )
   const child = new Deno.Command(Deno.execPath(), {
-    args: ['run', '-A', '--lock', mergedLockPath, Deno.mainModule, ...Deno.args],
+    args: [
+      'run',
+      '-A',
+      '--config',
+      configPath,
+      '--lock',
+      mergedLockPath,
+      Deno.mainModule,
+      ...Deno.args,
+    ],
     env: { [NATIVE_FRESHNESS_REEXEC_ENV]: '1' },
     stdin: 'inherit',
     stdout: 'inherit',

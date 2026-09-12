@@ -256,11 +256,12 @@ async function spaceDevAction(
   // this line runs either already fixed up that way, or has nothing to fix at all.
   await guardAgainstTransitiveCollisions(root)
   // Same "before anything else" reasoning, for a separate hazard — see
-  // `guardAgainstStaleNativeDependencies`'s own doc, including its own known CI-only re-exec gap.
-  // Independent of `root` entirely (a served project's own config never factors into this check),
-  // so its own order relative to the guard above doesn't matter — kept second only for a natural
-  // reading order.
-  await guardAgainstStaleNativeDependencies()
+  // `guardAgainstStaleNativeDependencies`'s own doc. Independent of `root` entirely (a served
+  // project's own config never factors into this check), so its own order relative to the guard
+  // above doesn't matter — kept second only for a natural reading order. `options.cache === false`
+  // (`--no-cache`) forces a real check instead of trusting an earlier one's cached result — see
+  // that function's own `noCache` param doc for why.
+  await guardAgainstStaleNativeDependencies(options.cache === false)
   // `start`/`worker` (`getBaseTasks`, `utils/config/base.ts`) get `.env` for free from their own
   // `deno run --env-file=.env ...` task string, degrading gracefully (a Deno warning, never an
   // error) when `.env` doesn't exist yet. `zanix space dev` has no equivalent task-level flag to

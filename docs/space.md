@@ -11,10 +11,10 @@ subcommand's own section below. Running `zanix space` with no subcommand errors 
 zanix space <dev|build>
 ```
 
-| Subcommand   | Command             | Options                                                                                                               | Does                                                             |
-| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--env-file <path>` (default `.env`), `--no-graphql-check`                     | Runs the project with real file-watching HMR — see [below](#dev) |
-| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--obfuscate-exclude <globs>`, `--no-messages`, `--no-graphql-check` | Builds the real, production client bundle — see [below](#build)  |
+| Subcommand   | Command             | Options                                                                                                                             | Does                                                             |
+| ------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Dev server   | `zanix space dev`   | `-p, --port <port>` (default `20202`), `--env-file <path>` (default `.env`), `--no-graphql-check`, `--no-cache`                     | Runs the project with real file-watching HMR — see [below](#dev) |
+| Client build | `zanix space build` | `--out-dir <dir>`, `--no-minify`, `--obfuscate`, `--obfuscate-exclude <globs>`, `--no-messages`, `--no-graphql-check`, `--no-cache` | Builds the real, production client bundle — see [below](#build)  |
 
 ## Dev
 
@@ -44,6 +44,10 @@ Only valid inside a `space`/`space-server` project — errors out otherwise. Als
 [GraphQL check](#graphql-check) once at boot (`--no-graphql-check` opts out); unlike a build, a
 failure there is only reported, never fatal — dev keeps running.
 
+`--no-cache` skips the CLI's own 24h freshness cache for `@zanix/server`/`@zanix/app`, forcing a
+real check against what's currently published — useful right after publishing a new version of
+either you want this run to actually notice, instead of waiting out the cache.
+
 ## Build
 
 ```bash
@@ -68,6 +72,7 @@ needed for that to work, the same way `zanix space dev` already runs it, just wi
 | `--no-validation`              | (validates)      | Skip document validation entirely.                                                                                                                                                                                                                                                                                                           |
 | `--validation-strict`          | `false`          | Treat every active warning as an error, failing the build.                                                                                                                                                                                                                                                                                   |
 | `--validation-category <list>` | (all)            | Restrict validation to these categories, comma-separated.                                                                                                                                                                                                                                                                                    |
+| `--no-cache`                   | (uses cache)     | Skip the CLI's own 24h freshness cache for `@zanix/server`/`@zanix/app`, forcing a real check against what's currently published — useful right after publishing a new version of either.                                                                                                                                                    |
 
 Reads back the project's own `space.app.ts` declarations (`globalCss`, `pwa`) automatically —
 nothing needs to be passed on the command line for either. The renderer (`react`/`preact`,

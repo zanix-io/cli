@@ -13,6 +13,7 @@ export interface SpaceBuildOptions extends SpaceValidationOptions {
   obfuscateExclude?: string
   messages?: boolean
   graphqlCheck?: boolean
+  cache?: boolean
 }
 
 /**
@@ -88,6 +89,13 @@ export function registerSpaceBuildCommand(cwd: Commander): void {
       '--no-graphql-check',
       'Skips the GraphQL query/mutation check (syntax, and schema match when a local schema ' +
         'is available). Runs by default when a gql/ directory exists; has no effect otherwise.',
+    )
+    .option(
+      '--no-cache',
+      "Skips the CLI's own 24h freshness cache for @zanix/server/@zanix/app, forcing a real " +
+        'check against what is currently published. Use this right after publishing a new ' +
+        'version you want this run to actually notice, instead of waiting out the cache or ' +
+        'deleting it by hand.',
     )
   registerValidationOptions(command)
   command.action(async (options: SpaceBuildOptions) => {

@@ -121,7 +121,35 @@ and this project adheres to
   is checked first — since `importProjectModule`/`importProjectDependency` both look up the
   result by whatever alias a project file actually imports.
 
+- **`guardAgainstStaleNativeDependencies`'s own re-exec (`native-dependency-freshness-guard.ts`)
+  never passed `--config` to the child process it spawns — only `--lock`.** Without it, the child
+  does its own config-file auto-discovery from `Deno.cwd()` — the SERVED PROJECT's own directory
+  during a real `zanix space dev`/`build` run, never `@zanix/cli`'s — losing every one of
+  `@zanix/cli`'s own internal path aliases (`commands/`, `typings/`, `shared/`, `utils/`) its own
+  source needs to resolve itself at all. Previously documented as an "unreproduced outside CI" gap;
+  now confirmed live, outside CI, against a genuinely stale global install: the re-exec'd child
+  printed `space`'s own command-group help text instead of running `dev`, then threw `Module not
+  found "https://jsr.io/@zanix/space/.../bundler/preact/debug"` — both symptoms of `@zanix/cli`'s
+  own command-registration graph failing to resolve itself, unrelated to `space`/`dev` specifically.
+  The child now also gets `--config <path>` — `getCliConfigPath()`'s own real answer for a local
+  checkout, or the shim's own generated `deno.json` (the guaranteed sibling of `cliLockPath` in
+  every install shape, per `locateCliLockPath`'s own doc) for a genuine global install. Verified end
+  to end against a real served project (`--local` install, a genuinely stale native-dependency
+  lock): the re-exec now boots the dev server successfully instead of crashing.
+
 ### Added
+
+- **New `--no-cache` flag for `zanix space dev`/`zanix space build`**
+  (`commands/space/dev/command.ts`, `commands/space/build/command.ts`,
+  `guardAgainstStaleNativeDependencies`/`prepareNativeFreshnessReexec` in
+  `commands/space/shared/native-dependency-freshness-guard.ts`/`native-dependency-freshness.ts`).
+  The native-dependency freshness check only ever runs a real, live probe once per 24h, caching
+  whatever it finds — a maintainer who publishes a new `@zanix/server`/`@zanix/app` and immediately
+  runs `zanix space dev`/`build` again could be stuck trusting an EARLIER check's cached "nothing
+  newer" answer for the rest of that window, with no way to force a fresh look short of manually
+  finding and deleting the cache file by hand. `--no-cache` skips reading that cache for this one
+  run, forcing a real check — it still WRITES a fresh cache entry afterward, same as an ordinary
+  cache miss, so it never disables caching going forward, only for the run it's passed on.
 
 - **New `--obfuscate-exclude <globs>` flag for `zanix space build`**
   (`commands/space/build/command.ts`/`action.ts`, `excludeObfuscationTargets` in

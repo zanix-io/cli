@@ -318,8 +318,16 @@ export const NATIVE_FRESHNESS_REEXEC_ENV = 'ZANIX_NATIVE_FRESHNESS_REEXEC'
  * `Deno.exit` right after spawning the child never lets any of its own cleanup code run, so trying
  * to delete it there would never fire in practice — see `native-dependency-freshness-guard.ts`'s
  * own doc).
+ *
+ * @param noCache - Skips {@linkcode readFreshnessCache} and always runs a real, live check instead
+ * — `--no-cache` (`dev`/`build`'s own `command.ts`), for a maintainer who just published a new
+ * `@zanix/server`/`@zanix/app` and doesn't want to wait out {@linkcode FRESHNESS_CACHE_TTL_MS} (or
+ * hunt down and delete the cache file by hand) to have it actually picked up. Still WRITES a fresh
+ * cache entry afterward, same as an ordinary cache-miss check — this only ever skips the READ.
  */
-export async function prepareNativeFreshnessReexec(): Promise<string | undefined> {
+export async function prepareNativeFreshnessReexec(
+  noCache = false,
+): Promise<string | undefined> {
   if (Deno.env.get(NATIVE_FRESHNESS_REEXEC_ENV)) return undefined
 
   const cliLockPath = await locateCliLockPath()
@@ -333,7 +341,7 @@ export async function prepareNativeFreshnessReexec(): Promise<string | undefined
   }
 
   let updates: Omit<FreshnessCache, 'checkedAt'>
-  const cached = await readFreshnessCache(cliLockPath)
+  const cached = noCache ? undefined : await readFreshnessCache(cliLockPath)
   if (cached) {
     updates = cached
   } else {
