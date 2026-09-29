@@ -65,7 +65,7 @@ async function scaffoldProject(root: string, optimizeBlock: string): Promise<voi
   await Deno.writeTextFile(
     join(root, 'deno.json'),
     JSON.stringify(
-      { zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS },
+      { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: SPACE_CLIENT_IMPORTS },
       null,
       2,
     ),

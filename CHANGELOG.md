@@ -1,16 +1,21 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this fi
+le.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [2.2.0] - 2026-09-28
 
 ### Fixed
+
+- **`zanix new --icons` scaffolded the `@zanix/space-ui` 2.0.0 icon catalog.** `resolveSpaceUiVersion`
+  reads the literal version of the `@zanix/space-ui` floor, which was `^2.0.0`, so the catalog
+  lacked the `verified`/`clock`/`shield`/`heart`/`globe`/`users`/`user-check`/`lock`/`trash`/
+  `bookmark` symbols that the current `space-ui` ships. The floor is now `^2.3.0`, the first
+  release with them, in `deno.jsonc` and `ZANIX_DEPENDENCY_VERSIONS`.
 
 - **`zanix space dev`/`build` loaded two copies of `@zanix/space` when a published `@zanix/*`
   package the project imports (e.g. `@zanix/iam`) imports `@zanix/space` itself.** That import

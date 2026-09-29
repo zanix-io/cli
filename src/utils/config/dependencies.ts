@@ -101,15 +101,12 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // reusing `cli`'s own locked version — the two can still diverge the moment a newer
   // `@zanix/space` version ships, independent of what this entry's range is set to.
   '@zanix/space': 'jsr:@zanix/space@^1.6.0',
-  // Real, published JSR package as of `0.1.0` (verified directly against
-  // `https://jsr.io/@zanix/space-ui/meta.json`) — `resolveSpaceUiVersion` (`commands/new/lib/tree/
-  // projects/space-icons.ts`) reads this entry to resolve which published version `--icons`
-  // fetches its scaffold icon catalog from; that function needs no change of its own now that this
-  // entry exists, by design (see its own doc).
-  // Floor bumped to `^2.0.0` for the `Menu`/`NavDrawer` breaking change (see `deno.jsonc`'s own
-  // matching entry) — published; `resolveSpaceUiVersion`'s own `--icons` fetch resolves against
-  // the real `2.0.0` release.
-  '@zanix/space-ui': 'jsr:@zanix/space-ui@^2.0.0',
+  // `resolveSpaceUiVersion` (`commands/new/lib/tree/projects/space-icons.ts`) reads this floor to
+  // pick the published version `--icons` fetches its icon catalog from, so the floor must be a
+  // release that carries the catalog the scaffold expects. `^2.3.0` is the first one with the
+  // `verified`/`clock`/`shield`/`heart`/`globe`/`users`/`user-check`/`lock`/`trash`/`bookmark`
+  // symbols; `deno.jsonc` declares the same range.
+  '@zanix/space-ui': 'jsr:@zanix/space-ui@^2.3.0',
   // Same subpath-alias convention as `@zanix/validator`/`@zanix/types` above (both real `@zanix/
   // utils` subpaths, pinned to the same floor as those two rather than the bare package's own
   // caret range) — `app`'s generated `mod.ts` (`getAppModTemplate`) imports the real Zanix

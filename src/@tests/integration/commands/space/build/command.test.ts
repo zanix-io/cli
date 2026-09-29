@@ -96,7 +96,7 @@ async function withScaffoldedProject(
     await Deno.writeTextFile(
       join(root, 'deno.json'),
       JSON.stringify(
-        { zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS },
+        { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: SPACE_CLIENT_IMPORTS },
         null,
         2,
       ),
@@ -534,7 +534,7 @@ async function withAutoSitemapProject(
     await Deno.writeTextFile(
       join(root, 'deno.json'),
       JSON.stringify(
-        { zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS },
+        { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: SPACE_CLIENT_IMPORTS },
         null,
         2,
       ),
@@ -675,7 +675,11 @@ async function withSharedRelativeImportProject(
     const counterPath = join(root, 'shared-import-counter.txt')
     await Deno.writeTextFile(
       join(root, 'deno.json'),
-      JSON.stringify({ zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS }, null, 2),
+      JSON.stringify(
+        { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: SPACE_CLIENT_IMPORTS },
+        null,
+        2,
+      ),
     )
     await Deno.writeTextFile(
       join(root, 'space.app.ts'),

@@ -83,7 +83,11 @@ async function withDevServerScaffold(
     await Deno.writeTextFile(
       join(root, 'deno.json'),
       JSON.stringify(
-        { zanix: { project: 'space-server' }, imports: SPACE_CLIENT_IMPORTS },
+        {
+          zanix: { project: 'space-server' },
+          minimumDependencyAge: 0,
+          imports: SPACE_CLIENT_IMPORTS,
+        },
         null,
         2,
       ),

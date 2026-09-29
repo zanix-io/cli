@@ -102,7 +102,11 @@ async function withDivergentVersionScaffold(
     }
     await Deno.writeTextFile(
       join(root, 'deno.json'),
-      JSON.stringify({ zanix: { project: 'space' }, imports: divergentImports }, null, 2),
+      JSON.stringify(
+        { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: divergentImports },
+        null,
+        2,
+      ),
     )
     await Deno.writeTextFile(
       join(root, 'space.app.ts'),

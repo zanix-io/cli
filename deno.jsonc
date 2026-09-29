@@ -149,15 +149,13 @@
     "@zanix/space/client/preact": "jsr:@zanix/space@^1.6.0/client/preact",
     "@zanix/space/react": "jsr:@zanix/space@^1.6.0/react",
     "@zanix/space/preact": "jsr:@zanix/space@^1.6.0/preact",
-    // Floor bumped to `^2.0.0` for the `Menu`/`NavDrawer` breaking change (`Menu` drops its
-    // `@zanix/space` dependency and moves from `./runtime` to the default entrypoint; `image` is
-    // replaced by `visual`) — published, `deno.lock` regenerated against the real release
-    // (confirmed via a full `deno test` run, not just `deno check`, so every dynamically-imported
-    // command's own dependency stayed pinned too).
-    "@zanix/space-ui": "jsr:@zanix/space-ui@^2.0.0",
-    "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^2.0.0/preact",
-    "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^2.0.0/runtime",
-    "@zanix/space-ui/runtime/preact": "jsr:@zanix/space-ui@^2.0.0/runtime/preact",
+    // `^2.3.0` is the first release whose icon catalog (`--icons`, `space-icons.ts`) carries the
+    // `verified`/`clock`/`shield`/`heart`/`globe`/`users`/`user-check`/`lock`/`trash`/`bookmark`
+    // symbols. `Menu` lives in the default entrypoint and takes `visual` instead of `image`.
+    "@zanix/space-ui": "jsr:@zanix/space-ui@^2.3.0",
+    "@zanix/space-ui/preact": "jsr:@zanix/space-ui@^2.3.0/preact",
+    "@zanix/space-ui/runtime": "jsr:@zanix/space-ui@^2.3.0/runtime",
+    "@zanix/space-ui/runtime/preact": "jsr:@zanix/space-ui@^2.3.0/runtime/preact",
     // The one real ICU dependency this package owns — `@zanix/space` itself never depends on this
     // (see `compile-messages.ts`'s own module doc). Same version `@zanix/space-ui` pins for its own
     // (type-only) reference to `MessageFormatElement`, kept in sync deliberately, not by accident.

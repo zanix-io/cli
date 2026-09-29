@@ -81,6 +81,7 @@ async function withDivergentServerScaffold(
       JSON.stringify(
         {
           zanix: { project: 'space-server' },
+          minimumDependencyAge: 0,
           imports: { ...SPACE_CLIENT_IMPORTS, '@zanix/server': 'jsr:@zanix/server@4.0.0' },
         },
         null,

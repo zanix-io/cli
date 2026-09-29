@@ -33,7 +33,11 @@ async function withDevScaffold(
   try {
     await Deno.writeTextFile(
       join(root, 'deno.json'),
-      JSON.stringify({ zanix: { project: 'space' }, imports: SPACE_CLIENT_IMPORTS }, null, 2),
+      JSON.stringify(
+        { zanix: { project: 'space' }, minimumDependencyAge: 0, imports: SPACE_CLIENT_IMPORTS },
+        null,
+        2,
+      ),
     )
     await Deno.writeTextFile(
       join(root, 'space.app.ts'),
@@ -66,7 +70,13 @@ Deno.test({
       // own `STATIC_PORT` for an `'ssr'` server) also exercises `options.port ?? 20202`'s fallback
       // branch, never reached by `command-live-boot.test.ts`'s own explicit `--port`.
       const port = 20202
-      const blocker = Deno.listen({ port })
+      // A process that already holds the port (a local dev server) is the same conflict.
+      let blocker: Deno.Listener | undefined
+      try {
+        blocker = Deno.listen({ port })
+      } catch (error) {
+        if (!(error instanceof Deno.errors.AddrInUse)) throw error
+      }
 
       try {
         const command = registerCommand()
@@ -76,7 +86,7 @@ Deno.test({
           () => Promise.resolve(command.settings.actionHandler({ validation: false })),
         )
       } finally {
-        blocker.close()
+        blocker?.close()
       }
     })
   },
