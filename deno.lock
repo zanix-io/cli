@@ -344,6 +344,14 @@
         "jsr:@zanix/utils@4"
       ]
     },
+    "@zanix/auth@1.6.0": {
+      "integrity": "e94ec7928ce43625421f927b6ed225f1eb746fba7267dc96bfe06bebbf1051d4",
+      "dependencies": [
+        "jsr:@std/http",
+        "jsr:@zanix/server@4",
+        "jsr:@zanix/utils@4"
+      ]
+    },
     "@zanix/cli@2.0.8": {
       "integrity": "73537ddc338be450e8bdfd309e8e8354846bdc6949f034923711c386d83e2fa9"
     },
@@ -404,6 +412,14 @@
     },
     "@zanix/server@4.3.1": {
       "integrity": "8bfe2c97047ed36b833ef213c13365fa8338641aaf5ec0d039d71e099457017e",
+      "dependencies": [
+        "jsr:@std/http",
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/utils@^4.1.0"
+      ]
+    },
+    "@zanix/server@4.3.4": {
+      "integrity": "f1b2c3a5eb80f191950c80ba0444f9e17fe9e9a1332b2bbad03d36276461dd7b",
       "dependencies": [
         "jsr:@std/http",
         "jsr:@std/path@0.224",
