@@ -112,11 +112,10 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   // collision risk (see `guardAgainstTransitiveCollisions`'s own doc) needs the WHOLE process
   // restarted under a shared configuration before any resolution below this line runs.
   await guardAgainstTransitiveCollisions(root)
-  // Same "before anything else" reasoning, for a separate hazard — see
-  // `guardAgainstStaleNativeDependencies`'s own doc. `options.cache === false` (`--no-cache`)
-  // forces a real check instead of trusting an earlier one's cached result — see that function's
-  // own `noCache` param doc for why.
-  await guardAgainstStaleNativeDependencies(options.cache === false)
+  // Restarts under an adjusted copy of `@zanix/cli`'s lock when it is out of line with what this
+  // project loads — see `guardAgainstStaleNativeDependencies`'s own doc. `--no-cache` forces a live
+  // freshness check.
+  await guardAgainstStaleNativeDependencies(root, options.cache === false)
   // Before anything else touches this project's own tree — same reasoning as `zanix space dev`'s
   // own identical call: a killed earlier session can leave a `.zanix-import-*.js` temp file
   // behind, and nothing else ever revisits an orphan a random UUID names uniquely. See

@@ -8,7 +8,22 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-28
+
 ### Fixed
+
+- **`zanix space dev`/`build` loaded two copies of `@zanix/space` when a published `@zanix/*`
+  package the project imports (e.g. `@zanix/iam`) imports `@zanix/space` itself.** That import
+  resolves through the lock that governs the process (`@zanix/cli`'s own `deno.lock`, or the
+  installed shim's), while the project's direct imports resolve against its own config. When the
+  lock pinned another version than the project resolves, the second copy had its own module-level
+  state, so a renderer registered through the project's copy was invisible to the other and every
+  404 logged `No renderer is installed`. `guardAgainstStaleNativeDependencies` now also aligns each
+  range of `@zanix/space` the lock tracks with the version the project resolves, when the range
+  admits it, and restarts the process once under the aligned copy of the lock. The target is the
+  newest release the project's range allows, so the restart also happens after a new `@zanix/space`
+  release the project did not ask for. Only ranges the lock already tracks are aligned, and
+  versions with major 0 and prereleases are never aligned.
 
 - **`sweepStaleGeneratedModules` never reached a `.zanix-import-*.js` orphan left inside a LINKED
   sibling package's own directory** (e.g. `@zanix/space-ui` mapped to a local `../space-ui`

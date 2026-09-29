@@ -1,37 +1,31 @@
 import logger from '@zanix/utils/logger'
 
 /**
- * Runs at the very start of `zanix space build`/`dev`, alongside (never instead of)
- * `transitive-collision-guard.ts`/`native-dependency-freshness-guard.ts`'s own identical "before
- * anything resolves a single project specifier" startup slot — a separate hazard, same slot.
+ * Runs `deno install` in `root` at the start of `zanix space build`/`dev`, before anything resolves
+ * a project specifier (the same startup slot as `guardAgainstTransitiveCollisions` and
+ * `guardAgainstStaleNativeDependencies`, for a different hazard).
  *
- * `build` has no other protection at all. `dev` also has the generated `dev` task itself
- * (`getBaseTasks`, `utils/config/base.ts`) already prefixing `deno install` — this guard is what
- * protects a direct `zanix space dev` invocation that bypasses that task instead, the same way it
- * protects every `zanix space build` invocation (the task-based one included: `deno task build`
- * has no such prefix to begin with).
+ * The generated `dev` task (`getBaseTasks`, `utils/config/base.ts`) already prefixes `deno
+ * install`, so for `dev` this guard covers a direct `zanix space dev` invocation that bypasses the
+ * task. The generated `build` task has no such prefix, so `build` depends on this guard in every
+ * invocation.
  *
- * Real, confirmed bug this closes: two cross-package version-sensitive npm packages (`react`/
- * `react-dom` today — React itself asserts they must match exactly) can resolve to DIFFERENT
- * versions even when `root`'s own `deno.json` and a dependency's (e.g. `@zanix/space`'s) own
- * manifest declare the IDENTICAL semver range for both, because nothing forces every specifier in
- * the graph into ONE atomic resolution pass without a lockfile — one package can resolve via
- * `root`'s own root import, the other via a dependency's internal, peer-qualified npm resolution,
- * each picking whatever the registry serves as "latest satisfying" at that exact moment. `deno
- * install` resolves `root`'s whole dependency graph in one pass and writes `deno.lock`/
- * `node_modules` from it, so every specifier converges on the SAME resolution — confirmed via a
- * real repro (`space-build-react-compiler-live.test.ts`'s own regression, reproduced with and
- * without this guard).
+ * Without a lockfile, nothing forces every specifier in the graph through one resolution pass, so
+ * two version-sensitive npm packages (`react`/`react-dom`, which React requires to match exactly)
+ * can resolve to different versions even when `root`'s `deno.json` and a dependency's manifest
+ * (e.g. `@zanix/space`'s) declare the same range for both: one resolves through `root`'s import,
+ * the other through the dependency's peer-qualified npm resolution, each taking the newest
+ * satisfying version at that moment. `deno install` resolves `root`'s whole graph in one pass and
+ * writes `deno.lock`/`node_modules` from it, so every specifier converges on one resolution.
  *
- * Deliberately never restarts the process, unlike the two guards above: those change what governs
- * `@zanix/cli`'s OWN module graph (a `--config`/`--lock` flag that only takes effect at process
- * start), while this only needs `root`'s own `deno.lock`/`node_modules` written to disk before
- * THIS SAME process's own `importSpaceApp` call resolves the project's dependencies for the first
- * time — no restart needed for that.
+ * The process is never restarted: `root`'s `deno.lock` and `node_modules` only need to exist on
+ * disk before this process's `importSpaceApp` call resolves the project's dependencies, whereas
+ * the two sibling guards change what governs `@zanix/cli`'s own module graph, which a `--config`/
+ * `--lock` flag sets only at process start.
  */
 export async function guardAgainstUnlockedDependencies(root: string): Promise<void> {
   const install = new Deno.Command(Deno.execPath(), {
-    args: ['install', '--min-dep-age=10'],
+    args: ['install'],
     cwd: root,
     stdin: 'inherit',
     stdout: 'inherit',

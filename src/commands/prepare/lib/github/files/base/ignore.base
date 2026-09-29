@@ -15,6 +15,11 @@ yarn-error.log*
 /dist/
 /.dist/
 /out/
+.space/
+
+
+# A local Redis instance's own persistence snapshot, written to whatever directory it runs from
+*.rdb
 
 # Vite dev/build artifacts (relevant for `space`/`space-server` projects)
 .vite/

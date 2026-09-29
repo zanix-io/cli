@@ -3,46 +3,35 @@ import { getCliConfigPath } from 'commands/space/shared/cli-loader.ts'
 import { GENERATED_MODULE_PREFIX } from 'commands/space/shared/specifier-reconstruction.ts'
 
 /**
- * Keeps `@zanix/server`/`@zanix/app`'s own NATIVE resolution (`dev/action.ts`'s/`import-space-
- * app.ts`'s own plain `import()` — see each call site's own doc) from silently drifting behind
- * whatever's actually published, without ever touching a served project's own resolution and
- * without un-pinning anything ELSE `@zanix/cli` depends on.
+ * Keeps the lock that governs `@zanix/cli`'s own process from pinning `@zanix/*` packages to
+ * versions that split from the ones a served project loads. Imports made from inside a published
+ * package (`@zanix/space`'s own imports of `@zanix/server`/`@zanix/app`, or a published package's
+ * import of `@zanix/space`) and `dev/action.ts`'s/`import-space-app.ts`'s plain `import()` resolve
+ * through the lock of the process: `@zanix/cli`'s own `deno.lock`, or the installed shim's
+ * (`setup.ts`), which is equally frozen at whatever was newest when it was written. A served
+ * project has no way to influence it.
  *
- * Native resolution converges `@zanix/cli`'s own orchestration with `@zanix/space`'s own internal
- * imports of the same two packages — correct by construction, since both then resolve through the
- * IDENTICAL mechanism (see `import-project-dependency.ts`'s own module doc for the full history).
- * The cost: that mechanism reads whatever `@zanix/cli`'s OWN committed `deno.lock` already has
- * pinned for these two packages — frozen at whatever was newest the day that lock was last
- * generated, with no built-in reason to ever re-check. A served project has no way to ask for
- * anything newer, and neither does a consumer who installed `@zanix/cli` a while ago — the shim's
- * own lock (`setup.ts`'s own doc) is exactly as frozen, for exactly the same reason.
+ * Two independent adjustments produce a merged COPY of that lock (the original is never touched),
+ * and the caller re-execs the whole process under it:
  *
- * This module closes that gap WITHOUT reintroducing the divergence native resolution itself fixed:
- * for each range `@zanix/cli`'s own lock ALREADY tracks for `@zanix/server`/`@zanix/app` (its own
- * declared range, `@zanix/space`'s own internal one, and any other package's — see
- * {@linkcode refreshTrackedRanges}'s own doc for why every one of them is safe to check, not just
- * the two this package happens to know about by name), it re-resolves that EXACT range literal
- * fresh, in total isolation (a real `deno info --json` probe against nothing but that literal, in
- * its own temp lock — never touching `@zanix/cli`'s own committed one). A caret/tilde/major-only
- * range can never resolve outside its own major by definition, so this can never silently cross a
- * major `@zanix/cli` itself hasn't been tested against, no matter how new an actual release is.
- * When a genuinely NEWER version comes back, {@linkcode prepareNativeFreshnessReexec} writes a
- * real, valid, merged COPY of `@zanix/cli`'s own lock (every entry untouched except the ranges that
- * just resolved newer) and hands its path back for the caller to re-exec the whole process under —
- * mirroring `transitive-collision.ts`'s own `prepareTransitiveCollisionReexec`/re-exec precedent,
- * just at the LOCK layer instead of the config layer (a `scopes` config override was tried first
- * and confirmed, via a real repro, to have no effect on a package resolved purely from JSR — only
- * an entry in the LOCK a process's whole native resolution actually consults does).
+ * - **Freshness** ({@linkcode refreshTrackedRanges}): every range the lock tracks for
+ *   `@zanix/server`/`@zanix/app` is re-resolved in isolation (a `deno info --json` probe against
+ *   that literal alone, with its own temp lock). A caret/tilde/major-only range never resolves
+ *   outside its major, so this never crosses a major `@zanix/cli` has not been tested against.
+ * - **Alignment** (a {@linkcode LockAligner}, see `project-space-alignment.ts`): a range whose pin
+ *   differs from what the project resolves is moved to the project's version, so both load one
+ *   copy of the package.
+ *
+ * The merged lock has to be a lock: a `scopes` config override has no effect on a package resolved
+ * purely from JSR, whereas an entry in the lock the process consults does.
  *
  * @module
  */
 
-/** Base package names this module keeps fresh — `@zanix/app/runtime` shares `@zanix/app`'s own
- * base, so checking `@zanix/app` once already covers it (a lock's own specifier keys are per
- * PACKAGE VERSION, shared across every subpath of it). Kept as its own list, deliberately not
- * derived from `PROJECT_ANCHORED_ONLY_PACKAGES` (`specifier-reconstruction.ts`) — that set also
- * includes `@zanix/space`, which resolves project-anchored, never natively, and has no staleness
- * gap of this kind to close in the first place. */
+/** Base package names the freshness adjustment keeps current. `@zanix/app/runtime` shares
+ * `@zanix/app`'s base, since a lock's specifier keys are per package version. Not derived from
+ * `PROJECT_ANCHORED_ONLY_PACKAGES` (`specifier-reconstruction.ts`): `@zanix/space` is excluded here
+ * because its pin follows the project (alignment), never the newest release. */
 const NATIVE_DEPENDENCY_PACKAGES = ['@zanix/server', '@zanix/app']
 
 /** The one filename `@zanix/cli`'s own real installer (`installation/setup.ts`'s own `BIN_NAME`)
@@ -90,7 +79,7 @@ export async function locateCliLockPath(): Promise<string | undefined> {
  * dedicated `@std/semver` dependency buys nothing a plain split/parse doesn't already cover here.
  * Returns `undefined` for anything that doesn't match, so a malformed/unexpected string degrades to
  * "not newer" rather than a wrong comparison. */
-function parseReleaseVersion(version: string): [number, number, number] | undefined {
+export function parseReleaseVersion(version: string): [number, number, number] | undefined {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
   if (!match) return undefined
   return [Number(match[1]), Number(match[2]), Number(match[3])]
@@ -139,7 +128,7 @@ export interface DenoLockFile {
  * empty") instead of writing a fresh one there — confirmed via a real repro. Creating, then
  * immediately deleting, a real temp file is what gets a genuinely unique path with none of that
  * baggage. */
-async function resolveRangeFresh(
+export async function resolveRangeFresh(
   rangeLiteral: string,
 ): Promise<{ version: string; lock: DenoLockFile } | undefined> {
   const placeholder = await Deno.makeTempFile({
@@ -296,38 +285,49 @@ async function writeFreshnessCache(
  * set the exact same name this function itself checks. */
 export const NATIVE_FRESHNESS_REEXEC_ENV = 'ZANIX_NATIVE_FRESHNESS_REEXEC'
 
+/** The lock entries a lock adjustment merges into a copy of `@zanix/cli`'s lock. */
+export interface LockUpdates {
+  specifiers: Record<string, string>
+  jsr: Record<string, unknown>
+  npm: Record<string, unknown>
+}
+
+/** Computes the entries that bring `cliLock` in line with a served project, or `undefined` when it
+ * already is (or cannot be determined). `description` is the reason shown to the user when it
+ * triggers a restart. */
+export type LockAligner = (
+  cliLock: DenoLockFile,
+) => Promise<{ updates: LockUpdates; description: string } | undefined>
+
+/** A merged lock to re-exec under, and the reasons it differs from `@zanix/cli`'s own. */
+export interface NativeFreshnessReexec {
+  lockPath: string
+  reasons: string[]
+}
+
 /**
- * When at least one of {@linkcode NATIVE_DEPENDENCY_PACKAGES}'s own tracked ranges resolves
- * genuinely newer than what `@zanix/cli`'s own lock already has, writes a real, valid, merged COPY
- * of that lock (every entry untouched except the ranges that resolved newer) to a real, uncommitted
- * temporary file, and returns its path for the caller to re-exec the whole process under (`--lock
- * <path>`) — never returns anything when nothing needs it, the common case on every real run.
+ * Writes a merged COPY of `@zanix/cli`'s lock, to an uncommitted temporary file, when either
+ * adjustment finds something to change: a tracked range of {@linkcode NATIVE_DEPENDENCY_PACKAGES}
+ * resolves newer than its pin, or `align` reports a difference. Returns `undefined` otherwise,
+ * which is the common case on every run.
  *
- * A real, live check only actually runs once per {@linkcode FRESHNESS_CACHE_TTL_MS} — see
- * {@linkcode readFreshnessCache}'s own doc for why. A cache hit skips the network entirely, either
- * way: an EMPTY cached result means "already returns `undefined` here, nothing to re-exec for" just
- * as much as a live check finding nothing does. A run with NO network access at all (every tracked
- * range's own resolve fails) is never written to the cache in the first place — see
- * {@linkcode refreshTrackedRanges}'s own doc — so it costs nothing beyond that one run's own
- * failed attempt, and the very next `zanix space dev`/`build` invocation genuinely retries instead
- * of silently trusting a result that was never really checked.
+ * A live freshness check runs once per {@linkcode FRESHNESS_CACHE_TTL_MS}; a cache hit skips the
+ * network, and a cached empty result means nothing to change. A run where every tracked range
+ * failed to resolve (no network, a registry outage) is never cached, so the next run retries.
+ * Alignment is not cached: it depends on the project, and costs one local resolution and a
+ * comparison unless it finds a difference.
  *
- * The merged lock file itself is left on disk for the caller's own re-exec'd child process to keep
- * reading for its entire lifetime, same as `prepareTransitiveCollisionReexec`'s own merged config —
- * `sweepStaleGeneratedModules`'s own next-run sweep is what actually reclaims it (the caller's own
- * `Deno.exit` right after spawning the child never lets any of its own cleanup code run, so trying
- * to delete it there would never fire in practice — see `native-dependency-freshness-guard.ts`'s
- * own doc).
+ * The merged lock stays on disk for the re-exec'd child to read for its whole lifetime. The
+ * caller's `Deno.exit` runs no cleanup, so `sweepStaleGeneratedModules` removes it on a later run
+ * (see `native-dependency-freshness-guard.ts`).
  *
- * @param noCache - Skips {@linkcode readFreshnessCache} and always runs a real, live check instead
- * — `--no-cache` (`dev`/`build`'s own `command.ts`), for a maintainer who just published a new
- * `@zanix/server`/`@zanix/app` and doesn't want to wait out {@linkcode FRESHNESS_CACHE_TTL_MS} (or
- * hunt down and delete the cache file by hand) to have it actually picked up. Still WRITES a fresh
- * cache entry afterward, same as an ordinary cache-miss check — this only ever skips the READ.
+ * @param options.noCache - Skips {@linkcode readFreshnessCache} and always runs a live freshness
+ * check (`--no-cache` of `dev`/`build`). It still writes a fresh cache entry afterward.
+ * @param options.align - Optional alignment of the lock with the served project.
  */
 export async function prepareNativeFreshnessReexec(
-  noCache = false,
-): Promise<string | undefined> {
+  { noCache = false, align }: { noCache?: boolean; align?: LockAligner } = {},
+): Promise<NativeFreshnessReexec | undefined> {
   if (Deno.env.get(NATIVE_FRESHNESS_REEXEC_ENV)) return undefined
 
   const cliLockPath = await locateCliLockPath()
@@ -355,30 +355,32 @@ export async function prepareNativeFreshnessReexec(
     }
     const totalAttempted = perPackage.reduce((sum, result) => sum + result.attempted, 0)
     const totalSucceeded = perPackage.reduce((sum, result) => sum + result.succeeded, 0)
-    // A genuine "checked, nothing newer" result is cached normally — but when every single range
-    // this run actually tried to resolve came back failed (no network, a registry outage), that's
-    // never a real answer worth trusting for a full day: writing it to the cache would silence
-    // every later check until the TTL expires, even the instant connectivity comes back. Only
-    // `totalAttempted === 0` (nothing to check at all) still caches — an empty result there is a
-    // real, meaningful answer, not a failure.
+    // When every range that was tried failed to resolve, the empty result is not an answer worth
+    // trusting for a day. Only `totalAttempted === 0` (nothing to check) is a real empty answer.
     if (totalAttempted === 0 || totalSucceeded > 0) {
       await writeFreshnessCache(cliLockPath, updates)
     }
   }
 
-  if (Object.keys(updates.specifiers).length === 0) return undefined
+  const reasons: string[] = []
+  if (Object.keys(updates.specifiers).length > 0) {
+    reasons.push('a newer @zanix/server/@zanix/app than the lock pins')
+  }
+  const alignment = await align?.(cliLock)
+  if (alignment) reasons.push(alignment.description)
+  if (reasons.length === 0) return undefined
 
   const mergedLock: DenoLockFile = {
     ...cliLock,
-    specifiers: { ...cliLock.specifiers, ...updates.specifiers },
-    jsr: { ...cliLock.jsr, ...updates.jsr },
-    npm: { ...cliLock.npm, ...updates.npm },
+    specifiers: { ...cliLock.specifiers, ...updates.specifiers, ...alignment?.updates.specifiers },
+    jsr: { ...cliLock.jsr, ...updates.jsr, ...alignment?.updates.jsr },
+    npm: { ...cliLock.npm, ...updates.npm, ...alignment?.updates.npm },
   }
 
-  const mergedPath = join(
+  const lockPath = join(
     dirname(cliLockPath),
     `${GENERATED_MODULE_PREFIX}native-freshness-${crypto.randomUUID()}.lock.json`,
   )
-  await Deno.writeTextFile(mergedPath, JSON.stringify(mergedLock, null, 2))
-  return mergedPath
+  await Deno.writeTextFile(lockPath, JSON.stringify(mergedLock, null, 2))
+  return { lockPath, reasons }
 }

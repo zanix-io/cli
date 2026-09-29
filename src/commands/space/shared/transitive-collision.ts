@@ -57,6 +57,12 @@ function jsrPackageBaseFromResolvedUrl(url: string): string | undefined {
   return JSR_MODULE_URL_RE.exec(url)?.[1]
 }
 
+/** The resolved version in a JSR module URL (`https://jsr.io/@scope/name/<version>/...`), or
+ * `undefined` for anything that is not one. */
+export function jsrPackageVersionFromResolvedUrl(url: string): string | undefined {
+  return JSR_MODULE_URL_RE.exec(url)?.[2]
+}
+
 /** One in-memory result per `root` — computed at most once per process, matching every other
  * cache in this package's own resolution modules. */
 const collisionPackagesByRoot = new Map<string, Promise<Set<string>>>()

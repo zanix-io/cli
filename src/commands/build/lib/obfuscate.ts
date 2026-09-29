@@ -2,36 +2,28 @@ import { globToRegExp } from '@std/path'
 import { OBFUSCATOR_SPECIFIER } from 'modules/lazy/specifiers.ts'
 
 /**
- * Filters a list of candidate `.js` file paths (relative to the build's own `outDir` — e.g.
- * `assets/mouseTarget-<hash>.js`, `sw.js`, the same relative form `zanix space build`'s own
- * {@linkcode createObfuscationPlugin} and `zanix build`'s single-file path already use) against
- * `--obfuscate-exclude`'s comma-separated glob list, returning only the paths that should still be
- * obfuscated.
+ * Filters candidate `.js` file paths (relative to the build's `outDir`, e.g.
+ * `assets/mouseTarget-<hash>.js` or `sw.js`, the form {@linkcode createObfuscationPlugin} and
+ * `zanix build`'s single-file path use) against `--obfuscate-exclude`'s comma-separated glob list,
+ * and returns the paths that should still be obfuscated.
  *
- * This exists because `javascript-obfuscator`'s identifier renaming can genuinely mismatch
- * third-party code it was never written to survive — a reported, reproduced case: a vendor
- * library's self-referencing `static {}` singleton pattern (`class C { static getInstance() {
- * return C._INSTANCE ||= new C() } }`) gets its `getInstance` self-reference renamed to a
- * generated hex identifier that isn't declared anywhere in the renamed output, throwing
- * `TypeError: _0x... is not a constructor` the first time the singleton is used — silently, in
- * production, with no build-time warning. Obfuscating vendor/`node_modules`-derived code has no
- * real product upside to begin with (it isn't proprietary source), so the fix here is an explicit
- * opt-out, not a smarter obfuscator config: no `javascript-obfuscator` option (`reservedNames`
- * included) can close this class of bug in general, since the identifier that breaks is a FRESH
- * generated name with no fixed spelling to reserve in advance, and the next vendor library to hit
- * a different obfuscator edge case would just generate a different one.
+ * The opt-out exists because `javascript-obfuscator`'s identifier renaming can break third-party
+ * code it was not written to survive. A vendor library's self-referencing `static {}` singleton
+ * (`class C { static getInstance() { return C._INSTANCE ||= new C() } }`) has its `getInstance`
+ * self-reference renamed to a generated hex identifier that is declared nowhere in the output,
+ * throwing `TypeError: _0x... is not a constructor` on first use, in production, with no
+ * build-time warning. Obfuscating vendor/`node_modules`-derived code has no product upside (it is
+ * not proprietary source), and no obfuscator option (`reservedNames` included) closes this class of
+ * bug, because the identifier that breaks is a freshly generated name with no fixed spelling to
+ * reserve.
  *
- * Deliberately does NOT default to skipping anything itself (e.g. "every chunk not under `src/`")
- * — that was considered and rejected: the only signal available is each chunk's own OUTPUT
- * filename, and Vite/Rollup's default chunk-naming isn't a "vendor vs. project source" signal at
- * all, just a function of the originating module's own containing folder (confirmed directly
- * against this repo's own build fixture: a comet at `comets/counter.tsx` — genuine first-party
- * code — builds to `comets-counter-<hash>.js`, prefixed with its own folder name, the exact same
- * shape a `node_modules`-derived chunk gets prefixed with its own package/folder name). Guessing
- * "vendor" from that would silently leave real first-party chunks unobfuscated with no warning —
- * worse than today's "obfuscates everything" default, which at least fails loudly (a crash) rather
- * than quietly (a no-op that looks like it worked). An explicit, human-reviewed exclude list has no
- * such failure mode.
+ * Nothing is skipped by default (e.g. "every chunk not under `src/`"). The only available signal is
+ * a chunk's output filename, and Vite/Rollup's default chunk naming does not distinguish vendor from
+ * project code: it derives the name from the originating module's containing folder, so a
+ * first-party comet at `comets/counter.tsx` builds to `comets-counter-<hash>.js`, the same shape a
+ * `node_modules` chunk gets. Guessing would leave first-party chunks unobfuscated without warning,
+ * whereas the obfuscate-everything default fails loudly and an explicit exclude list has neither
+ * failure mode.
  *
  * @param paths - Candidate `.js` file paths, relative to `outDir`.
  * @param excludeGlobs - The raw `--obfuscate-exclude` value: zero or more comma-separated glob
@@ -50,16 +42,12 @@ export function excludeObfuscationTargets(paths: string[], excludeGlobs?: string
 }
 
 /**
- * A fast, non-cryptographic string hash (djb2/xor variant) — used ONLY to turn a build's own
- * pre-obfuscation code into a small, deterministic `seed` for `javascript-obfuscator` (see
- * `buildObfuscatorOptions`'s own doc for why a seed matters at all). Passing the full `code` string
- * itself as `seed` was tried FIRST and rejected: confirmed empirically
- * (`javascript-obfuscator@4.2.2`) to make the library's own seed-to-PRNG-state conversion
- * pathologically slow on a realistic chunk size — a ~200KB seed never finished in 30+ seconds,
- * where the SAME content obfuscated with a short seed took under a second. Collisions are harmless
- * here (two DIFFERENT chunks that happen to hash the same still each get obfuscated correctly —
- * `seed` only controls the PRNG, not correctness), so a cheap 32-bit rolling hash is the right
- * tool, not a cryptographic digest.
+ * A fast, non-cryptographic string hash (djb2/xor variant) that turns a build's pre-obfuscation
+ * code into a small, deterministic `seed` for `javascript-obfuscator` (see `buildObfuscatorOptions`).
+ * The full `code` string is not used as `seed` because `javascript-obfuscator@4.2.2` converts a seed
+ * to PRNG state pathologically slowly (a ~200KB seed takes over 30 seconds, a short one under a
+ * second). A collision only makes two different chunks share a PRNG seed; each is still obfuscated
+ * correctly, so a 32-bit rolling hash suffices.
  */
 function hashCode(code: string): number {
   let hash = 5381
@@ -70,18 +58,15 @@ function hashCode(code: string): number {
 }
 
 /**
- * The `javascript-obfuscator` options both {@linkcode obfuscateFile} and
- * {@linkcode createObfuscationPlugin} share — one obfuscation behavior, not two independently
- * tuned ones, regardless of which build pipeline (esbuild's single-file `zanix build`, or Vite's
- * multi-chunk `zanix space build`) is calling it.
+ * The `javascript-obfuscator` options {@linkcode obfuscateFile} and
+ * {@linkcode createObfuscationPlugin} share, so both build pipelines (esbuild's single-file
+ * `zanix build`, Vite's multi-chunk `zanix space build`) obfuscate identically.
  *
- * `seed` is deterministic — derived from the pre-obfuscation `code` itself (via {@linkcode
- * hashCode}), not left to `javascript-obfuscator`'s own default `Math.random()`-backed shuffling —
- * so the SAME source, built twice with the SAME obfuscator version and options, produces
- * byte-identical output. This matters once obfuscation runs as a real Rollup/Vite transform (see
- * {@linkcode createObfuscationPlugin}'s own doc): the emitted chunk's content hash is computed
- * from this function's OWN return value, so a non-deterministic seed would mint a brand-new hash
- * — and bust every client's cache — on every rebuild, even one that changes nothing at all.
+ * `seed` is derived from the pre-obfuscation `code` (via {@linkcode hashCode}) instead of
+ * `javascript-obfuscator`'s `Math.random()`-backed default, so the same source built twice with the
+ * same obfuscator version and options yields byte-identical output. The plugin's chunk content hash
+ * is computed from this output, so a random seed would change the hash, and bust every client's
+ * cache, on every rebuild.
  */
 function buildObfuscatorOptions(code: string) {
   return {
@@ -115,15 +100,13 @@ async function obfuscateCode(code: string): Promise<string> {
 }
 
 /**
- * Obfuscates a single file's own already-built JS content in place — used ONLY by `zanix build`'s
+ * Obfuscates a single file's already-built JS content in place. Used only by `zanix build`'s
  * single-file esbuild path (`build-runner.ts`'s `mainBuilderFunction`), whose `outputFile` is a
- * fixed, author-chosen path with no content hash in it. That's what makes an in-place post-build
- * rewrite safe there: nothing has already published a hash computed from the PRE-obfuscation
- * bytes for this path to invalidate.
+ * fixed, author-chosen path with no content hash, so rewriting it after the build invalidates no
+ * hash.
  *
- * `zanix space build`'s own Vite/Rollup pipeline is a different case — see
- * {@linkcode createObfuscationPlugin}'s own doc for why that path obfuscates as a real build
- * transform instead of reusing this function.
+ * `zanix space build` obfuscates as a build transform instead; see
+ * {@linkcode createObfuscationPlugin} for why.
  *
  * @param filePath - Path to an already-built `.js` file, read and overwritten in place.
  */
@@ -152,48 +135,28 @@ interface ObfuscationVitePlugin {
 }
 
 /**
- * Returns a real Vite/Rollup build plugin that obfuscates `zanix space build`'s own output — a
- * comet/CSS/client-entry chunk via `renderChunk`, and the generated `sw.js` service worker (a
- * fixed-name `generateBundle`-emitted asset, never a hashed chunk — see below) via
- * `generateBundle` — INSTEAD of the previous approach of reading each already-written, already
- * content-hashed file back off disk and overwriting it in place after `buildSpaceClient` returned.
+ * Returns a Vite/Rollup build plugin that obfuscates `zanix space build`'s output: comet/CSS/
+ * client-entry chunks via `renderChunk`, and the generated `sw.js` service worker via
+ * `generateBundle`.
  *
- * That previous approach broke content-addressing, a real, reported, and reproduced bug: Vite/
- * Rollup names every hashed output file (`assets/<name>-<hash>.js`) from the bundle's own
- * PRE-obfuscation content, and `@zanix/space`'s `AssetsRoute` serves every such file with
- * `Cache-Control: public, max-age=31536000, immutable`. Obfuscating those bytes AFTER that hash was
- * already minted — without ever changing the hash — means two builds that genuinely differ (a
- * changed `--obfuscate-exclude`, a bumped `javascript-obfuscator` version) can serve DIFFERENT
- * bytes under the EXACT SAME immutable URL. A browser that already cached the old bytes trusts
- * "immutable" to mean the URL's content never changes, and never refetches — silently stranding it
- * on stale (and, in the reported case, actively broken) code indefinitely. Reproduced in a real
- * consumer project (`aeratech-console`): a comet chunk obfuscated in one deploy, then added to
- * `--obfuscate-exclude` in the next to fix a real `javascript-obfuscator`-caused runtime crash
- * (`TypeError: _0x... is not a constructor`, a `@graphiql/toolkit` internal class broken by
- * identifier renaming), kept the IDENTICAL output filename across both deploys (the comet's own
- * source never changed — only the exclude config did) — a browser that had loaded the page before
- * the fix deployed kept executing the OLD, broken, obfuscated bytes under that same URL
- * indefinitely after the "fixed" build went live.
+ * Obfuscation runs inside the build, never as a rewrite of already-written files. Vite/Rollup name
+ * every hashed output file (`assets/<name>-<hash>.js`) from the chunk's content, and `@zanix/space`'s
+ * `AssetsRoute` serves each one with `Cache-Control: public, max-age=31536000, immutable`. Bytes
+ * obfuscated after the hash is minted would let two builds that differ (another
+ * `--obfuscate-exclude`, another `javascript-obfuscator` version) serve different bytes under the
+ * same immutable URL, and a browser that cached the old bytes would never refetch them.
  *
- * `renderChunk` runs BEFORE Rollup/Vite substitute each chunk's `[hash]` placeholder in its own
- * filename — confirmed empirically (not assumed) against this project's own installed
- * `vite`/`rolldown` version: a `renderChunk` hook that mutates a chunk's code measurably changes
- * that chunk's own final emitted hash, with no extra `augmentChunkHash` needed. Obfuscating here
- * instead of post-build means the hash Vite mints is always computed from the ACTUAL served bytes
- * — the invariant `AssetsRoute`'s immutable caching depends on holds again, by construction, for
- * every future build regardless of how obfuscation config or the obfuscator's own version changes.
+ * `renderChunk` runs before Rollup/Vite substitute the `[hash]` placeholder in a chunk's filename,
+ * so a chunk whose code the hook changes gets a hash computed from the bytes actually served. That
+ * keeps the `AssetsRoute` caching invariant true for every build, whatever the obfuscation config.
  *
- * `sw.js` needs a SEPARATE `generateBundle` hook rather than `renderChunk`, because `pwaPlugin`
- * emits it as a plain Rollup `asset` (`this.emitFile({ type: 'asset', fileName: 'sw.js', ... })`),
- * never a `chunk` — `renderChunk` only ever sees chunks. `sw.js` carries no content hash in its own
- * filename at all (a fixed name, precisely because a service worker's own URL must stay stable for
- * the browser to ever re-check it), so it was never exposed to THIS bug the way a hashed comet
- * chunk is — obfuscating it here is for architectural consistency (one in-pipeline pass, not a
- * leftover post-build one) rather than a second instance of the same hazard. Ordering is not
- * incidental: this plugin is appended AFTER `pwaPlugin` in `buildSpaceClient`'s own plugins array
- * (`action.ts`'s `plugins: [...]`), and Rollup runs same-hook plugins strictly in array order — so
- * `sw.js` already exists in `bundle` by the time this hook's own `generateBundle` runs. Confirmed
- * empirically, the same way the hash timing above was.
+ * `sw.js` needs a separate `generateBundle` hook: `pwaPlugin` emits it as a plain Rollup `asset`
+ * (`this.emitFile({ type: 'asset', fileName: 'sw.js', ... })`), and `renderChunk` only sees chunks.
+ * Its filename carries no hash (a service worker's URL must stay stable for the browser to re-check
+ * it), so obfuscating it here keeps the whole pass inside the pipeline rather than protecting
+ * against the cache hazard above. The plugin is appended after `pwaPlugin` in `buildSpaceClient`'s
+ * plugins array (`action.ts`'s `plugins: [...]`) and Rollup runs same-hook plugins in array order,
+ * so `sw.js` already exists in `bundle` when this `generateBundle` runs.
  *
  * @param exclude - `--obfuscate-exclude`'s raw value, forwarded to
  * {@linkcode excludeObfuscationTargets} unchanged.

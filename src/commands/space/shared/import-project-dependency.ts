@@ -56,7 +56,7 @@ import { detectTransitiveCollisionPackages } from 'commands/space/shared/transit
  * real call site already has this exact file guaranteed to exist by the time it calls this
  * function (after `importSpaceApp`/`importProjectModule` on it already succeeded), so there's no
  * reason to invent a synthetic path instead. */
-const PROJECT_MANIFEST_FILE = 'space.app.ts'
+export const PROJECT_MANIFEST_FILE = 'space.app.ts'
 
 /** Resolves `specifier` through `loader`, forcing the real dependency-constraint solve for an
  * unexpanded `jsr:`/`http(s):` literal (same gap `import-project-module.ts`'s own `resolveReplacement`
@@ -78,7 +78,7 @@ const PROJECT_MANIFEST_FILE = 'space.app.ts'
  * instead hands the real version-constraint solve to native `import()` itself, which — run under
  * `prepareTransitiveCollisionReexec`'s re-exec'd process — sees both edges in the SAME graph and
  * unifies them the way any ordinary Deno project's dependency resolution already would. */
-async function resolveProjectSpecifier(
+export async function resolveProjectSpecifier(
   loader: Loader,
   referrerUrl: string,
   configPath: string | undefined,
