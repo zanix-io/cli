@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-09-28
+
+### Fixed
+
+- **The restart under an adjusted lock could load two copies of `preact`, so pages rendered a `500`
+  (`Hook can only be invoked from render methods`).** The merged copy of `@zanix/cli`'s lock took
+  `jsr` and `npm` blocks from an isolated resolution of a single package, which resolves peer
+  dependencies differently from the full graph: `preact` and `preact-render-to-string` came back
+  peer-suffixed together. One such extra `npm` block, referenced or not, makes Deno install a second
+  copy of the package. `mergeLockUpdates` now only adds `jsr` and `npm` blocks the lock lacks and
+  skips an `npm` block whose package version the lock already holds, whatever its peer suffix.
+
 ## [2.2.0] - 2026-09-28
 
 ### Fixed

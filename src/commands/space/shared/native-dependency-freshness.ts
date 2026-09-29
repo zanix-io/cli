@@ -285,6 +285,44 @@ async function writeFreshnessCache(
  * set the exact same name this function itself checks. */
 export const NATIVE_FRESHNESS_REEXEC_ENV = 'ZANIX_NATIVE_FRESHNESS_REEXEC'
 
+/** The base of an npm lock key (`name@version`): a key resolved with peer dependencies carries
+ * them after the version (`preact@10.29.8_preact-render-to-string@6.7.0`). */
+function npmKeyBase(key: string): string {
+  return /^(@?[^@]+@[^_]+)/.exec(key)?.[1] ?? key
+}
+
+/**
+ * A copy of `cliLock` with the `updates` applied. `specifiers` are overwritten; `jsr` and `npm`
+ * blocks are only added, never replaced, and an `npm` block is skipped when the lock already holds
+ * that package version, whatever its peer suffix. An isolated resolution of a single package
+ * resolves peer dependencies differently from the full graph (`preact` and `preact-render-to-string`
+ * get peer-suffixed together), and one such extra `npm` block, referenced or not, makes Deno
+ * install a second copy of the package.
+ */
+export function mergeLockUpdates(
+  cliLock: DenoLockFile,
+  updates: Array<LockUpdates | undefined>,
+): DenoLockFile {
+  const jsr = { ...cliLock.jsr }
+  const npm = { ...cliLock.npm }
+  const npmBases = new Set(Object.keys(npm).map(npmKeyBase))
+  const specifiers = { ...cliLock.specifiers }
+
+  for (const update of updates) {
+    if (!update) continue
+    Object.assign(specifiers, update.specifiers)
+    for (const [key, block] of Object.entries(update.jsr)) {
+      if (!(key in jsr)) jsr[key] = block
+    }
+    for (const [key, block] of Object.entries(update.npm)) {
+      if (key in npm || npmBases.has(npmKeyBase(key))) continue
+      npm[key] = block
+      npmBases.add(npmKeyBase(key))
+    }
+  }
+  return { ...cliLock, specifiers, jsr, npm }
+}
+
 /** The lock entries a lock adjustment merges into a copy of `@zanix/cli`'s lock. */
 export interface LockUpdates {
   specifiers: Record<string, string>
@@ -370,12 +408,7 @@ export async function prepareNativeFreshnessReexec(
   if (alignment) reasons.push(alignment.description)
   if (reasons.length === 0) return undefined
 
-  const mergedLock: DenoLockFile = {
-    ...cliLock,
-    specifiers: { ...cliLock.specifiers, ...updates.specifiers, ...alignment?.updates.specifiers },
-    jsr: { ...cliLock.jsr, ...updates.jsr, ...alignment?.updates.jsr },
-    npm: { ...cliLock.npm, ...updates.npm, ...alignment?.updates.npm },
-  }
+  const mergedLock = mergeLockUpdates(cliLock, [updates, alignment?.updates])
 
   const lockPath = join(
     dirname(cliLockPath),

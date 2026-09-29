@@ -2,6 +2,7 @@ import { assertEquals } from '@std/assert'
 import {
   type DenoLockFile,
   isNewerRelease,
+  mergeLockUpdates,
   NATIVE_FRESHNESS_REEXEC_ENV,
   prepareNativeFreshnessReexec,
   refreshTrackedRanges,
@@ -109,3 +110,69 @@ Deno.test(
     }
   },
 )
+
+const emptyUpdates = { specifiers: {}, jsr: {}, npm: {} }
+
+Deno.test('mergeLockUpdates: specifiers are overwritten, the rest of the lock is kept', () => {
+  const lock: DenoLockFile = {
+    version: '5',
+    specifiers: { 'jsr:a@1': '1.0.0', 'jsr:b@1': '1.0.0' },
+  }
+  const merged = mergeLockUpdates(lock, [{ ...emptyUpdates, specifiers: { 'jsr:a@1': '1.1.0' } }])
+
+  assertEquals(merged.specifiers, { 'jsr:a@1': '1.1.0', 'jsr:b@1': '1.0.0' })
+  assertEquals(merged.version, '5')
+  assertEquals(lock.specifiers?.['jsr:a@1'], '1.0.0', 'the original lock is not mutated')
+})
+
+Deno.test('mergeLockUpdates: a jsr block that the lock already has is never replaced', () => {
+  const lock: DenoLockFile = { jsr: { 'a@1.0.0': { dependencies: ['x'] } } }
+  const merged = mergeLockUpdates(lock, [{
+    ...emptyUpdates,
+    jsr: { 'a@1.0.0': { dependencies: ['x', 'y'] }, 'a@1.1.0': { dependencies: [] } },
+  }])
+
+  assertEquals(merged.jsr?.['a@1.0.0'], { dependencies: ['x'] })
+  assertEquals(merged.jsr?.['a@1.1.0'], { dependencies: [] })
+})
+
+Deno.test('mergeLockUpdates: a peer-suffixed variant of an npm package version the lock has is skipped', () => {
+  const lock: DenoLockFile = { npm: { 'preact@10.29.8': { integrity: 'p' } } }
+  const merged = mergeLockUpdates(lock, [{
+    ...emptyUpdates,
+    npm: {
+      'preact@10.29.8_preact-render-to-string@6.7.0': { integrity: 'p' },
+      'preact-render-to-string@6.7.0_preact@10.29.8': { integrity: 'r' },
+    },
+  }])
+
+  assertEquals(Object.keys(merged.npm ?? {}).sort(), [
+    'preact-render-to-string@6.7.0_preact@10.29.8',
+    'preact@10.29.8',
+  ])
+})
+
+Deno.test('mergeLockUpdates: a new npm package, or a new version of one, is added', () => {
+  const lock: DenoLockFile = { npm: { 'preact@10.29.8': {}, '@scope/pkg@1.0.0': {} } }
+  const merged = mergeLockUpdates(lock, [{
+    ...emptyUpdates,
+    npm: { 'preact@10.30.0': {}, '@scope/pkg@1.0.0_peer@2.0.0': {}, 'some_pkg@1.0.0': {} },
+  }])
+
+  assertEquals(Object.keys(merged.npm ?? {}).sort(), [
+    '@scope/pkg@1.0.0',
+    'preact@10.29.8',
+    'preact@10.30.0',
+    'some_pkg@1.0.0',
+  ])
+})
+
+Deno.test('mergeLockUpdates: an undefined update is ignored and the first update to add a package wins', () => {
+  const merged = mergeLockUpdates({}, [
+    undefined,
+    { ...emptyUpdates, npm: { 'a@1.0.0': { from: 'first' } } },
+    { ...emptyUpdates, npm: { 'a@1.0.0_b@1.0.0': { from: 'second' } } },
+  ])
+
+  assertEquals(merged.npm, { 'a@1.0.0': { from: 'first' } })
+})
