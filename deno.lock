@@ -470,6 +470,24 @@
         "npm:schema-dts"
       ]
     },
+    "@zanix/utils@2.0.3-alpha9": {
+      "integrity": "3b156754b63f9a7ed8280d30ab091d09e8a5f61fe12b1af06d539b0d06e4a775",
+      "dependencies": [
+        "jsr:@luca/esbuild-deno-loader",
+        "jsr:@std/fmt@0.224",
+        "jsr:@std/path@0.224",
+        "npm:esbuild",
+        "npm:javascript-obfuscator"
+      ]
+    },
+    "@zanix/utils@4.3.0": {
+      "integrity": "95616c78363482ae441571ad6e327b9ccc1b0657d6d8c4fff5cd40337eae4ede",
+      "dependencies": [
+        "jsr:@std/crypto",
+        "jsr:@std/fmt@0.224",
+        "jsr:@std/path@0.224"
+      ]
+    },
     "@zanix/utils@4.7.1": {
       "integrity": "337d70b83fe362310057658d3983ae7c893850ab8e86f340bc020fa067553f05",
       "dependencies": [
