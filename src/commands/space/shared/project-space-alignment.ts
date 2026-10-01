@@ -112,6 +112,7 @@ export function alignSpaceToProject(root: string): LockAligner {
     return {
       updates: {
         specifiers: Object.fromEntries(ranges.map((range) => [range, projectVersion])),
+        resolvedSpecifiers: probe.lock.specifiers ?? {},
         jsr: probe.lock.jsr ?? {},
         npm: probe.lock.npm ?? {},
       },

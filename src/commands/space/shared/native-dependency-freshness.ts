@@ -1,6 +1,7 @@
 import { dirname, join } from '@std/path'
 import { getCliConfigPath } from 'commands/space/shared/cli-loader.ts'
 import { GENERATED_MODULE_PREFIX } from 'commands/space/shared/specifier-reconstruction.ts'
+import logger from '@zanix/utils/logger'
 
 /**
  * Keeps the lock that governs `@zanix/cli`'s own process from pinning `@zanix/*` packages to
@@ -193,12 +194,14 @@ export function trackedRangeLiterals(cliLock: DenoLockFile, packageBase: string)
  * distinction is the one thing worth tracking here. */
 export async function refreshTrackedRanges(cliLock: DenoLockFile, packageBase: string): Promise<{
   specifiers: Record<string, string>
+  resolvedSpecifiers: Record<string, string>
   jsr: Record<string, unknown>
   npm: Record<string, unknown>
   attempted: number
   succeeded: number
 }> {
   const specifiers: Record<string, string> = {}
+  const resolvedSpecifiers: Record<string, string> = {}
   const jsr: Record<string, unknown> = {}
   const npm: Record<string, unknown> = {}
 
@@ -212,10 +215,11 @@ export async function refreshTrackedRanges(cliLock: DenoLockFile, packageBase: s
     const current = cliLock.specifiers?.[range]
     if (!current || !isNewerRelease(result.version, current)) continue
     specifiers[range] = result.version
+    Object.assign(resolvedSpecifiers, result.lock.specifiers)
     Object.assign(jsr, result.lock.jsr)
     Object.assign(npm, result.lock.npm)
   }
-  return { specifiers, jsr, npm, attempted: ranges.length, succeeded }
+  return { specifiers, resolvedSpecifiers, jsr, npm, attempted: ranges.length, succeeded }
 }
 
 /** How long a real check's own result stays trusted before this module is willing to pay for
@@ -235,17 +239,20 @@ const FRESHNESS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
  * already resolves for every other real artifact this module reads/writes. */
 const FRESHNESS_CACHE_FILENAME = '.zanix-native-freshness-cache.json'
 
+/** Bumped whenever {@linkcode FreshnessCache}'s shape changes; a cache written under another
+ * schema is a miss. Schema 2 added `resolvedSpecifiers`: a schema-1 entry merges `jsr` blocks
+ * without the specifiers their dependencies reference, which yields a lock Deno refuses to read. */
+const FRESHNESS_CACHE_SCHEMA = 2
+
 /** What {@linkcode readFreshnessCache}/{@linkcode writeFreshnessCache} persist — literally the same
  * `specifiers`/`jsr`/`npm` shape {@linkcode prepareNativeFreshnessReexec} already merges from a LIVE
  * check, so a cache hit can build the identical merged lock without paying for another `deno info`
  * round trip at all. `checkedAt` is an ISO timestamp, compared against {@linkcode FRESHNESS_CACHE_TTL_MS}
  * — an EMPTY `specifiers` here is a real, meaningful cached answer too ("checked recently, nothing
  * newer than what's already pinned"), not treated any differently from a cache holding real updates. */
-interface FreshnessCache {
+interface FreshnessCache extends LockUpdates {
+  schema: number
   checkedAt: string
-  specifiers: Record<string, string>
-  jsr: Record<string, unknown>
-  npm: Record<string, unknown>
 }
 
 /** Reads a still-fresh cache sitting next to `cliLockPath`, or `undefined` when there's none, it's
@@ -256,6 +263,7 @@ async function readFreshnessCache(cliLockPath: string): Promise<FreshnessCache |
     const cache = JSON.parse(
       await Deno.readTextFile(join(dirname(cliLockPath), FRESHNESS_CACHE_FILENAME)),
     ) as FreshnessCache
+    if (cache.schema !== FRESHNESS_CACHE_SCHEMA) return undefined
     const age = Date.now() - new Date(cache.checkedAt).getTime()
     return Number.isFinite(age) && age >= 0 && age < FRESHNESS_CACHE_TTL_MS ? cache : undefined
   } catch {
@@ -268,9 +276,13 @@ async function readFreshnessCache(cliLockPath: string): Promise<FreshnessCache |
  * had simply expired. */
 async function writeFreshnessCache(
   cliLockPath: string,
-  entry: Omit<FreshnessCache, 'checkedAt'>,
+  entry: LockUpdates,
 ): Promise<void> {
-  const cache: FreshnessCache = { checkedAt: new Date().toISOString(), ...entry }
+  const cache: FreshnessCache = {
+    schema: FRESHNESS_CACHE_SCHEMA,
+    checkedAt: new Date().toISOString(),
+    ...entry,
+  }
   await Deno.writeTextFile(
     join(dirname(cliLockPath), FRESHNESS_CACHE_FILENAME),
     JSON.stringify(cache, null, 2),
@@ -292,7 +304,10 @@ function npmKeyBase(key: string): string {
 }
 
 /**
- * A copy of `cliLock` with the `updates` applied. `specifiers` are overwritten; `jsr` and `npm`
+ * A copy of `cliLock` with the `updates` applied. `specifiers` are overwritten. `resolvedSpecifiers`
+ * are only added: a `jsr` block taken from an isolated resolution lists its dependencies by the
+ * specifier keys of that resolution (`jsr:@zanix/server@^4.3.4`), and Deno refuses to read a lock
+ * whose block references a key missing from `specifiers` (`Invalid jsr dependency`). `jsr` and `npm`
  * blocks are only added, never replaced, and an `npm` block is skipped when the lock already holds
  * that package version, whatever its peer suffix. An isolated resolution of a single package
  * resolves peer dependencies differently from the full graph (`preact` and `preact-render-to-string`
@@ -310,6 +325,9 @@ export function mergeLockUpdates(
 
   for (const update of updates) {
     if (!update) continue
+    for (const [key, version] of Object.entries(update.resolvedSpecifiers ?? {})) {
+      if (!(key in specifiers)) specifiers[key] = version
+    }
     Object.assign(specifiers, update.specifiers)
     for (const [key, block] of Object.entries(update.jsr)) {
       if (!(key in jsr)) jsr[key] = block
@@ -323,9 +341,43 @@ export function mergeLockUpdates(
   return { ...cliLock, specifiers, jsr, npm }
 }
 
+/**
+ * Whether Deno can read `lock` at all. A merged lock is assembled from fragments of other locks, so
+ * it can be one Deno rejects outright (`Failed deserializing. Lockfile may be corrupt`), and a
+ * re-exec under it would fail on every start.
+ *
+ * The check runs `deno info --no-config` on an empty module, against a throwaway copy of the lock:
+ * Deno deserializes the whole lock before resolving anything, and rewrites it afterward, so the
+ * copy keeps the lock under test untouched. It needs no network and takes milliseconds. A failure
+ * to run the check at all counts as unreadable.
+ */
+export async function isLockReadable(lock: DenoLockFile): Promise<boolean> {
+  const dir = await Deno.makeTempDir({ prefix: `${GENERATED_MODULE_PREFIX}lock-check-` })
+  try {
+    const lockPath = join(dir, 'deno.lock')
+    const entryPath = join(dir, 'entry.ts')
+    await Deno.writeTextFile(lockPath, JSON.stringify(lock))
+    await Deno.writeTextFile(entryPath, 'export {}\n')
+    const { success } = await new Deno.Command(Deno.execPath(), {
+      args: ['info', '--no-config', '--json', '--lock', lockPath, entryPath],
+      stdout: 'null',
+      stderr: 'null',
+    }).output()
+    return success
+  } catch {
+    return false
+  } finally {
+    await Deno.remove(dir, { recursive: true }).catch(() => {})
+  }
+}
+
 /** The lock entries a lock adjustment merges into a copy of `@zanix/cli`'s lock. */
 export interface LockUpdates {
+  /** Pins to set, overwriting the lock's. */
   specifiers: Record<string, string>
+  /** The `specifiers` table of the isolated resolution the `jsr`/`npm` blocks come from, added
+   * only where the lock lacks a key. */
+  resolvedSpecifiers?: Record<string, string>
   jsr: Record<string, unknown>
   npm: Record<string, unknown>
 }
@@ -355,6 +407,9 @@ export interface NativeFreshnessReexec {
  * Alignment is not cached: it depends on the project, and costs one local resolution and a
  * comparison unless it finds a difference.
  *
+ * A merged lock Deno cannot read ({@linkcode isLockReadable}) is discarded with a warning, and the
+ * process runs under `@zanix/cli`'s own lock: possibly stale, but it starts.
+ *
  * The merged lock stays on disk for the re-exec'd child to read for its whole lifetime. The
  * caller's `Deno.exit` runs no cleanup, so `sweepStaleGeneratedModules` removes it on a later run
  * (see `native-dependency-freshness-guard.ts`).
@@ -378,7 +433,7 @@ export async function prepareNativeFreshnessReexec(
     return undefined
   }
 
-  let updates: Omit<FreshnessCache, 'checkedAt'>
+  let updates: LockUpdates
   const cached = noCache ? undefined : await readFreshnessCache(cliLockPath)
   if (cached) {
     updates = cached
@@ -388,6 +443,10 @@ export async function prepareNativeFreshnessReexec(
     )
     updates = {
       specifiers: Object.assign({}, ...perPackage.map((result) => result.specifiers)),
+      resolvedSpecifiers: Object.assign(
+        {},
+        ...perPackage.map((result) => result.resolvedSpecifiers),
+      ),
       jsr: Object.assign({}, ...perPackage.map((result) => result.jsr)),
       npm: Object.assign({}, ...perPackage.map((result) => result.npm)),
     }
@@ -409,6 +468,14 @@ export async function prepareNativeFreshnessReexec(
   if (reasons.length === 0) return undefined
 
   const mergedLock = mergeLockUpdates(cliLock, [updates, alignment?.updates])
+  if (!(await isLockReadable(mergedLock))) {
+    logger.warn(
+      `Skipping the adjusted copy of @zanix/cli's lock (${reasons.join('; ')}): Deno cannot read ` +
+        `it. Running under the lock as installed, so these packages may load at their pinned ` +
+        `versions. Please report this with \`zanix report-issue\`.`,
+    )
+    return undefined
+  }
 
   const lockPath = join(
     dirname(cliLockPath),

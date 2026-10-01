@@ -1,6 +1,7 @@
 import { assertEquals } from '@std/assert'
 import {
   type DenoLockFile,
+  isLockReadable,
   isNewerRelease,
   mergeLockUpdates,
   NATIVE_FRESHNESS_REEXEC_ENV,
@@ -175,4 +176,56 @@ Deno.test('mergeLockUpdates: an undefined update is ignored and the first update
   ])
 
   assertEquals(merged.npm, { 'a@1.0.0': { from: 'first' } })
+})
+
+Deno.test('mergeLockUpdates: resolved specifiers a merged jsr block depends on are added, never overwriting a pin', () => {
+  const lock: DenoLockFile = {
+    specifiers: { 'jsr:@zanix/app@^1.0.2': '1.0.2', 'jsr:@zanix/server@^4.3.0': '4.3.0' },
+    jsr: { '@zanix/app@1.0.2': { dependencies: ['jsr:@zanix/server@^4.3.0'] } },
+  }
+  const merged = mergeLockUpdates(lock, [{
+    specifiers: { 'jsr:@zanix/app@^1.0.2': '1.0.3' },
+    resolvedSpecifiers: {
+      'jsr:@zanix/app@^1.0.2': '1.0.3',
+      'jsr:@zanix/server@^4.3.0': '4.3.4',
+      'jsr:@zanix/server@^4.3.4': '4.3.4',
+    },
+    jsr: { '@zanix/app@1.0.3': { dependencies: ['jsr:@zanix/server@^4.3.4'] } },
+    npm: {},
+  }])
+
+  assertEquals(merged.specifiers, {
+    'jsr:@zanix/app@^1.0.2': '1.0.3',
+    'jsr:@zanix/server@^4.3.0': '4.3.0',
+    'jsr:@zanix/server@^4.3.4': '4.3.4',
+  })
+})
+
+/** The shape of a real merged lock Deno rejected: a jsr block depending on a specifier key the
+ * lock's `specifiers` lacks. */
+const lockWithMissingSpecifier: DenoLockFile = {
+  version: '5',
+  specifiers: { 'jsr:@zanix/app@^1.0.2': '1.0.3' },
+  jsr: {
+    '@zanix/app@1.0.3': {
+      integrity: '27963bde86b8759605bf054ddc96770ee7757462bf27337526cfe28756cb07e0',
+      dependencies: ['jsr:@zanix/server@^4.3.4'],
+    },
+  },
+}
+
+Deno.test('isLockReadable: a lock whose jsr block references a missing specifier is unreadable', async () => {
+  assertEquals(await isLockReadable(lockWithMissingSpecifier), false)
+})
+
+Deno.test('isLockReadable: the same lock with the specifier added is readable', async () => {
+  const lock: DenoLockFile = {
+    ...lockWithMissingSpecifier,
+    specifiers: { ...lockWithMissingSpecifier.specifiers, 'jsr:@zanix/server@^4.3.4': '4.3.4' },
+    jsr: {
+      ...lockWithMissingSpecifier.jsr,
+      '@zanix/server@4.3.4': { integrity: '00' },
+    },
+  }
+  assertEquals(await isLockReadable(lock), true)
 })

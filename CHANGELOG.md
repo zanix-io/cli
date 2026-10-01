@@ -7,6 +7,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-09-30
+
+### Fixed
+
+- **`zanix space dev`/`build` failed on every start with `Invalid jsr dependency` after a
+  `@zanix/server`/`@zanix/app`/`@zanix/space` release that raised a dependency range.** The merged
+  copy of `@zanix/cli`'s lock took the `jsr` blocks of an isolated resolution, but only the
+  specifier of the probed range itself. A new block whose `dependencies` reference a specifier the
+  lock lacks (`@zanix/app@1.0.3` → `jsr:@zanix/server@^4.3.4`) makes Deno reject the whole lock.
+  `mergeLockUpdates` now also adds the specifiers of that isolated resolution the lock lacks,
+  without overwriting existing pins. The freshness cache carries a schema version, so a cache
+  written before this fix is ignored.
+
+- **A merged lock Deno cannot read no longer blocks `zanix space dev`/`build`.** Before
+  restarting, the merged copy is checked with an offline `deno info` against a throwaway copy of
+  it. When Deno rejects it, the command warns and runs under `@zanix/cli`'s own lock instead of
+  failing on every start.
+
 ## [2.2.1] - 2026-09-28
 
 ### Fixed
