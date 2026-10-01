@@ -1,7 +1,11 @@
 import { assertEquals, assertStringIncludes } from '@std/assert'
 import { resolve } from '@std/path'
 import { getTemporaryFolder } from '@zanix/helpers'
-import { buildHarnessSource, findConfirmedFindings } from 'commands/check-cycles/lib/analyze.ts'
+import {
+  buildHarnessSource,
+  findConfirmedFindings,
+  harnessCommandArgs,
+} from 'commands/check-cycles/lib/analyze.ts'
 import type { Cycle } from 'commands/check-cycles/lib/cycles.ts'
 import type { SpecifierResolutions } from 'commands/check-cycles/lib/graph.ts'
 
@@ -96,6 +100,44 @@ Deno.test(
       await Deno.remove(harnessPath).catch(() => {})
       await Deno.remove(outputPath).catch(() => {})
       await Deno.remove(targetPath).catch(() => {})
+    }
+  },
+)
+
+Deno.test(
+  "harnessCommandArgs: a harness importing a remote analyze-file.ts leaves the checked project's own deno.lock untouched",
+  async () => {
+    const remoteAnalyzeFileSpecifier =
+      'https://jsr.io/@zanix/cli/2.0.8/src/commands/check-cycles/lib/side-effects/analyze-file.ts'
+    await writeFixture()
+    const lockPath = resolve(fixtureRoot, 'deno.lock')
+    const lock = JSON.stringify({ version: '5' }, null, 2) + '\n'
+    const harnessPath = await Deno.makeTempFile({ suffix: '.test.ts' })
+    const outputPath = await Deno.makeTempFile({ suffix: '.json' })
+
+    try {
+      await Deno.writeTextFile(resolve(fixtureRoot, 'deno.json'), '{}\n')
+      await Deno.writeTextFile(lockPath, lock)
+      await Deno.writeTextFile(harnessPath, buildHarnessSource(remoteAnalyzeFileSpecifier))
+
+      // The project directory as cwd, as under a real `check-cycles` run.
+      const { success, stderr } = await new Deno.Command(Deno.execPath(), {
+        args: harnessCommandArgs(harnessPath),
+        cwd: fixtureRoot,
+        env: {
+          ZNX_CHECK_CYCLES_FILES: JSON.stringify([basePath]),
+          ZNX_CHECK_CYCLES_OUTPUT: outputPath,
+        },
+        stdout: 'piped',
+        stderr: 'piped',
+      }).output()
+
+      assertEquals(success, true, new TextDecoder().decode(stderr))
+      assertEquals(await Deno.readTextFile(lockPath), lock)
+    } finally {
+      await Deno.remove(harnessPath).catch(() => {})
+      await Deno.remove(outputPath).catch(() => {})
+      await Deno.remove(fixtureRoot, { recursive: true })
     }
   },
 )

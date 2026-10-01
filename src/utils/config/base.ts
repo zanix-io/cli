@@ -173,8 +173,8 @@ export function baseZnxConfig(
   // published `@zanix/cli` (`jsr:@zanix/cli`), not a local task self-reference, so these work the
   // same in a freshly-scaffolded project with no other dependency on this package.
   const checkTasks: ConfigFile['tasks'] = {
-    'check-cycles': 'deno run -A jsr:@zanix/cli check-cycles',
-    'check-duplicates': 'deno run -A jsr:@zanix/cli check-duplicates',
+    'check-cycles': 'deno run --no-config -A jsr:@zanix/cli check-cycles',
+    'check-duplicates': 'deno run --no-config -A jsr:@zanix/cli check-duplicates',
   }
   const tasks: ConfigFile['tasks'] = hasRunnableEntrypoint
     ? {

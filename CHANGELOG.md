@@ -7,6 +7,35 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.3] - 2026-09-30
+
+### Fixed
+
+- **`zanix space dev`/`build` could load two copies of a `@zanix/*` package other than
+  `@zanix/space`.** A published package the project imports resolves its own imports through the
+  lock that governs the process, so `@zanix/iam` importing `jsr:@zanix/space-ui@^2.4.0` loaded
+  `2.4.3` from `@zanix/cli`'s lock while the project loaded `2.5.3`. Which copy a module got
+  depended on load order, and each copy has its own module-level state (a context created by
+  `createContext`). The alignment that kept `@zanix/space` in line with the project now covers
+  every `@zanix/*` package the project declares (`alignZanixPackagesToProject`): each range the
+  lock tracks for one of them, and that admits the project's version, moves to that version. A
+  pin is never moved to an older version, since `@zanix/cli`'s own code imports most of these
+  packages and only ran against that pin or a newer one; `@zanix/space` still moves in both
+  directions. A range that does not admit the project's version, such as another major, or whose
+  pin is newer, keeps its pin and is reported with a warning. The project's versions are cached
+  next to `@zanix/cli`'s lock for 24 hours and refreshed when the project's configs or `deno.lock`
+  change, so a restart does not resolve them again (`--no-cache` skips the cache).
+
+- **`check-duplicates` reported `@zanix/cli`'s own dependencies as a drift of the checked project,
+  and running the CLI inside a project grew that project's `deno.lock`.** `deno run -A
+  jsr:@zanix/cli ...` inside a project adopts the project's `deno.json(c)`, so Deno wrote the CLI's
+  whole dependency graph into the project's lock (a `@zanix/utils@^4.5.0` next to the project's
+  `4.4.0`, for one). The tasks `zanix new` scaffolds and the CI steps `zanix prepare -g` scaffolds
+  now run `deno run --no-config -A jsr:@zanix/cli check-cycles`/`check-duplicates`, which keeps the
+  lock untouched and still reports a real drift. `check-cycles` also passes `--no-config` to its
+  side-effect analysis subprocess, which inherits the project's directory and wrote a remote
+  `analyze-file.ts` into the project's lock even under `--no-config`.
+
 ## [2.2.2] - 2026-09-30
 
 ### Fixed

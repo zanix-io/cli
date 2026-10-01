@@ -19,9 +19,10 @@ import logger from '@zanix/utils/logger'
  *   `@zanix/server`/`@zanix/app` is re-resolved in isolation (a `deno info --json` probe against
  *   that literal alone, with its own temp lock). A caret/tilde/major-only range never resolves
  *   outside its major, so this never crosses a major `@zanix/cli` has not been tested against.
- * - **Alignment** (a {@linkcode LockAligner}, see `project-space-alignment.ts`): a range whose pin
- *   differs from what the project resolves is moved to the project's version, so both load one
- *   copy of the package.
+ * - **Alignment** (a {@linkcode LockAligner}, see `project-dependency-alignment.ts`): a range of
+ *   a `@zanix/*` package the project declares, whose pin differs from what the project resolves,
+ *   is moved to the project's version, so both load one copy of the package. Applied after
+ *   freshness, so it wins for a `@zanix/server`/`@zanix/app` range the project also declares.
  *
  * The merged lock has to be a lock: a `scopes` config override has no effect on a package resolved
  * purely from JSR, whereas an entry in the lock the process consults does.
@@ -229,7 +230,7 @@ export async function refreshTrackedRanges(cliLock: DenoLockFile, packageBase: s
  * `watchSpaceAppFile`'s own "a `space.app.ts` change restarts this whole process" behavior would
  * mean every single edit during active development pays for a fresh network round trip per
  * tracked range — six `deno info` subprocess spawns, unconditionally, on every restart. */
-const FRESHNESS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+export const FRESHNESS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 /** Deliberately NOT `GENERATED_MODULE_PREFIX`-named — that convention marks a file as ephemeral,
  * safe for `sweepStaleGeneratedModules` to delete the moment it's found sitting around; THIS file

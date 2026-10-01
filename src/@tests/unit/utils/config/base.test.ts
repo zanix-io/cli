@@ -57,11 +57,11 @@ Deno.test(
     assertEquals(baseZnxConfig('app').tasks?.start, undefined)
     assertEquals(
       baseZnxConfig('library').tasks?.['check-cycles'],
-      'deno run -A jsr:@zanix/cli check-cycles',
+      'deno run --no-config -A jsr:@zanix/cli check-cycles',
     )
     assertEquals(
       baseZnxConfig('library').tasks?.['check-duplicates'],
-      'deno run -A jsr:@zanix/cli check-duplicates',
+      'deno run --no-config -A jsr:@zanix/cli check-duplicates',
     )
     assertEquals(baseZnxConfig('app').tasks, baseZnxConfig('library').tasks)
   },
@@ -74,11 +74,11 @@ Deno.test(
     for (const type of types) {
       assertEquals(
         baseZnxConfig(type).tasks?.['check-cycles'],
-        'deno run -A jsr:@zanix/cli check-cycles',
+        'deno run --no-config -A jsr:@zanix/cli check-cycles',
       )
       assertEquals(
         baseZnxConfig(type).tasks?.['check-duplicates'],
-        'deno run -A jsr:@zanix/cli check-duplicates',
+        'deno run --no-config -A jsr:@zanix/cli check-duplicates',
       )
     }
   },

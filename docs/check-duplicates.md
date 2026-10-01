@@ -49,10 +49,14 @@ is reported as clean.
 ## CI wiring
 
 `zanix prepare -g` scaffolds a `Check for duplicate '@zanix/*' dependencies`
-step (`deno run -A jsr:@zanix/cli check-duplicates`) into
+step (`deno run --no-config -A jsr:@zanix/cli check-duplicates`) into
 `.github/workflows/ci.yml`, right after the `check-cycles` step — same
 `workflow_call` reuse from `publish.yml` described in
-[`check-cycles.md`](./check-cycles.md#ci-wiring) applies here too. Also
+[`check-cycles.md`](./check-cycles.md#ci-wiring) applies here too.
+`--no-config` keeps `deno run` from adopting the checked project's own
+`deno.json(c)`: without it, Deno writes `@zanix/cli`'s own dependency graph
+into the project's `deno.lock`, and this check then reports `@zanix/cli`'s
+versions as a drift of the project. Also
 wired into the generated `pre-push` Git hook (`deno task check-duplicates`,
 alongside `check-cycles`'s own matching task) — a confirmed finding blocks
 the push, same as a failing test (override with `--no-verify`). Not wired

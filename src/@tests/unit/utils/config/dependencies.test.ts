@@ -189,8 +189,8 @@ Deno.test('baseZnxConfig gives library/app no dev/start task — no runnable pro
     assertEquals(
       config.tasks,
       {
-        'check-cycles': 'deno run -A jsr:@zanix/cli check-cycles',
-        'check-duplicates': 'deno run -A jsr:@zanix/cli check-duplicates',
+        'check-cycles': 'deno run --no-config -A jsr:@zanix/cli check-cycles',
+        'check-duplicates': 'deno run --no-config -A jsr:@zanix/cli check-duplicates',
       },
       `${type} should only get the check-cycles/check-duplicates tasks`,
     )

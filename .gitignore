@@ -37,6 +37,7 @@ __tmp__/
 # `cli` checkout, since `locateCliLockPath` resolves to this repo's own `deno.lock` in that shape.
 /.zanix-import-native-freshness-*.lock.json
 /.zanix-native-freshness-cache.json
+/.zanix-project-alignment-cache.json
 
 # `import-project-module.ts`'s own global generated-module-directory manifest
 # (`recordGeneratedModuleDir`) — same "written straight into THIS checkout's own directory for a

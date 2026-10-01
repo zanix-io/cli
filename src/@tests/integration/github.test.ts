@@ -123,7 +123,7 @@ Deno.test(
     )
     assert(ciContent.includes('run: deno lint'), "expected 'ci.yml' to run 'deno lint'")
     assert(
-      ciContent.includes('run: deno run -A jsr:@zanix/cli check-cycles'),
+      ciContent.includes('run: deno run --no-config -A jsr:@zanix/cli check-cycles'),
       "expected 'ci.yml' to run check-cycles",
     )
     assertFalse(ciContent.includes('Run tests'), "'ci.yml' must not duplicate the test step")
@@ -223,7 +223,7 @@ Deno.test(
 
       assert(content.includes('run: deno fmt --check'))
       assert(content.includes('run: deno lint'))
-      assert(content.includes('run: deno run -A jsr:@zanix/cli check-cycles'))
+      assert(content.includes('run: deno run --no-config -A jsr:@zanix/cli check-cycles'))
       assertFalse(
         content.includes('Run tests'),
         `'ci.yml' must not run tests for projectType '${projectType}'`,
@@ -270,7 +270,7 @@ Deno.test(
 
       assert(ciContent.includes('run: deno fmt --check'))
       assert(ciContent.includes('run: deno lint'))
-      assert(ciContent.includes('run: deno run -A jsr:@zanix/cli check-cycles'))
+      assert(ciContent.includes('run: deno run --no-config -A jsr:@zanix/cli check-cycles'))
       assertFalse(ciContent.includes('Run tests'))
       assertFalse(ciContent.includes('Publish to Deno'))
 

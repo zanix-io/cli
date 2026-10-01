@@ -65,6 +65,19 @@ export async function findConfirmedFindings(
 }
 
 /**
+ * The `deno` arguments that run the harness at `harnessPath`.
+ *
+ * `--no-config` keeps the subprocess off the checked project's own config and lock. It inherits the
+ * project's directory as its cwd, so without the flag Deno adopts that project's `deno.json(c)` and
+ * writes the graph of a remote (`https://jsr.io/...`) `analyze-file.ts` into the project's
+ * `deno.lock`. The harness reads every file as plain text and imports nothing from the project, so
+ * it needs neither.
+ */
+export function harnessCommandArgs(harnessPath: string): string[] {
+  return ['test', '-A', '--no-check', '--no-config', harnessPath]
+}
+
+/**
  * The generated harness's own source — a single top-level `Deno.test` that reads the file list
  * from `ZNX_CHECK_CYCLES_FILES`, runs `analyzeSource` (only importable inside a real `deno test`
  * process — `Deno.lint.runPlugin` throws `'Deno.lint.runPlugin' is only available in 'deno test'
@@ -124,7 +137,7 @@ async function runHarness(files: string[]): Promise<FileAnalysis[]> {
     await Deno.writeTextFile(harnessPath, buildHarnessSource(analyzeFileSpecifier))
 
     const command = new Deno.Command(Deno.execPath(), {
-      args: ['test', '-A', '--no-check', harnessPath],
+      args: harnessCommandArgs(harnessPath),
       env: {
         ZNX_CHECK_CYCLES_FILES: JSON.stringify(files),
         ZNX_CHECK_CYCLES_OUTPUT: outputPath,

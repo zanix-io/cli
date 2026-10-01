@@ -49,7 +49,7 @@ is a real hazard.
 ## CI wiring
 
 `zanix prepare -g` scaffolds a `Check for circular-import hazards` step
-(`deno run -A jsr:@zanix/cli check-cycles`) into `.github/workflows/ci.yml`
+(`deno run --no-config -A jsr:@zanix/cli check-cycles`) into `.github/workflows/ci.yml`
 — generated for every real project type, alongside `.github/workflows/publish.yml`
 (on by default for `'library'`/`'app'`, opt-in via `--publish` for
 `'server'`/`'space'`/`'space-server'` — see `docs/prepare.md`). Whenever
