@@ -71,6 +71,7 @@
     "jsr:@zanix/space@^1.6.0": "1.16.4",
     "jsr:@zanix/utils@4": "4.7.1",
     "jsr:@zanix/utils@^4.1.0": "4.7.1",
+    "jsr:@zanix/utils@^4.2.1": "4.7.1",
     "jsr:@zanix/utils@^4.4.0": "4.7.1",
     "jsr:@zanix/utils@^4.5.0": "4.7.1",
     "npm:@deno/vite-plugin@^2.0.3": "2.0.4_vite@8.3.1_esbuild@0.20.2",
