@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2026-10-01
+
+### Changed
+
+- **Generated projects declare `@zanix/asyncmq` at `^0.9.1`.** `zanix new` and `zanix generate` write
+  `@zanix/asyncmq` and `@zanix/asyncmq/jobs` at `^0.9.1` (before, `^0.8.0`), the same range this
+  package imports. A project already on 0.9 no longer receives a `^0.8.0` entry that admits only the
+  0.8 line, which would load a second copy of `@zanix/asyncmq`.
+
 ## [2.2.3] - 2026-09-30
 
 ### Fixed

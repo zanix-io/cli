@@ -17,7 +17,7 @@ import { getConfigDir, readConfig, saveConfig } from '@zanix/helpers'
  * generated `app`/`space` project's `deno check`/`deno add` resolves them for real, no publishing
  * gap here.
  *
- * `@zanix/server/graphql` and `@zanix/asyncmq/jobs` below each pin a floor (`^4.1.0`/`^0.8.0`
+ * `@zanix/server/graphql` and `@zanix/asyncmq/jobs` below each pin a floor (`^4.1.0`/`^0.9.1`
  * respectively) that carries the subpath a freshly generated `graphql` handler/job file needs —
  * `ZanixResolver`/`Resolver`/`Query`/`Mutation`/`Request` and `registerJob`/`registerCronJob`
  * are not re-exported from either package's bare root. Both floors are real and published
@@ -40,14 +40,14 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // the `@zanix/core`/`@zanix/datamaster` floors below have each since moved past both of those,
   // see each entry's own comment for the current reason.
   '@zanix/datamaster': 'jsr:@zanix/datamaster@^1.9.1',
-  '@zanix/asyncmq': 'jsr:@zanix/asyncmq@^0.8.0',
+  '@zanix/asyncmq': 'jsr:@zanix/asyncmq@^0.9.1',
   // A separate import-map key, not covered by the bare '@zanix/asyncmq' entry above — same
   // convention `@zanix/server/graphql` already uses for a subpath of a different package.
   // `zanix generate job`'s generated job file, and `zanix new server`/`space-server`'s seeded
   // `example-job.defs.ts`, both import `registerJob`/`registerCronJob` from here — `@zanix/asyncmq`'s
   // bare root re-exports neither as of `0.8.0`, the first published version carrying this subpath
   // (verified against `https://jsr.io/@zanix/asyncmq/meta.json`, currently `latest`).
-  '@zanix/asyncmq/jobs': 'jsr:@zanix/asyncmq@^0.8.0/jobs',
+  '@zanix/asyncmq/jobs': 'jsr:@zanix/asyncmq@^0.9.1/jobs',
   // `@zanix/utils@3.0.1` was the first published version with `classMetadata` (class-level RTO
   // metadata introspection, no instance/payload needed) — required by `zanix generate openapi`'s
   // discovery step. The floor below has since moved past that major, to `4.2.1` — real and

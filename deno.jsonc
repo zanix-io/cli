@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -129,8 +129,8 @@
     // (`imports` block) — `native-runtime-modules.ts` (`@zanix/space`) lists `@zanix/asyncmq`
     // alongside `@zanix/auth`/`@zanix/datamaster`/`@zanix/notifications` as sharing the identical
     // DI-container identity split; this entry is what already closes that gap for this package.
-    "@zanix/asyncmq": "jsr:@zanix/asyncmq@^0.8.0",
-    "@zanix/asyncmq/jobs": "jsr:@zanix/asyncmq@^0.8.0/jobs",
+    "@zanix/asyncmq": "jsr:@zanix/asyncmq@^0.9.1",
+    "@zanix/asyncmq/jobs": "jsr:@zanix/asyncmq@^0.9.1/jobs",
     // `zanix space dev` (`dev/action.ts`) needs `Zanix.compose()` for a `space-server` project —
     // the real registration step (`defineCoreMetadata()` + auto-discovered `src/server/` handlers)
     // its own boot sequence never got, having dropped to `activateApps`/`bootstrapServers` directly
