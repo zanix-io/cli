@@ -83,7 +83,7 @@ async function runDenoInfo(entrypoint: string, root: string): Promise<DenoInfoOu
   // and not in import map`), silently producing an empty dependency list for every such module
   // instead of an error, which made a real, confirmed cycle in `@zanix/utils` invisible.
   const command = new Deno.Command(Deno.execPath(), {
-    args: ['info', '--json', entrypoint],
+    args: ['info', '--json', '--no-lock', entrypoint],
     cwd: root,
     stdout: 'piped',
     stderr: 'piped',

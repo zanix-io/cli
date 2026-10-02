@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.5] - 2026-10-01
+
+### Fixed
+
+- **`check-cycles` rewrote the checked project's `deno.lock`, and `check-duplicates` then reported
+  drift that the committed lock did not have.** The `deno info --json` call that builds the import
+  graph (`lib/graph.ts`) runs in the project's directory, so Deno adopted its `deno.lock` and updated
+  it while resolving the project's imports. In `@zanix/iam`, whose lock had no resolution for
+  `@zanix/core` (reached only from `mod.ts`), the rewritten lock held `@zanix/core` 3.1.2 with the
+  `@zanix/asyncmq` 0.8.0 it imports, and older `@zanix/app` and `@zanix/space` next to the committed
+  ones. The call now passes `--no-lock`: the graph needs only the project's own modules, and the
+  lock stays as committed.
+
 ## [2.2.4] - 2026-10-01
 
 ### Changed
