@@ -8,7 +8,7 @@ const TMP_ROOT = getTemporaryFolder(import.meta.url)
 /**
  * A real, end-to-end regression test for `planSubscriber`'s `.subscriber.handler.ts` suffix
  * (`command.ts`) — a real `deno run` subprocess, against real, currently-published
- * `@zanix/core@^3.0.0`/`@zanix/asyncmq@^0.8.0` (both verified live to resolve, and `@zanix/asyncmq`
+ * `@zanix/core@^3.1.3`/`@zanix/asyncmq@^0.9.1` (both verified live to resolve, and `@zanix/asyncmq`
  * to already export `Subscriber`/`ZanixSubscriber` at its root — no local checkout override
  * needed), running a real `Zanix.compose(rootDir)`.
  *
@@ -44,8 +44,8 @@ async function writeScaffoldDenoJson(root: string): Promise<void> {
     `${root}/deno.json`,
     JSON.stringify({
       imports: {
-        '@zanix/core': 'jsr:@zanix/core@^3.0.0',
-        '@zanix/asyncmq': 'jsr:@zanix/asyncmq@^0.8.0',
+        '@zanix/core': 'jsr:@zanix/core@^3.1.3',
+        '@zanix/asyncmq': 'jsr:@zanix/asyncmq@^0.9.1',
       },
     }),
   )

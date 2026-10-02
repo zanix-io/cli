@@ -16,6 +16,11 @@ and this project adheres to
   package imports. A project already on 0.9 no longer receives a `^0.8.0` entry that admits only the
   0.8 line, which would load a second copy of `@zanix/asyncmq`.
 
+- **`@zanix/core` and `@zanix/app` ranges raised to `^3.1.3` and `^1.0.4`** (and `@zanix/app/runtime`),
+  the first releases of each that import `@zanix/asyncmq` 0.9. With `@zanix/core` 3.1.2 and
+  `@zanix/app` 1.0.3 in the lock, `@zanix/asyncmq` resolved to 0.8.0 and 0.9.1 at once, and
+  `check-duplicates` failed on this repository.
+
 ## [2.2.3] - 2026-09-30
 
 ### Fixed
