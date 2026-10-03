@@ -3,24 +3,29 @@
 name: Publish
 
 on:
-  # Run on push or PRs to main branch
-  pull_request:
-    branches:
-      - master
-  push:
+  # Starts once the CI workflow (`ci.yml`) has COMPLETED for a push to `master`, instead of running
+  # its checks again: CI runs on its own and publish waits for its result. `workflow_run` only fires
+  # from the default branch's copy of this file, and for every CI run, so the job below filters to
+  # a successful run caused by a push (never a pull request).
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches:
       - master
 
 jobs:
-  # Runs `ci.yml` (the `zanix check-cycles` circular-import-hazard check) as a reusable workflow,
-  # same repo, same branch — a same-repo `uses:` job can't also declare `runs-on`/`steps` of its
-  # own. `publish` below only starts once every job inside this one has succeeded.
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   publish:
-    needs: ci # blocks `publish` unless every job inside the called `ci.yml` succeeded
-    runs-on: ubuntu-latest
+    # Publish is for `master` alone, whatever the CI workflow later runs on (pull requests, other
+    # branches): the run must have PASSED, been caused by a `push`, been on `master`, and come from
+    # this repository (never a fork). The `branches` filter above only narrows when the workflow
+    # starts; this condition is what states the rule, so a change to `ci.yml`'s triggers cannot
+    # widen it.
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'master'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
     permissions:
       contents: read # Allows reading of the repository's contents.
       id-token: write # Allows the creation of an ID token for authentication with JSR.
@@ -28,78 +33,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      # A real, currently-passing subset of this repo's own test suite (its "*-live"/"*-e2e" files —
-      # see e.g. `src/@tests/functional/space-icons-live.test.ts`) compares content this package
-      # fetches from JSR against a REAL sibling checkout of the owning package's own repo (`space-ui`/
-      # `utils`/`server`), read straight off disk one level up from this repo's own root (matching
-      # this org's own local dev layout, every package repo checked out as a sibling directory under
-      # one parent folder) — deliberately, so a local source change that hasn't been published to JSR
-      # yet still fails these tests instead of silently going undetected. All three are public repos
-      # in this same org, so a plain unauthenticated `git clone` over https works with no extra
-      # token/secret needed.
-      #
-      # Plain `git clone`, not `actions/checkout` — `actions/checkout@v5`'s own `path` input refuses
-      # to resolve outside `$GITHUB_WORKSPACE` (confirmed: "Repository path '.../space-ui' is not
-      # under '.../cli'"), a hardening `actions/checkout` added specifically to block a sibling/`..`
-      # checkout like this one. `$GITHUB_WORKSPACE` is this checkout's own directory
-      # (`/home/runner/work/cli/cli`) — its PARENT (`/home/runner/work/cli`) is exactly where a
-      # sibling needs to land, so cloning there directly (a plain shell command, no such artificial
-      # boundary) is the only way to reproduce the real sibling layout these tests resolve via
-      # `../../../../<name>` (or deeper, from a more nested test file) off their own location.
-      # `--depth 1` (shallow) — these tests only ever read the sibling's current default-branch HEAD
-      # content, never its history, and shallow keeps this step fast. No ref pinned — each clone
-      # follows its own repo's default branch, the same "whatever's really there right now" state a
-      # local dev checkout has, not a version frozen to this repo's own git history.
-      - name: Checkout sibling repos (space-ui, utils, server)
-        working-directory: ${{ github.workspace }}/..
-        run: |
-          git clone --depth 1 https://github.com/zanix-io/space-ui.git
-          git clone --depth 1 https://github.com/zanix-io/utils.git
-          git clone --depth 1 https://github.com/zanix-io/server.git
+        with:
+          # The exact commit CI validated, not whatever `master` has moved to since.
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      # `src/@tests/integration/github.test.ts`'s own pre-commit-framework coverage shells out to a
-      # real `pre-commit` binary (`zanix prepare`'s own `usePrecommit` option installs/uninstalls a
-      # real pre-commit hook) — needs the actual tool on PATH, the same way a contributor's local dev
-      # machine already has it (typically via `pip install pre-commit`), not a mock.
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install pre-commit
-        run: pip install pre-commit
-
-      - name: Run tests
-        run: deno test --allow-all --min-dep-age=0 --ignore=src/@tests/integration/commands/space/dev
-
-      # `src/@tests/integration/commands/space/dev/`'s own "-live"/"-boot"/"-conflict" files each
-      # boot a REAL `zanix space dev` engine (a real Vite dev server, native esbuild/Rollup
-      # bindings included) and each disables `sanitizeOps`/`sanitizeResources` on purpose — an
-      # explicit admission real async/native cleanup work can still be in flight once a given
-      # test's own `fn()` resolves. Confirmed real, not hypothetical: reusing the exact same literal
-      # default port (20202) across these files in one single `deno test` process is genuinely
-      # racy — reproduced locally as a plain, catchable `AddrInUse` when a previous file's own dev
-      # engine hadn't fully released the port before the next file's own test tried to rebind it.
-      # On this job's own Linux runner, the SAME underlying race has instead crashed the whole
-      # `deno test` process outright (`Segmentation fault`, exit 139) — plausibly the identical
-      # timing gap corrupting Vite/Rollup's own native teardown state instead of just missing a
-      # socket. Isolated into its own step/process so a crash here can never swallow the OTHER 900+
-      # tests' own pass/fail reporting the way it did when everything shared one `deno test`
-      # process — this contains the blast radius; it does not fix the underlying race (still open,
-      # most likely inside `@zanix/space`'s own Vite dev-engine teardown, not `cli`'s own code).
-      - name: Run space-dev live-engine tests (isolated — see comment above)
-        run: deno test --allow-all --min-dep-age=0 src/@tests/integration/commands/space/dev
-
       - name: Publish to Deno
-        # `needs.ci.result == 'success'` is explicit, not just relying on the default `needs:`
-        # skip-on-failure behavior above — that default only holds as long as `publish` keeps its
-        # own `if:` unset; an `always()`/similar override on the JOB (e.g. added later to get
-        # diagnostics on a failing run) would silently defeat it without this STEP-level check.
-        if: success() && needs.ci.result == 'success' && github.event_name == 'push'
         run: deno publish
