@@ -109,6 +109,12 @@ Deno.test(
       const cometPath = join(project, 'src/space/comets/example.comet.tsx')
       await Deno.writeTextFile(cometPath, REACT_COMET_SOURCE)
 
+      // The scaffold resolves the newest `@zanix/space` from JSR, which Deno's default 24h minimum
+      // dependency age rejects right after a publish. `deno test`'s own flag is not inherited by
+      // the `deno install` the build spawns, so the age is lifted in the project's own config.
+      config.minimumDependencyAge = 0
+      await Deno.writeTextFile(join(project, 'deno.json'), JSON.stringify(config, null, 2))
+
       const buildResult = await new Deno.Command('deno', {
         args: ['run', '-A', CLI_MOD, 'space', 'build'],
         cwd: project,
