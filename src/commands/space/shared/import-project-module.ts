@@ -3,6 +3,7 @@ import { dirname, fromFileUrl, join, resolve as resolvePath, toFileUrl } from '@
 import { walk } from '@std/fs'
 import { isFileUrl } from '@zanix/helpers'
 import { init as esModuleLexerInit, parse as parseEsModule } from 'es-module-lexer'
+import { pinImportMeta } from 'commands/space/shared/pin-import-meta.ts'
 import {
   findDenoConfigPath,
   findNearestPlainConfigPath,
@@ -115,6 +116,12 @@ await esModuleLexerInit
  * sibling actually lives in — a `blob:` base has no meaningful hierarchical structure for relative
  * resolution to work against at all, throwing `TypeError: Invalid URL` against a real
  * `@zanix/space` source module that relies on it.
+ *
+ * Inside a rewritten copy, `import.meta.url` and `import.meta.filename` name the ORIGINAL file, not
+ * the temporary one ({@linkcode pinImportMeta}): a module that records its own address, such as a
+ * Comet's `defineComet(Component, import.meta.url)`, would otherwise register a path that is deleted
+ * a moment later. The copy lives in the original's own directory, so relative references resolve the
+ * same either way.
  *
  * As a consequence of resolving through the project's own real configuration, this also honors a
  * project's own `"links"` override for a locally checked-out, unpublished dependency — something a
@@ -640,6 +647,9 @@ export async function importProjectModule(
           const text = quoted ? JSON.stringify(replacement) : replacement
           code = code.slice(0, start) + text + code.slice(end)
         }
+
+        // The copy reports the ORIGINAL file as its own address: see `pinImportMeta`'s own doc.
+        code = pinImportMeta(code, fileUrl)
 
         return await writeGeneratedModule(fileUrl, code)
       } finally {

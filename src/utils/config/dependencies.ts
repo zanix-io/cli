@@ -100,7 +100,7 @@ export const ZANIX_DEPENDENCY_VERSIONS = {
   // own, so it always re-resolves the range against the CURRENT `jsr.io` state rather than
   // reusing `cli`'s own locked version — the two can still diverge the moment a newer
   // `@zanix/space` version ships, independent of what this entry's range is set to.
-  '@zanix/space': 'jsr:@zanix/space@^1.6.0',
+  '@zanix/space': 'jsr:@zanix/space@^1.17.0',
   // `resolveSpaceUiVersion` (`commands/new/lib/tree/projects/space-icons.ts`) reads this floor to
   // pick the published version `--icons` fetches its icon catalog from, so the floor must be a
   // release that carries the catalog the scaffold expects. `^2.3.0` is the first one with the

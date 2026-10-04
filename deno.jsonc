@@ -1,6 +1,6 @@
 {
   "name": "@zanix/cli",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "license": "MIT",
   "nodeModulesDir": "auto",
   // Governs resolution of THIS package's own dependencies (e.g. `@zanix/server`, imported by
@@ -139,16 +139,16 @@
     "@zanix/core": "jsr:@zanix/core@^3.1.3",
     "@zanix/app": "jsr:@zanix/app@^1.0.4",
     "@zanix/app/runtime": "jsr:@zanix/app@^1.0.4/runtime",
-    "@zanix/space": "jsr:@zanix/space@^1.6.0",
-    "@zanix/space/vite": "jsr:@zanix/space@^1.6.0/vite",
-    "@zanix/space/dev": "jsr:@zanix/space@^1.6.0/dev",
-    "@zanix/space/testing": "jsr:@zanix/space@^1.6.0/testing",
-    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.6.0/assets-manifest",
-    "@zanix/space/comet": "jsr:@zanix/space@^1.6.0/comet",
-    "@zanix/space/client": "jsr:@zanix/space@^1.6.0/client",
-    "@zanix/space/client/preact": "jsr:@zanix/space@^1.6.0/client/preact",
-    "@zanix/space/react": "jsr:@zanix/space@^1.6.0/react",
-    "@zanix/space/preact": "jsr:@zanix/space@^1.6.0/preact",
+    "@zanix/space": "jsr:@zanix/space@^1.17.0",
+    "@zanix/space/vite": "jsr:@zanix/space@^1.17.0/vite",
+    "@zanix/space/dev": "jsr:@zanix/space@^1.17.0/dev",
+    "@zanix/space/testing": "jsr:@zanix/space@^1.17.0/testing",
+    "@zanix/space/assets-manifest": "jsr:@zanix/space@^1.17.0/assets-manifest",
+    "@zanix/space/comet": "jsr:@zanix/space@^1.17.0/comet",
+    "@zanix/space/client": "jsr:@zanix/space@^1.17.0/client",
+    "@zanix/space/client/preact": "jsr:@zanix/space@^1.17.0/client/preact",
+    "@zanix/space/react": "jsr:@zanix/space@^1.17.0/react",
+    "@zanix/space/preact": "jsr:@zanix/space@^1.17.0/preact",
     // `^2.3.0` is the first release whose icon catalog (`--icons`, `space-icons.ts`) carries the
     // `verified`/`clock`/`shield`/`heart`/`globe`/`users`/`user-check`/`lock`/`trash`/`bookmark`
     // symbols. `Menu` lives in the default entrypoint and takes `visual` instead of `image`.

@@ -54,25 +54,26 @@
     "jsr:@zanix/auth@1": "1.6.0",
     "jsr:@zanix/auth@^1.4.1": "1.6.0",
     "jsr:@zanix/core@^3.1.3": "3.1.3",
-    "jsr:@zanix/datamaster@^1.7.0": "1.11.1",
-    "jsr:@zanix/datamaster@^1.9.0": "1.11.1",
-    "jsr:@zanix/datamaster@^1.9.3": "1.11.1",
+    "jsr:@zanix/datamaster@^1.7.0": "1.12.1",
+    "jsr:@zanix/datamaster@^1.9.0": "1.12.1",
+    "jsr:@zanix/datamaster@^1.9.3": "1.12.1",
     "jsr:@zanix/notifications@1": "1.2.3",
     "jsr:@zanix/notifications@^1.2.3": "1.2.3",
-    "jsr:@zanix/server@4": "4.3.4",
-    "jsr:@zanix/server@^4.1.0": "4.3.4",
-    "jsr:@zanix/server@^4.2.1": "4.3.4",
-    "jsr:@zanix/server@^4.2.3": "4.3.4",
-    "jsr:@zanix/server@^4.3.4": "4.3.4",
-    "jsr:@zanix/space-ui@^2.3.0": "2.6.1",
-    "jsr:@zanix/space@1": "1.16.4",
-    "jsr:@zanix/space@^1.3.0": "1.16.4",
-    "jsr:@zanix/space@^1.6.0": "1.16.4",
-    "jsr:@zanix/utils@4": "4.7.1",
-    "jsr:@zanix/utils@^4.1.0": "4.7.1",
-    "jsr:@zanix/utils@^4.2.1": "4.7.1",
-    "jsr:@zanix/utils@^4.4.0": "4.7.1",
-    "jsr:@zanix/utils@^4.5.0": "4.7.1",
+    "jsr:@zanix/server@4": "4.4.0",
+    "jsr:@zanix/server@^4.1.0": "4.4.0",
+    "jsr:@zanix/server@^4.2.1": "4.4.0",
+    "jsr:@zanix/server@^4.2.3": "4.4.0",
+    "jsr:@zanix/server@^4.3.4": "4.4.0",
+    "jsr:@zanix/space-ui@^2.3.0": "2.7.1",
+    "jsr:@zanix/space@1": "1.17.0",
+    "jsr:@zanix/space@^1.17.0": "1.17.0",
+    "jsr:@zanix/space@^1.3.0": "1.17.0",
+    "jsr:@zanix/utils@4": "4.8.0",
+    "jsr:@zanix/utils@^4.1.0": "4.8.0",
+    "jsr:@zanix/utils@^4.2.1": "4.8.0",
+    "jsr:@zanix/utils@^4.4.0": "4.8.0",
+    "jsr:@zanix/utils@^4.5.0": "4.8.0",
+    "jsr:@zanix/utils@^4.8.0": "4.8.0",
     "npm:@deno/vite-plugin@^2.0.3": "2.0.4_vite@8.3.1_esbuild@0.20.2",
     "npm:@formatjs/icu-messageformat-parser@^3.5.17": "3.5.18",
     "npm:@formatjs/intl@^4.1.19": "4.2.1",
@@ -356,8 +357,8 @@
         "jsr:@zanix/utils@4"
       ]
     },
-    "@zanix/datamaster@1.11.1": {
-      "integrity": "1fdecd947cbed897c2f59eb68b547b6960d40cd05159518566a80b0eaf0ebc1f",
+    "@zanix/datamaster@1.12.1": {
+      "integrity": "488f4857bfd1298d42891dc8d33515231bf92cb66c9daabc087ed087040fdba3",
       "dependencies": [
         "jsr:@db/sqlite",
         "jsr:@zanix/server@^4.2.3",
@@ -376,12 +377,12 @@
         "npm:handlebars"
       ]
     },
-    "@zanix/server@4.3.4": {
-      "integrity": "f1b2c3a5eb80f191950c80ba0444f9e17fe9e9a1332b2bbad03d36276461dd7b",
+    "@zanix/server@4.4.0": {
+      "integrity": "285f7e35dff0a25e0a7ef677df4508baeb70494704e19da4e8b3b7406789ebda",
       "dependencies": [
         "jsr:@std/http",
         "jsr:@std/path@0.224",
-        "jsr:@zanix/utils@^4.1.0"
+        "jsr:@zanix/utils@^4.8.0"
       ]
     },
     "@zanix/space@1.3.0": {
@@ -407,8 +408,8 @@
         "npm:vite"
       ]
     },
-    "@zanix/space@1.16.4": {
-      "integrity": "d9f562a096761e165dce00783f7aed0c1f88a86424de37b6a3235186a893dedb",
+    "@zanix/space@1.17.0": {
+      "integrity": "f570b5133ebb2e73a3923d0e6f134e4224117ccbb2adbd15dab1a220c458b7ca",
       "dependencies": [
         "jsr:@deno/loader",
         "jsr:@std/jsonc@1",
@@ -434,8 +435,8 @@
         "npm:vite"
       ]
     },
-    "@zanix/space-ui@2.6.1": {
-      "integrity": "f3a114f7b6946187089806cf228e40f2a64fa223a814ccd6c0200ce10d08d162",
+    "@zanix/space-ui@2.7.1": {
+      "integrity": "6d05f061aa5db47d2a1cffc0d626df91a8d3b22ad0676048c1d36ae747c77a48",
       "dependencies": [
         "jsr:@zanix/space@1",
         "jsr:@zanix/utils@^4.5.0",
@@ -464,8 +465,8 @@
         "jsr:@std/path@0.224"
       ]
     },
-    "@zanix/utils@4.7.1": {
-      "integrity": "337d70b83fe362310057658d3983ae7c893850ab8e86f340bc020fa067553f05",
+    "@zanix/utils@4.8.0": {
+      "integrity": "a542d3fe634250ac630814fb28ccea06495736dcf8cc885fe66ceaa2e2d9d118",
       "dependencies": [
         "jsr:@std/crypto",
         "jsr:@std/fmt@0.224",
@@ -2974,7 +2975,7 @@
       "jsr:@zanix/notifications@^1.2.3",
       "jsr:@zanix/server@^4.2.1",
       "jsr:@zanix/space-ui@^2.3.0",
-      "jsr:@zanix/space@^1.6.0",
+      "jsr:@zanix/space@^1.17.0",
       "jsr:@zanix/utils@^4.5.0",
       "npm:@formatjs/icu-messageformat-parser@^3.5.17",
       "npm:@prefresh/core@^1.5.10",

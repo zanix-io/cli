@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.7] - 2026-10-03
+
+### Fixed
+
+- **A Comet that lives in a local package outside the app's root was missing from
+  `comets-manifest.json`, so it never hydrated in a production build.** `importProjectModule`
+  rewrites a project's local module into a temporary sibling (`.zanix-import-<uuid>.js`) to resolve
+  its specifiers, and inside that copy `import.meta.url` named the throwaway file.
+  `defineComet(Component, import.meta.url)` therefore registered the Comet under a path that no
+  longer existed, and the build dropped it. A rewritten copy now reports the ORIGINAL file as
+  `import.meta.url` and `import.meta.filename` (`pinImportMeta`, which replaces only the real
+  `import.meta` expressions the lexer finds, never the same text in a comment or a string). The copy
+  sits in the original's directory, so relative references keep resolving to the same files.
+  `import.meta.dirname`, `import.meta.resolve` and `import.meta.main` are left alone.
+
+### Changed
+
+- The minimum `@zanix/space` is `^1.17.0`, the version whose evaluated-Comet registry the fix above
+  relies on. New projects and the CLI's own import map pin it.
+
 ## [2.2.6] - 2026-10-03
 
 ### Fixed
