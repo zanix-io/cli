@@ -7,6 +7,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.8] - 2026-10-04
+
+### Fixed
+
+- **A stylesheet read with `import css from './pkg.css' with { type: 'text' }` reached
+  `defineSpaceApp({ cssSources })` as `{}`, so its sheet was built empty without any error.**
+  `importProjectModule` replaced every local `.css` import with the empty `export default {}` stub
+  meant for a Comet's `*.module.css`, whether or not the import asked for the file's text. An
+  import that declares the `type: 'text'` attribute (static `with { ... }` or a dynamic call's
+  options) now reaches native `import()` untouched and yields the real text; the attributes are
+  read from `es-module-lexer`'s import records. A `*.module.css` imported without the attribute
+  keeps the stub, including when the same file is imported both ways in one graph. `zanix space dev`
+  and `zanix space build` share this loader, so both are covered.
+
 ## [2.2.7] - 2026-10-03
 
 ### Fixed

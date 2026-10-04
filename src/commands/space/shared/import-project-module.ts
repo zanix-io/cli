@@ -185,7 +185,13 @@ interface SpecifierMatch {
    * expression, which for a plain string literal happens to include its delimiters) — the
    * splice step needs to know which shape it's replacing. */
   quoted: boolean
+  /** Whether the import declares the `type: 'text'` attribute (`with { type: 'text' }`). */
+  asText: boolean
 }
+
+/** Matches a `type: 'text'` entry inside an import-attributes object (static `with { ... }` or a
+ * dynamic call's options argument), whatever the quoting and spacing. */
+const TEXT_ATTRIBUTE_RE = /\btype\s*:\s*(['"])text\1/
 
 /** Every import/export/dynamic-import specifier in already-transpiled `code`, found with a real
  * JS lexer (`es-module-lexer` — the same one Vite/Rollup use internally for this exact job)
@@ -203,7 +209,10 @@ function findSpecifierMatches(code: string): SpecifierMatch[] {
   const matches: SpecifierMatch[] = []
   for (const imp of imports) {
     if (imp.n === undefined) continue
-    matches.push({ start: imp.s, end: imp.e, specifier: imp.n, quoted: imp.d > -1 })
+    // `imp.a` is where the import's attributes object starts (`-1` when it has none); the lexer
+    // reports exactly that span, so only the attributes are inspected, never the surrounding code.
+    const asText = imp.a > -1 && TEXT_ATTRIBUTE_RE.test(code.slice(imp.a, imp.se))
+    matches.push({ start: imp.s, end: imp.e, specifier: imp.n, quoted: imp.d > -1, asText })
   }
   return matches
 }
@@ -289,6 +298,7 @@ export async function importProjectModule(
     referrerUrl: string,
     referrerConfigPath: string | undefined,
     referrerLoader: Loader,
+    asText = false,
   ): Promise<string> {
     if (SCHEME_RE.test(specifier)) return specifier
 
@@ -299,7 +309,7 @@ export async function importProjectModule(
     if (specifier.startsWith('.') || specifier.startsWith('/')) {
       const resolved = new URL(specifier, referrerUrl).href
       if (!isFileUrl(resolved) || !isRecursable(fromFileUrl(resolved))) return resolved
-      return await process(resolved)
+      return await process(resolved, asText)
     }
 
     // The PROJECT's own config is the primary, controlling answer for a bare specifier — it is
@@ -389,7 +399,7 @@ export async function importProjectModule(
       }
 
       if (!isRecursable(resolvedPath)) return resolved
-      return await process(resolved)
+      return await process(resolved, asText)
     }
 
     // `cli`'s OWN config is consulted only once the project's own config (above) has no answer at
@@ -567,7 +577,12 @@ export async function importProjectModule(
     }
   }
 
-  function process(fileUrl: string): Promise<string> {
+  function process(fileUrl: string, asText = false): Promise<string> {
+    // An import declaring `with { type: 'text' }` asks for the file's real text, which native
+    // `import()` supports on its own for any file type: the file is handed over untouched (the
+    // parent keeps its attribute), never stubbed or rewritten — see the Css branch below for the
+    // stub an import WITHOUT the attribute gets.
+    if (asText) return Promise.resolve(fileUrl)
     const cached = cache.get(fileUrl)
     if (cached) return cached
     if (inProgress.has(fileUrl)) {
@@ -609,7 +624,9 @@ export async function importProjectModule(
           // level ever needs the real value: this function exists only to let a file's static shape
           // (a page's `head`/`redirect`, a decorator's own metadata, ...) be read back — never to
           // actually RENDER a component, the only place a Comet's own CSS Modules mapping would
-          // ever matter for real.
+          // ever matter for real. An import that declares `with { type: 'text' }` never reaches
+          // this branch: it wants the real stylesheet text (a package's `cssSources` entry, for
+          // instance), and `process` hands it the untouched file.
           if (response.mediaType === MediaType.Css) {
             return await writeGeneratedModule(fileUrl, 'export default {}\n')
           }
@@ -631,7 +648,13 @@ export async function importProjectModule(
         const replacements = await Promise.all(
           matches.map(async (match) => ({
             ...match,
-            replacement: await resolveReplacement(match.specifier, fileUrl, configPath, loader),
+            replacement: await resolveReplacement(
+              match.specifier,
+              fileUrl,
+              configPath,
+              loader,
+              match.asText,
+            ),
           })),
         )
         // Applied back-to-front so every earlier offset stays valid as later ones are spliced in.
