@@ -7,6 +7,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2026-10-03
+
+### Fixed
+
+- **`zanix space build` left the app's declared `cssSources` out of `css-manifest.json`.** The
+  command read the app's `globalCss` list before the sources were materialized and passed it to
+  `buildSpaceClient`, which took an explicit list as the whole list, so a package's default styles
+  (the OTP field of `iam`'s screens, `app-kit`'s loading dots) were files in `.space/css-sources/`,
+  served by `zanix space dev`, and missing from a production build. The command no longer passes
+  `globalCss`: `buildSpaceClient` reads the same list itself and builds the sources in front of it,
+  the order the dev server serves. This holds with the `@zanix/space` a project already uses, with
+  no need to update it; `@zanix/space` 1.17.0 also merges the sources into an explicit `globalCss`
+  for any other caller.
+
 ## [2.2.5] - 2026-10-01
 
 ### Fixed

@@ -31,16 +31,16 @@ import logger from '@zanix/utils/logger'
 /**
  * `zanix space build`'s real orchestration: imports the project's own `space.app.ts` manifest
  * (same as `zanix space dev` — never `mod.ts`, see `importSpaceApp`'s own doc for why), reads back
- * its declared `globalCss`/`pwa` (`getGlobalCssPaths`/`getPwaConfig`, both set eagerly by
- * `defineSpaceApp` at import time), and builds the real, production CLIENT bundle via
+ * its declared `pwa` (`getPwaConfig`, set eagerly by `defineSpaceApp` at import time), and builds the real, production CLIENT bundle via
  * `@zanix/space/vite`'s `buildSpaceClient` — comets, CSS, PWA icons/service worker, and their
  * manifests. `pwa` is passed straight through unchanged: `PwaConfig` (what `defineSpaceApp({ pwa
  * })` already takes) IS `buildSpaceClient`'s own `pwa` option shape — no separate plugin
  * configuration needed here at all (see `PwaConfig`'s own doc in `@zanix/space` for the full
- * design). `renderer`/`routesDir` are NOT read back explicitly here, unlike `globalCss`/`pwa` —
- * neither needs to be: `buildSpaceClient`'s own `renderer`/`routesDir` options already default to
- * `getActiveRenderer()`/`getRoutesDir()` internally (the same eager flags `defineSpaceApp({
- * renderer, routesDir })` populate), so this command gets the right renderer's Vite plugin and
+ * design). `renderer`/`routesDir` are NOT read back explicitly here, unlike `pwa` — neither needs
+ * to be, and neither does `globalCss`: `buildSpaceClient`'s own `globalCss`/`renderer`/`routesDir`
+ * options already default to `getGlobalCssPaths()`/`getActiveRenderer()`/`getRoutesDir()`
+ * internally (the same eager flags `defineSpaceApp({ globalCss, renderer, routesDir })` populate),
+ * so this command gets the right renderer's Vite plugin and
  * locates the project's own pages automatically, purely from having already imported
  * `space.app.ts` above. Obfuscation (`--obfuscate`) runs as a REAL Vite/Rollup build transform —
  * `createObfuscationPlugin` (`commands/build/lib/obfuscate.ts`), included in `buildSpaceClient`'s
@@ -80,7 +80,7 @@ import logger from '@zanix/utils/logger'
  * INSIDE this function, never as a static top-level import — two independent reasons, not one:
  * `@zanix/space/vite`'s entire dependency graph (Vite, React, Tailwind, `sharp`, vanilla-extract,
  * ...) has no business loading before it's actually needed even within a single `zanix space
- * build` run (`getGlobalCssPaths`/`getPwaConfig` need `@zanix/space` resolved first, before
+ * build` run (`getPwaConfig` needs `@zanix/space` resolved first, before
  * `@zanix/space/vite`'s own heavier graph is worth paying for) — and, more importantly, both must
  * resolve against THIS project's own `deno.json(c)`, never `@zanix/cli`'s own config, so that the
  * module instance they read back (`getActiveRenderer()`, `getRoutesDir()`, ...) is the SAME one
@@ -129,15 +129,14 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
   await importSpaceApp(this, root)
 
   // Resolved against THIS project's own config, never `@zanix/cli`'s own native `@zanix/space` —
-  // see `importProjectDependency`'s own doc for why: `getGlobalCssPaths`/`getPwaConfig`/
+  // see `importProjectDependency`'s own doc for why: `getPwaConfig`/
   // `getActiveRenderer`/`getMessagesDir`/`getRoutesDir` are all getters over module-level state
   // `defineSpaceApp` (inside `space.app.ts`, just imported above) set eagerly — a separately
   // resolved `@zanix/space` instance here would read back nothing (or the wrong renderer)
   // instead of what the project actually declared. Reused below for the validation-flag helpers
   // too — one resolution, one shared `@zanix/space` instance for this whole command.
   const zanixSpace = await importProjectDependency(root, '@zanix/space') as typeof ZanixSpaceModule
-  const { getGlobalCssPaths, getPwaConfig, getActiveRenderer, getMessagesDir, getRoutesDir } =
-    zanixSpace
+  const { getPwaConfig, getActiveRenderer, getMessagesDir, getRoutesDir } = zanixSpace
 
   // Both projections of the project's one renderer choice must agree before anything is built —
   // see `assertRendererConsistency`'s own doc for why the mismatch is otherwise baffling rather
@@ -195,10 +194,14 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
     '@zanix/space/vite',
   ) as typeof ZanixSpaceViteModule
 
-  // Reads back what importing `space.app.ts` just set — `defineSpaceApp` calls
-  // `setGlobalCssPaths(globalCss)`/`setPwaConfig(pwa)` eagerly, at import time — no need to
-  // inspect the returned `ZanixAppDefinition` itself for either.
-  const globalCss = getGlobalCssPaths()
+  // Reads back what importing `space.app.ts` just set — `defineSpaceApp` calls `setPwaConfig(pwa)`
+  // eagerly, at import time — no need to inspect the returned `ZanixAppDefinition` itself.
+  //
+  // `globalCss` is deliberately NOT read back and passed: `buildSpaceClient` defaults it to the same
+  // `getGlobalCssPaths()`, with the app's declared `cssSources` (a package's default styles, as
+  // `iam`'s screens ship them) built and put in front of it. Passing the list here read it before
+  // the sources were files, so a build run through this command left them out of
+  // `css-manifest.json` while `zanix space dev` served them.
   const pwa = getPwaConfig()
 
   // Flags translate to a `ValidationConfig` and nothing else — every semantic lives in
@@ -233,7 +236,6 @@ async function spaceBuildAction(this: Commander, options: SpaceBuildOptions) {
       root,
       outDir: resolvedOutDir,
       minify: options.minify,
-      globalCss,
       pwa,
       validation,
       // See `fixNpmSlashSpecifierPlugin`'s own doc: a real, confirmed `@deno/vite-plugin` bug, not
