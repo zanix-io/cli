@@ -4,6 +4,11 @@ import { stub } from '@std/testing/mock'
 import { getTemporaryFolder } from '@zanix/helpers'
 import logger from '@zanix/utils/logger'
 import {
+  getCliRuntimeFlags,
+  NATIVE_FRESHNESS_REEXEC_ENV,
+} from 'commands/space/shared/native-dependency-freshness.ts'
+import { TRANSITIVE_REEXEC_ENV } from 'commands/space/shared/transitive-collision.ts'
+import {
   assertServersStarted,
   createGracefulShutdown,
   watchSpaceAppFile,
@@ -34,12 +39,15 @@ Deno.test(
 
     let restartCalls = 0
     let commandArgs: unknown
+    let commandEnv: Record<string, string> | undefined
     let exitCode: number | undefined
     const commandStub = stub(
       Deno,
       'Command',
       (...args: unknown[]) => {
-        commandArgs = (args[1] as { args?: unknown } | undefined)?.args
+        const options = args[1] as { args?: unknown; env?: Record<string, string> } | undefined
+        commandArgs = options?.args
+        commandEnv = options?.env
         return { spawn: () => undefined } as never
       },
     )
@@ -67,6 +75,18 @@ Deno.test(
       assert(Array.isArray(commandArgs))
       assertEquals((commandArgs as string[])[0], 'run')
       assertEquals((commandArgs as string[])[1], '-A')
+      // The re-spawned process runs under `@zanix/cli`'s own config and lock, never the served
+      // project's, and both re-exec guards run again in it: a value inherited from the guard that
+      // re-exec'd to get here would make it skip them.
+      assertEquals(commandArgs, [
+        'run',
+        '-A',
+        ...await getCliRuntimeFlags(),
+        Deno.mainModule,
+        ...Deno.args,
+      ])
+      assertEquals(commandEnv?.[NATIVE_FRESHNESS_REEXEC_ENV], '')
+      assertEquals(commandEnv?.[TRANSITIVE_REEXEC_ENV], '')
 
       // A SECOND write must never trigger a second restart — `restarting` latches after the
       // first real event, same as a real process only ever restarts once before a fresh one

@@ -75,6 +75,39 @@ export async function locateCliLockPath(): Promise<string | undefined> {
   }
 }
 
+/**
+ * The `--config`/`--lock` flags a fresh `deno run` of `@zanix/cli` needs to resolve itself the way
+ * the installed shim (or a local checkout) does: `@zanix/cli`'s own config and lock, never the
+ * served project's. `watchSpaceAppFile` re-spawns the CLI from inside a running `zanix space dev`
+ * and uses this: without the flags, Deno discovers a config from `Deno.cwd()`, the served project,
+ * and every import made from inside a published `@zanix/*` package resolves through the project's
+ * config and lock instead of the CLI's.
+ *
+ * The config is the local checkout's, or, for a global install, the shim's `deno.json` next to its
+ * lock. A flag whose file does not exist is left out, so a layout this function does not know
+ * degrades to the previous behavior (no flags) rather than to a `deno run` that fails on startup.
+ * The lock is always the original one, never a merged copy a guard wrote: the re-spawned process
+ * runs the freshness guard again and re-execs under a merged lock if it needs one, as a cold start
+ * does.
+ */
+export async function getCliRuntimeFlags(): Promise<string[]> {
+  return resolveCliRuntimeFlags(getCliConfigPath(), await locateCliLockPath())
+}
+
+/** The pure half of {@linkcode getCliRuntimeFlags}, taking the config and lock it would otherwise
+ * locate itself. `cliConfigPath` is `undefined` for a global install (see `cli-loader.ts`). */
+export async function resolveCliRuntimeFlags(
+  cliConfigPath: string | undefined,
+  lockPath: string | undefined,
+): Promise<string[]> {
+  const isFile = (path: string) => Deno.stat(path).then((stat) => stat.isFile, () => false)
+  const configPath = cliConfigPath ?? (lockPath ? join(dirname(lockPath), 'deno.json') : undefined)
+  const flags: string[] = []
+  if (configPath && await isFile(configPath)) flags.push('--config', configPath)
+  if (lockPath) flags.push('--lock', lockPath)
+  return flags
+}
+
 /** Parses a real JSR release version (`X.Y.Z`, always what a published `@zanix/server`/`@zanix/app`
  * version looks like — neither publishes a prerelease) into a 3-tuple for a real numeric compare —
  * `deno info`'s own resolved version string is never anything else for these two packages, so a

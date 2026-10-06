@@ -17,6 +17,10 @@ import {
   sweepStaleGeneratedModules,
 } from 'commands/space/shared/import-project-module.ts'
 import { TRANSITIVE_REEXEC_ENV } from 'commands/space/shared/transitive-collision.ts'
+import {
+  getCliRuntimeFlags,
+  NATIVE_FRESHNESS_REEXEC_ENV,
+} from 'commands/space/shared/native-dependency-freshness.ts'
 import { guardAgainstTransitiveCollisions } from 'commands/space/shared/transitive-collision-guard.ts'
 import { guardAgainstStaleNativeDependencies } from 'commands/space/shared/native-dependency-freshness-guard.ts'
 import { guardAgainstUnlockedDependencies } from 'commands/space/shared/unlocked-dependencies-guard.ts'
@@ -47,11 +51,12 @@ import logger from '@zanix/utils/logger'
  * partial HMR, because a config file's own side effects aren't safely re-orderable in place.
  *
  * Re-execs via `Deno.mainModule`/`Deno.args` (this process's own entry point and subcommand
- * arguments) rather than trying to reconstruct the exact original `deno run` invocation's
- * permission/`--config` flags — `-A` matches the one convention every real `zanix` invocation
- * already uses (the installed CLI binary's own generated shim), and omitting `--config` lets Deno
- * auto-discover `cli`'s own real `deno.jsonc` by walking up from `Deno.mainModule`, which is what
- * a plain `deno run` invocation (not through the installed shim) already relies on anyway.
+ * arguments) with `-A`, the one permission convention every real `zanix` invocation already uses
+ * (the installed CLI binary's own generated shim), plus `@zanix/cli`'s own `--config`/`--lock`
+ * ({@linkcode getCliRuntimeFlags}). Under a global install `Deno.mainModule` is a `jsr:` URL, so
+ * Deno has no `deno.jsonc` to discover by walking up from it and would take the served project's
+ * config from `Deno.cwd()` instead, resolving everything a published `@zanix/*` package imports
+ * through the project's config and lock.
  *
  * @param spaceAppPath - Absolute path to the project's own `space.app.ts`.
  * @param onRestart - Async cleanup to run BEFORE respawning (closing the dev engine, stopping the
@@ -69,8 +74,9 @@ export function watchSpaceAppFile(spaceAppPath: string, onRestart: () => Promise
       logger.info(`${SPACE_APP_MODULE} changed — restarting zanix space dev...`)
       try {
         await onRestart()
+        const cliFlags = await getCliRuntimeFlags()
         new Deno.Command(Deno.execPath(), {
-          args: ['run', '-A', Deno.mainModule, ...Deno.args],
+          args: ['run', '-A', ...cliFlags, Deno.mainModule, ...Deno.args],
           // Explicitly clears (never merely omits) TRANSITIVE_REEXEC_ENV, which THIS process may
           // have inherited from ITS OWN parent if `guardAgainstTransitiveCollisions` re-exec'd to
           // get here (`Deno.Command`'s own `env` option MERGES into, never replaces, the inherited
@@ -81,7 +87,10 @@ export function watchSpaceAppFile(spaceAppPath: string, onRestart: () => Promise
           // `Deno.env.get(...)` check treats `''` the same as unset. Setting it to `''` (not
           // simply never mentioning the key) is what actually overrides the inherited value —
           // `env` only ever ADDS/OVERWRITES specific keys, it doesn't remove one already present.
-          env: { [TRANSITIVE_REEXEC_ENV]: '' },
+          // `NATIVE_FRESHNESS_REEXEC_ENV` needs the same treatment for the same reason: the guard
+          // that re-exec'd to get here set it, and an inherited value makes the new process skip
+          // `guardAgainstStaleNativeDependencies`, so it would never re-align its lock.
+          env: { [TRANSITIVE_REEXEC_ENV]: '', [NATIVE_FRESHNESS_REEXEC_ENV]: '' },
           stdin: 'inherit',
           stdout: 'inherit',
           stderr: 'inherit',

@@ -1,4 +1,6 @@
 import { assertEquals } from '@std/assert'
+import { join } from '@std/path'
+import { getTemporaryFolder } from '@zanix/helpers'
 import {
   type DenoLockFile,
   isLockReadable,
@@ -7,6 +9,7 @@ import {
   NATIVE_FRESHNESS_REEXEC_ENV,
   prepareNativeFreshnessReexec,
   refreshTrackedRanges,
+  resolveCliRuntimeFlags,
   trackedRangeLiterals,
 } from 'commands/space/shared/native-dependency-freshness.ts'
 
@@ -229,3 +232,45 @@ Deno.test('isLockReadable: the same lock with the specifier added is readable', 
   }
   assertEquals(await isLockReadable(lock), true)
 })
+
+const flagsTemporaryFolder = getTemporaryFolder(import.meta.url)
+
+Deno.test(
+  'resolveCliRuntimeFlags: a global install passes the shim config that sits beside its lock',
+  async () => {
+    const shim = await Deno.makeTempDir({ dir: flagsTemporaryFolder })
+    try {
+      await Deno.writeTextFile(join(shim, 'deno.json'), '{}')
+      await Deno.writeTextFile(join(shim, 'deno.lock'), '{}')
+      assertEquals(await resolveCliRuntimeFlags(undefined, join(shim, 'deno.lock')), [
+        '--config',
+        join(shim, 'deno.json'),
+        '--lock',
+        join(shim, 'deno.lock'),
+      ])
+    } finally {
+      await Deno.remove(shim, { recursive: true })
+    }
+  },
+)
+
+Deno.test(
+  'resolveCliRuntimeFlags: a local checkout passes its own config, and a missing file is left out instead of failing the spawn',
+  async () => {
+    const dir = await Deno.makeTempDir({ dir: flagsTemporaryFolder })
+    try {
+      const config = join(dir, 'deno.jsonc')
+      await Deno.writeTextFile(config, '{}')
+      assertEquals(await resolveCliRuntimeFlags(config, undefined), ['--config', config])
+      // A shim directory with a lock but no `deno.json`: only the lock is passed.
+      await Deno.writeTextFile(join(dir, 'deno.lock'), '{}')
+      assertEquals(await resolveCliRuntimeFlags(undefined, join(dir, 'deno.lock')), [
+        '--lock',
+        join(dir, 'deno.lock'),
+      ])
+      assertEquals(await resolveCliRuntimeFlags(undefined, undefined), [])
+    } finally {
+      await Deno.remove(dir, { recursive: true })
+    }
+  },
+)

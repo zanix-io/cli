@@ -7,6 +7,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.9] - 2026-10-06
+
+### Fixed
+
+- **`zanix space dev` restarted after an edit of `space.app.ts` under the served project's config
+  and lock, and failed with `Module not found ".../@zanix/space/<version>/src/modules/bundler/preact"`.**
+  `watchSpaceAppFile` re-spawned the CLI as `deno run -A <Deno.mainModule> ...` with no `--config`
+  or `--lock`. Under a global install `Deno.mainModule` is a `jsr:` URL, so Deno found no config to
+  discover from it and took the one in the working directory, the served project's: every import
+  made from inside a published `@zanix/*` package then resolved through the project's config and
+  lock instead of the CLI's. The restart also inherited `ZANIX_NATIVE_FRESHNESS_REEXEC`, set by the
+  guard that re-exec'd to start the first process, so it skipped `guardAgainstStaleNativeDependencies`
+  and never re-aligned its lock. The re-spawned process now gets the CLI's own `--config` and `--lock`
+  (`getCliRuntimeFlags`) and starts with both re-exec guards cleared, so it runs them again as a
+  cold start does. A cold start was never affected.
+
 ## [2.2.8] - 2026-10-04
 
 ### Fixed
