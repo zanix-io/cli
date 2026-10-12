@@ -444,6 +444,15 @@
         "jsr:@zanix/utils@^4.1.0"
       ]
     },
+    "@zanix/space@1.18.7": {
+      "integrity": "0d048c800a6d016807a2920dab3b6d78f89bdcd14fcfd9f1fd767d7b20f07c44",
+      "dependencies": [
+        "jsr:@std/path@0.224",
+        "jsr:@zanix/app@1",
+        "jsr:@zanix/server@^4.1.0",
+        "jsr:@zanix/utils@^4.1.0"
+      ]
+    },
     "@zanix/space-ui@2.7.1": {
       "integrity": "6d05f061aa5db47d2a1cffc0d626df91a8d3b22ad0676048c1d36ae747c77a48",
       "dependencies": [

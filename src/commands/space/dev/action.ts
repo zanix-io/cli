@@ -206,6 +206,33 @@ export function createGracefulShutdown(
  * documented `export: true` behavior, reproduced directly: skip any key `Deno.env.get(key)` already
  * answers, set every other one.
  */
+/** What stands in for a `-` in a key while `@std/dotenv` parses it (see {@linkcode parseEnvFileText}). */
+const HYPHEN_STAND_IN = '__ZNX_HYPHEN__'
+
+/**
+ * Parses the text of a `.env` file, keeping the keys with a hyphen. `@std/dotenv`'s `parse()` drops,
+ * with only a warning, every key that is not a valid identifier, and the ecosystem names its signing
+ * keys after the service id (`JWK_PRI_<serviceId>`, `JWK_PUB_<serviceId>`,
+ * `SERVICE_PERMISSIONS_<serviceId>`), whose ids use hyphens (`ops-console`, `admin-hub`): without
+ * this, `zanix space dev` never exported them and the app failed with "Missing private key to sign a
+ * service assertion". A hyphen in a key is swapped for a stand-in before parsing and put back after.
+ *
+ * @param text The content of the file.
+ * @returns The variables by name, hyphenated ones included.
+ */
+export function parseEnvFileText(text: string): Record<string, string> {
+  const encoded = text.replace(
+    /^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)+)(\s*=)/gm,
+    (_match, before: string, key: string, equals: string) =>
+      `${before}${key.replaceAll('-', HYPHEN_STAND_IN)}${equals}`,
+  )
+  return Object.fromEntries(
+    Object.entries(parseEnvFile(encoded)).map((
+      [key, value],
+    ) => [key.replaceAll(HYPHEN_STAND_IN, '-'), value]),
+  )
+}
+
 async function loadEnvFileVars(envPath: string): Promise<void> {
   let text: string
   try {
@@ -214,7 +241,7 @@ async function loadEnvFileVars(envPath: string): Promise<void> {
     if (error instanceof Deno.errors.NotFound) return
     throw error
   }
-  for (const [key, value] of Object.entries(parseEnvFile(text))) {
+  for (const [key, value] of Object.entries(parseEnvFileText(text))) {
     if (Deno.env.get(key) !== undefined) continue
     Deno.env.set(key, value)
   }

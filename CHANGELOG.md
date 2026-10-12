@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to
 [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.10] - 2026-10-12
+
+### Fixed
+
+- **`zanix space dev` no longer drops the `.env` keys that have a hyphen.** It loads the file with
+  `@std/dotenv`'s `parse()`, which discards, with only a warning (`Ignored the key "…" as it is not
+  a valid identifier`), every key that is not a valid identifier. The ecosystem names its signing and
+  trust keys after the service id (`JWK_PRI_<serviceId>`, `JWK_PUB_<serviceId>`,
+  `SERVICE_PERMISSIONS_<serviceId>`), and those ids use hyphens (`ops-console`, `admin-hub`,
+  `iam-staff`), so a project run with `space dev` never had them: its first call signed with a key
+  that was not there and failed with `Missing private key to sign a service assertion for "<id>"`. The
+  hyphenated keys are now kept (`parseEnvFileText`); every other key parses exactly as before, and a
+  variable already set in the shell still wins. `deno run --env-file` and `start` were not affected:
+  Deno's own loader accepts hyphens.
+
 ## [2.2.9] - 2026-10-06
 
 ### Fixed
